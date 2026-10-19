@@ -7,22 +7,21 @@ portal/premarket/account.py — 百分比制模拟账户核算
 内部把总资产记成 **100.00 个份额**，对外**只显示百分比**。
 
     qty        = alloc_pct% × 100 / entry_price       （分数股，不取整）
-    buy_cost   = qty × entry_price × (1 + BUY_FEE)     ← 等于 alloc_pct 再加费
-    sell_net   = qty × price × (1 - SELL_FEE)
-    cash      += -buy_cost / +sell_net
+    cash      += -qty × entry_price（买入）/ +qty × price（卖出）
     total      = cash + Σ(qty × last_price)
+
+**不计费用**（用户明确要求）。买卖都不打折：买入占用多少份额就扣多少。
 
 为什么用「分数股」而不是凑整 100 股
 --------------------------------
 真实交易有 100 股整手约束，但本账户是**百分比账**：凑整会让「买 10%」变成
 「买 9.7%」，仓位就与预案写的数不一致，之后所有归因都对不上。
 所以这里保留分数股，把「整手」当成执行层的待办，而不是账本的假设。
-（源包 `利弗莫尔/账本` 是真实资金账，才有整手问题；两者不要混。）
 
-费用
-----
-往返 **0.10%**（买 0.05% + 卖 0.05%），与 `backtest_core` 的口径一致 ——
-本项目的所有收益数字都必须能互相比较，所以费用假设只允许有一个。
+执行时点
+--------
+调仓**默认按当日收盘价直接成交**（用户要求：持仓不是"买入计划"，而是当天完成调仓）。
+由 `execute_changes()` 把买卖决定当场落到持仓表。
 """
 from __future__ import annotations
 
@@ -36,9 +35,6 @@ from .store import Tables, ValidationError
 
 #: 初始总资产（份额）
 INITIAL = 100.0
-#: 单边费用率（买卖各一次，往返 0.10%）
-BUY_FEE = 0.0005
-SELL_FEE = 0.0005
 #: 单只标的最大仓位（防止 LLM 说「梭哈」）
 MAX_SINGLE_PCT = 40.0
 #: 总仓位上限（防止满仓穿越黑天鹅）
@@ -120,8 +116,7 @@ def compute(tables: Tables, prices: dict[str, float],
             "stale": stale,
         })
 
-    # 现金 = 100 - 已占用成本 - 买入费 + 已实现
-    cash = INITIAL - invested_cost * (1 + BUY_FEE) + realized
+    cash = INITIAL - invested_cost + realized
     market_value = sum(r["value_pct"] for r in rows)
     total = cash + market_value
 
@@ -146,8 +141,6 @@ def compute(tables: Tables, prices: dict[str, float],
         "n_positions": len(rows),
         "positions": rows,
         "stale_codes": [r["code"] for r in rows if r["stale"]],
-        "fee_model": {"buy": BUY_FEE, "sell": SELL_FEE,
-                      "note": "往返 0.10%，与 backtest_core 口径一致"},
     }
 
 
@@ -175,7 +168,6 @@ def open_position(tables: Tables, *, code: str, name: str, alloc_pct: float,
         "entry_date": entry_date or _today(),
     }, reason=reason, plan_date=plan_date)
 
-    # 从观察表移出（若在）
     if code in tables.pool.alive():
         tables.pool.update(code, {"status": "removed"},
                            reason=f"已调入持仓：{reason}",
@@ -194,8 +186,8 @@ def close_position(tables: Tables, *, code: str, exit_price: float,
     alloc = float(pos["alloc_pct"])
     entry = float(pos["entry_price"])
     qty = alloc * INITIAL / 100.0 / entry
-    buy_cost = qty * entry * (1 + BUY_FEE)
-    sell_net = qty * float(exit_price) * (1 - SELL_FEE)
+    buy_cost = qty * entry
+    sell_net = qty * float(exit_price)
     realized = sell_net - buy_cost
     realized_pct = realized / INITIAL * 100          # 对初始总资产的贡献
 
@@ -236,6 +228,74 @@ def adjust_position(tables: Tables, *, code: str, reason: str, plan_date: str,
 
 
 # ─────────────────────────────────────────────────────────────
+# 调仓执行（用户要求：默认按收盘价直接完成调仓）
+# ─────────────────────────────────────────────────────────────
+def execute_changes(tables: Tables, planned: dict, prices: dict[str, float],
+                    *, plan_date: str, iso_date: str,
+                    log=lambda *_: None) -> dict[str, Any]:
+    """把 agent 的买卖决定**当场按收盘价**执行完。
+
+    为什么不再"挂计划等次日"：用户明确要求「自己的持仓不是买入计划，默认直接以
+    收盘价买入完成调仓」。所以这里直接改持仓表，报告展示的是**已执行的调仓**。
+
+    `prices` 必须包含要交易的代码；缺价则跳过并记录原因（不猜价）。
+    先卖后买：卖出释放的仓位才能给买入用。
+    """
+    executed: list[dict] = []
+    skipped: list[dict] = []
+
+    for s in planned.get("sell") or []:
+        code = s.get("code")
+        px = prices.get(code)
+        if px is None:
+            skipped.append({"action": "sell", "code": code, "reason": "取不到收盘价"})
+            continue
+        try:
+            rec = close_position(tables, code=code, exit_price=px,
+                                 reason=f"调仓卖出：{s.get('reason') or ''}",
+                                 plan_date=plan_date, exit_date=iso_date)
+            executed.append({"action": "sell", **rec})
+            log(f"  ✅ 卖出 {code} @{px}（已实现 {rec['realized_pct']} 份额）")
+        except ValidationError as exc:
+            skipped.append({"action": "sell", "code": code, "reason": str(exc)})
+
+    for b in planned.get("buy") or []:
+        code = b.get("code")
+        px = prices.get(code)
+        if px is None:
+            skipped.append({"action": "buy", "code": code, "reason": "取不到收盘价"})
+            continue
+        try:
+            open_position(
+                tables, code=code, name=b.get("name") or code,
+                alloc_pct=float(b["alloc_pct"]), entry_price=px,
+                stop_loss=float(b["stop_loss"]), take_profit=float(b["take_profit"]),
+                entry_logic=b.get("logic") or "", reason="调仓买入（收盘价成交）",
+                plan_date=plan_date, entry_date=iso_date)
+            executed.append({"action": "buy", "code": code, "name": b.get("name"),
+                             "price": px, "alloc_pct": b["alloc_pct"],
+                             "reason": b.get("trigger") or ""})
+            log(f"  ✅ 买入 {code} @{px} 仓位 {b['alloc_pct']}%")
+        except ValidationError as exc:
+            skipped.append({"action": "buy", "code": code, "reason": str(exc)})
+
+    for a in planned.get("adjust") or []:
+        try:
+            adjust_position(tables, code=a["code"], plan_date=plan_date,
+                            stop_loss=a.get("stop_loss"),
+                            take_profit=a.get("take_profit"),
+                            reason=f"调仓调整：{a.get('reason') or ''}")
+            executed.append({"action": "adjust", "code": a["code"],
+                             "stop_loss": a.get("stop_loss"),
+                             "take_profit": a.get("take_profit"),
+                             "reason": a.get("reason")})
+        except ValidationError as exc:
+            skipped.append({"action": "adjust", "code": a["code"],
+                            "reason": str(exc)})
+    return {"executed": executed, "skipped": skipped}
+
+
+# ─────────────────────────────────────────────────────────────
 # 快照文件（派生数据，可随时重算）
 # ─────────────────────────────────────────────────────────────
 def save_snapshot(snap: dict, path: Path | None = None) -> Path:
@@ -255,6 +315,7 @@ def load_snapshot(path: Path | None = None) -> dict | None:
         return None
 
 
-__all__ = ["INITIAL", "BUY_FEE", "SELL_FEE", "MAX_SINGLE_PCT", "MAX_TOTAL_PCT",
+__all__ = ["INITIAL", "MAX_SINGLE_PCT", "MAX_TOTAL_PCT",
            "compute", "open_position", "close_position", "adjust_position",
-           "load_trades", "append_trade", "save_snapshot", "load_snapshot"]
+           "execute_changes", "load_trades", "append_trade",
+           "save_snapshot", "load_snapshot"]

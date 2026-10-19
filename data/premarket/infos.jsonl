@@ -10,3 +10,5 @@
 {"op": "add", "id": "Ida3c915c2a", "at": "2026-10-20T01:28:02+08:00", "plan_date": "20261020", "reason": "盘前信息采集", "fields": {"content": "汽车零部5日涨停序列1/1/0/14/10，连续两日双位数", "scope": "行业", "scope_detail": "汽车零部", "level": "中", "expires_on": "2026-10-26", "recorded_on": "2026-10-19"}}
 {"op": "remove", "id": "I938af453a7", "at": "2026-10-20T01:28:02+08:00", "plan_date": "20261020", "reason": "与 I4bbcd34176 内容重复（同为高盛上调铜价至14700美元），保留一条即可", "fields": {}}
 {"op": "remove", "id": "Iaf1a5d9125", "at": "2026-10-20T01:28:02+08:00", "plan_date": "20261020", "reason": "与 If637f46ff6 内容重复（同为苹果10月28日发布会），保留一条即可", "fields": {}}
+{"op": "add", "id": "I7a9afc08d2", "at": "2026-10-20T01:40:06+08:00", "plan_date": "20261020", "reason": "盘前信息采集", "fields": {"content": "塑料板块5日涨停0/0/0/0/4首日爆发，次日须验证2板", "scope": "行业", "scope_detail": "塑料", "level": "中", "expires_on": "2026-10-26", "recorded_on": "2026-10-19"}}
+{"op": "add", "id": "If34f524995", "at": "2026-10-20T01:40:06+08:00", "plan_date": "20261020", "reason": "盘前信息采集", "fields": {"content": "创业板指连续6日下跌且5日跌7.34%，成长端未止跌", "scope": "大盘", "scope_detail": "创业板指", "level": "高", "expires_on": "2026-10-26", "recorded_on": "2026-10-19"}}

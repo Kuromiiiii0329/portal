@@ -78,6 +78,28 @@ class Rejections:
 AUTO_STOP_RATIO = 0.95
 AUTO_TARGET_RATIO = 1.10
 
+#: ★ 禁止追高打板（用户要求，写在代码里而不是只写在 prompt 里）。
+#: 打板 = 今日收盘已是涨停价；追高 = 今日涨幅达到该阈值。
+#: 靠提示词约束模型是不可靠的，必须由内核拦。
+MAX_CHASE_PCT = 7.0
+
+
+def _chase_guard(code: str, cand: dict | None) -> str | None:
+    """返回拒绝原因或 None。只拦「买入」，不影响观察表收录。"""
+    if not cand:
+        return None
+    close, up, chg = cand.get("close"), cand.get("limit_up"), cand.get("chg_pct")
+    try:
+        if close is not None and up is not None and float(close) >= float(up) - 0.005:
+            return (f"{code} 今日收盘 {close} 已达涨停价 {up} —— "
+                    f"禁止打板买入（策略约束）")
+        if chg is not None and float(chg) >= MAX_CHASE_PCT:
+            return (f"{code} 今日涨幅 {chg}% ≥ {MAX_CHASE_PCT}% —— "
+                    f"禁止追高买入（策略约束）")
+    except (TypeError, ValueError):
+        return None
+    return None
+
 
 def _fill_prices(item: dict, cand: dict | None) -> tuple[float, float, str]:
     """返回 (stop_loss, take_profit, price_source)。
@@ -290,6 +312,10 @@ def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
                     f"不在当日候选池（池内 {len(universe)} 只），疑似编造，已拒绝")
             continue
         cand = universe.get(code)
+        chase = _chase_guard(code, cand)          # ★ 禁止追高打板
+        if chase:
+            rej.add("buy", code, chase)
+            continue
         sl, tp, psrc = _fill_prices(item, cand)
         bad = _price_sanity(code, sl, tp,
                             ref(code) or (cand or {}).get("close"))
