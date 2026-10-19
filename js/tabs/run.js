@@ -105,13 +105,43 @@ export class RunTab {
           <div>
             <h2 class="text-base font-semibold text-gray-900">立即运行分析</h2>
             <p class="text-xs text-gray-500 mt-0.5">深度双维度分析 · 或快速触发大盘/全量任务</p>
-          </div>
-          <div id="run-svc-chip"
+          </div>          <div id="run-svc-chip"
             class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium
                    bg-gray-50 border-gray-200 text-gray-400">
             <span class="status-dot offline" id="run-dot"></span>
             <span id="run-svc-label">纯静态模式</span>
           </div>
+        </div>
+
+        <!-- 盘前预案：一键生成（主页入口） -->
+        <div id="pm-card"
+          class="bg-white border border-gray-900/10 rounded-2xl shadow-sm p-3 mb-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900">盘前预案</p>
+              <p id="pm-sub" class="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                四张表 + 当日行情 → 次日可执行预案（HTML 报告，含数据缺口说明）
+              </p>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button id="pm-generate"
+                class="text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-black">
+                一键生成预案</button>
+              <button id="pm-open"
+                class="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                打开最新</button>
+            </div>
+          </div>
+          <div id="pm-progress" class="mt-2 hidden">
+            <div class="h-1.5 bg-gray-100 rounded overflow-hidden">
+              <div id="pm-bar"
+                class="h-full bg-gray-900 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <pre id="pm-log"
+              class="mt-1 text-[11px] leading-relaxed text-gray-600 bg-gray-50 rounded-lg p-2
+                     max-h-32 overflow-auto"></pre>
+          </div>
+          <div id="pm-meta" class="mt-2 text-[11px] text-gray-400">—</div>
         </div>
 
         <!-- 子 Tab 导航栏 -->
@@ -312,6 +342,145 @@ export class RunTab {
     this._report = new ReportView(this._c.querySelector('#report-structured'));
     this._switchSubTab('analyze');
     this._renderHistory();
+    this._initPremarket();
+  }
+
+  // ── 盘前预案（主页一键生成）──────────────────────────────────────────
+  _initPremarket() {
+    const gen = this._c.querySelector('#pm-generate');
+    const openBtn = this._c.querySelector('#pm-open');
+    if (!gen) return;
+    this._pmTimer = null;
+    this._pmBusy = false;
+    gen.addEventListener('click', () => this._pmStart(gen));
+    openBtn.addEventListener('click', () => this._pmOpen());
+    this._pmRefreshMeta();
+    this._pmPoll(true);       // 若上次任务还在跑，进来就接着显示
+  }
+
+  async _pmOpen() {
+    try {
+      const r = await fetch(`${SERVER}/premarket/open`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const d = await r.json();
+      if (!d.ok) this._t.show(d.error || '打开失败', 'warning');
+    } catch (e) { this._t.show(`打开失败：${e}`, 'error'); }
+  }
+
+  async _pmStart(btn) {
+    if (!this._online) { this._t.show('需要本地服务在线', 'warning'); return; }
+    if (this._pmBusy) { this._t.show('预案任务进行中，请稍候', 'warning'); return; }
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '启动中…';
+    try {
+      const r = await fetch(`${SERVER}/premarket/generate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const d = await r.json();
+      if (!d.ok) this._t.show(d.error || '启动失败', 'error');
+      else this._pmShow(true);
+    } catch (e) {
+      this._t.show(`启动失败：${e}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+      this._pmPoll();
+    }
+  }
+
+  _pmShow(on) {
+    const box = this._c.querySelector('#pm-progress');
+    if (box) box.classList.toggle('hidden', !on);
+  }
+
+  _pmPoll(quiet) {
+    if (this._pmBusy && !quiet) return;
+    this._pmBusy = true;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${SERVER}/premarket/job?tail=60`);
+        const d = await r.json();
+        this._pmRender(d);
+        if (d.running) {
+          this._pmTimer = setTimeout(tick, 1500);
+        } else {
+          this._pmBusy = false;
+          this._pmTimer = null;
+          if (d.exit !== null && d.exit !== undefined) this._pmRefreshMeta();
+        }
+      } catch (e) {
+        this._pmBusy = false;
+        this._pmTimer = null;
+        if (!quiet) this._t.show(`预案状态读取失败：${e}`, 'error');
+      }
+    };
+    tick();
+  }
+
+  _pmRender(d) {
+    const lines = d.lines || [];
+    if (!d.running && !lines.length) { this._pmShow(false); return; }
+    this._pmShow(true);
+
+    const bar  = this._c.querySelector('#pm-bar');
+    const log  = this._c.querySelector('#pm-log');
+    const meta = this._c.querySelector('#pm-meta');
+
+    // 进度：按阶段标记估（采集 8 块 → LLM → 裁决 → 渲染）
+    let pct = 5;
+    const joined = lines.join('\n');
+    const collectDone = (joined.match(/采集\s+\w+/g) || []).length;
+    if (collectDone) pct = Math.min(60, 5 + collectDone * 7);
+    if (joined.includes('调用 LLM')) pct = Math.max(pct, 65);
+    if (joined.includes('校验通过')) pct = Math.max(pct, 80);
+    if (joined.includes('内核裁决')) pct = Math.max(pct, 88);
+    if (!d.running) pct = 100;
+
+    const failed = !d.running && (d.error || (d.exit !== null && d.exit !== 0));
+    bar.style.width = `${pct}%`;
+    bar.className = 'h-full transition-all duration-500 ' +
+      (failed ? 'bg-amber-500' : d.running ? 'bg-gray-900' : 'bg-emerald-600');
+    log.textContent = lines.slice(-40).join('\n') || '（等待输出…）';
+    log.scrollTop = log.scrollHeight;
+
+    if (d.running) {
+      meta.textContent = `生成中…（${d.kind || ''}，开始于 ${d.started_at || ''}）`;
+    } else if (failed) {
+      meta.className = 'mt-2 text-[11px] text-amber-600';
+      meta.textContent = `失败：${d.error || '未知'}`;
+    } else {
+      meta.className = 'mt-2 text-[11px] text-emerald-700';
+      const st = d.stats || {};
+      meta.textContent = st.report_path
+        ? `完成：${st.plan_date || ''} 预案已生成（${(st.report_bytes / 1024).toFixed(0)} KB，判断来源 ${st.proposal_source}）`
+        : '完成';
+    }
+  }
+
+  async _pmRefreshMeta() {
+    const meta = this._c.querySelector('#pm-meta');
+    const sub  = this._c.querySelector('#pm-sub');
+    if (!meta) return;
+    try {
+      const r = await fetch(`${SERVER}/premarket/status`);
+      const d = await r.json();
+      if (!d.ok) { meta.textContent = d.error || '—'; return; }
+      const c = d.counts || {};
+      const a = d.account || {};
+      meta.className = 'mt-2 text-[11px] text-gray-400';
+      meta.textContent =
+        `观察 ${c.pool ?? 0} · 持仓 ${c.positions ?? 0} · 信息 ${c.infos ?? 0} · ` +
+        `经验 ${c.lessons ?? 0} ｜ 总资产 ${a.total_pct ?? 100}（累计 ` +
+        `${(a.cum_pnl_ratio_pct ?? 0).toFixed?.(2) ?? a.cum_pnl_ratio_pct}%） ｜ ` +
+        `历史预案 ${d.n_plans ?? 0} 份`;
+      if (sub && d.n_plans) {
+        sub.textContent = `四张表 + 当日行情 → 次日可执行预案（已有 ${d.n_plans} 份历史预案）`;
+      }
+    } catch (e) { meta.textContent = '状态读取失败'; }
   }
 
   // ── 子面板切换 ────────────────────────────────────────────────────────

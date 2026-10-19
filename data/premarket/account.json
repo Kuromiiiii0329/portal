@@ -1,0 +1,23 @@
+{
+  "as_of": "2026-10-20T00:39:30+08:00",
+  "date": "2026-10-20",
+  "initial": 100.0,
+  "total_pct": 100.0,
+  "cash_pct": 100.0,
+  "market_value_pct": 0,
+  "position_ratio_pct": 0.0,
+  "day_pnl_pct": 0.0,
+  "day_pnl_ratio_pct": 0.0,
+  "cum_pnl_pct": 0.0,
+  "cum_pnl_ratio_pct": 0.0,
+  "realized_pct": 0,
+  "invested_cost_pct": 0.0,
+  "n_positions": 0,
+  "positions": [],
+  "stale_codes": [],
+  "fee_model": {
+    "buy": 0.0005,
+    "sell": 0.0005,
+    "note": "往返 0.10%，与 backtest_core 口径一致"
+  }
+}
