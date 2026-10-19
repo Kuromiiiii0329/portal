@@ -270,7 +270,124 @@ python -m portal.virtual.warmup --days 30
 
 ---
 
-## 十、怎么复现
+## 十、每日增量的两种执行方式
+
+### 为什么要两条路，而不是一个 `update` 跑到底
+
+`update()` 是**全量重抓**：新浪 `stock_zh_a_daily` 一次返回全历史，**没有区间参数**，
+所以「更新一天」和「重建十年」的成本一样。实测全市场：
+
+| 方式 | 请求量 | 本机耗时 | 用途 |
+|---|---|---|---|
+| `update-today` | ~110 次（每批 50 只） | **26 秒** | 每日补当天一根 bar |
+| `update` | 5570 只 × 2 次 | **13 分钟** | 刷新复权因子 + 补缺口 |
+
+于是：**日更走快通道，每周走一次全量兜底**。因子只在除权除息日变化，
+每天全量是纯浪费；但完全不刷因子会让送转之后的复权价错掉。
+
+### 快通道的数据源与单位（已实测对齐）
+
+腾讯 `qt.gtimg.cn` 批量行情，一次 50 只：
+
+```
+f[3]=最新价  f[4]=昨收  f[5]=今开  f[6]=成交量(手)  f[30]=时间戳
+f[33]=最高  f[34]=最低  f[37]=成交额(万元)
+```
+
+实测 600519 / 000001 / 300750 三只与库内新浪数据对比：
+
+- 成交量比值 **恰好 100.00** → 手 ×100 = 股
+- 成交额比值 **1.0000** → 万元 ×10000 = 元
+- 开高低收**完全相同**
+
+> 顺带纠正一个易错点：`f[31]` 是**涨跌额**、`f[32]` 才是涨跌%，容易写反。
+
+### ★ 盘中护栏（这条不能删）
+
+盘中抓到的 bar 是**半天快照**（成交量/成交额都没走完）。写进日K会**静默污染回测**，
+而且事后完全看不出来 —— 这是「静默错误」的典型。
+
+所以 `update_today()` 默认要求行情时间 **≥ 15:00**：
+
+```json
+{"intraday": true, "written": 0,
+ "error": "行情时间是盘中（样本时间 1015），不是收盘后的完整 bar。写进日K会静默污染回测，已拒绝。"}
+```
+
+确实要盘中数据必须显式 `--allow-intraday`，且返回里会标 `intraday: true`。
+回归测试 **W2** 用注入的盘中行情验证它真的会拒绝（不是靠文档承诺）。
+
+### 方式一：Portal 里的按钮
+
+「虚拟盘」Tab → **⚡ 拉取今日行情** / **🔄 全量刷新（慢）**。
+
+后端是**后台子进程 + 轮询**，不是同步请求：
+
+```
+POST /virtual/update        {"kind": "today" | "full"}
+GET  /virtual/update/status?tail=60
+```
+
+为什么用子进程而不是线程里的 `ProcessPoolExecutor`：全量更新会建进程池，
+而 Windows 的 spawn 会重新 import `__main__`；在 HTTP 服务进程里混进程池，
+出事时的现象是「进程池被整体终止」，极难查。子进程隔离后
+`python -m portal.virtual.marketdb` 自带 `__main__` 保护，stdout 天然就是进度流。
+
+并发护栏：已有任务在跑时**直接拒绝**（不排队），避免两个进程同时写 `market.db`。
+回归测试 **W7** 覆盖。
+
+前端显示进度条与实时日志；失败时变琥珀色并给出原因，不会假装成功。
+
+### 方式二：GitHub Action
+
+`.github/workflows/market-db.yml`
+
+| 触发 | 时间（CST） | 动作 |
+|---|---|---|
+| 周一至周五 | 16:30 | `update-today`（几十秒） |
+| 周六 | 18:00 | `update`（全量刷新） |
+| 手动 | — | 可选 `today` / `full` / `auto`，可勾「强制重建」 |
+
+**关键实现细节**
+
+1. **检出到 `portal/` 子目录**（`actions/checkout` 的 `path: portal`）。
+   代码里大量 `from portal.virtual import ...`，要求「仓库根 = portal 的父目录」。
+   直接检出到根目录会让这些导入全部失败。已用**目录联接模拟 CI 布局**验证：
+   `status` / `virtual_api.status()` / `selfcheck` 在该布局下 **39/39 通过**。
+
+2. **数据库只存在于 Actions 缓存**，不进 git（1.9 GB）。
+   `key: marketdb-${{ github.run_id }}` + `restore-keys: marketdb-` → 每次跑都命中
+   最近一份、并另存一份新的。仓库缓存上限 10 GB，约能留 5 份，LRU 淘汰；
+   所以**每周的全量刷新同时兼作兜底重建**。
+
+3. **首次运行 / 缓存丢失**：自动 `init` + `build --workers 4`，失败后再跑一次
+   `build`（断点续传补齐），最后 `status` 打印覆盖。
+
+4. **当日增量被护栏拒绝时**（节假日 / 数据源时间戳未到 15:00），
+   步骤用 `::warning::` 显式告警，**不静默跳过**。
+
+5. 收尾：`warmup --days 5`、生成复盘报告并作为 artifact 上传、
+   写 `$GITHUB_STEP_SUMMARY` 表格。
+
+### 怎么确认它真的在工作
+
+```bash
+# 本地：看库里最新日期与当天行数
+python -m portal.virtual.marketdb status
+
+# 本地：模拟一次当日增量（收盘后）
+python -m portal.virtual.marketdb update-today
+
+# CI：看 job summary 里的「最新日期」是否推进、
+#     「缓存命中」是否为 true
+```
+
+实测一次完整链路：`update-today` → `fetched 5224 / written 5213 / 26 秒`，
+库内 `2026-10-19` 行数从 0 变为 5213，`PRAGMA integrity_check` 仍为 `ok`。
+
+---
+
+## 十一、怎么复现
 
 ```bash
 # 1) 建库（首次约 13 分钟，可断点续传）
@@ -279,34 +396,40 @@ python -m portal.virtual.marketdb build --workers 8
 
 # 2) 数据库状态 / 单票抽查
 python -m portal.virtual.marketdb status
-python -m portal.virtual.marketdb spot --code 600519
 
-# 3) 每日增量（收盘后）
-python -m portal.virtual.marketdb update
+# 3) 每日增量（收盘后，26 秒）
+python -m portal.virtual.marketdb update-today
 
-# 4) 重建池 vs 官方池（地基自检）
+# 4) 每周全量刷新（13 分钟，刷新复权因子）
+python -m portal.virtual.marketdb update --workers 8 --lookback 7
+
+# 5) 重建池 vs 官方池（地基自检）
 python -m portal.virtual.warmup --check
 
-# 5) 预热特征
+# 6) 预热特征
 python -m portal.virtual.warmup --days 30
 
-# 6) 权重回测
+# 7) 权重回测
 python -m portal.virtual.weights --start 20260101 --days 60
 
-# 7) 报告图表校验
+# 8) 报告图表校验
 python -m portal.virtual.verify_report <html> --expect-canvas 3
+
+# 9) 数据层自检（W1–W7）
+python -m portal.virtual.selfcheck
 ```
 
 ---
 
-## 十一、仍然没做的
+## 十二、仍然没做的
 
 | 事项 | 原因 |
 |---|---|
 | 北交所历史数据 | 免费源都没有，必须换付费源 |
 | 基本面/产业链权重回测 | 数据库里没有历史财报与板块归属快照 |
 | 官方池不稳定的量化 | 只能观察到（36→34），无法证伪原因 |
-| 每日自动增量调度 | 需要挂 GitHub Action 或 Windows 计划任务，未接 |
+| Actions 缓存上限 | 1.9 GB/份，10 GB 上限约留 5 份，靠每周全量兼作兜底 |
+| 节假日判断 | 不做特殊处理：当日增量在节假日只会重写上一交易日（UPSERT 幂等），护栏会告警 |
 
 ---
 

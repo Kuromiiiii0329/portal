@@ -2921,6 +2921,8 @@ class VirtualTab {
     this._timer = null;
     this._state = null;
     this._busy = '';
+    this._updating = false;       // 行情增量轮询中
+    this._updateTimer = null;
   }
 
   init() {
@@ -2944,6 +2946,12 @@ class VirtualTab {
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-3">
           <p class="text-xs font-semibold text-gray-700 mb-2">动作</p>
           <div class="flex flex-wrap gap-2">
+            <button data-act="update-today"
+              class="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700">
+              ⚡ 拉取今日行情</button>
+            <button data-act="update-full"
+              class="text-xs px-3 py-1.5 rounded-lg bg-orange-600 text-white hover:bg-orange-700">
+              🔄 全量刷新（慢）</button>
             <button data-act="warmup"
               class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
               预热近 20 日特征</button>
@@ -2954,6 +2962,28 @@ class VirtualTab {
               class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
               生成复盘报告</button>
           </div>
+          <p class="mt-2 text-[11px] leading-relaxed text-gray-400">
+            <b>拉取今日行情</b>：腾讯批量行情，秒级，只补今天这一根日K；
+            <b>盘中会被拒绝</b>（半天快照会污染回测）。<br/>
+            <b>全量刷新</b>：新浪全量重抓，约 10–15 分钟，同时刷新复权因子
+            （因子只在除权除息日变化）。
+          </p>
+
+          <div id="vtab-update-box" class="mt-2 hidden">
+            <div class="flex items-center justify-between">
+              <p id="vtab-update-title" class="text-[11px] text-gray-600"></p>
+              <button id="vtab-update-toggle"
+                class="text-[11px] text-gray-400 hover:text-gray-600">收起日志</button>
+            </div>
+            <div class="h-1.5 bg-gray-100 rounded mt-1 overflow-hidden">
+              <div id="vtab-update-bar"
+                   class="h-full bg-red-500 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <pre id="vtab-update-log"
+              class="mt-1 text-[11px] leading-relaxed text-gray-600 bg-gray-50 rounded-lg p-2
+                     max-h-36 overflow-auto"></pre>
+          </div>
+
           <pre id="vtab-action-log"
             class="mt-2 text-[11px] leading-relaxed text-gray-600 bg-gray-50 rounded-lg p-2
                    max-h-40 overflow-auto hidden"></pre>
@@ -2985,6 +3015,20 @@ class VirtualTab {
     this._c.querySelectorAll('[data-act]').forEach(b => {
       b.addEventListener('click', () => this._action(b.dataset.act, b));
     });
+
+    // 日志折叠
+    this._c.querySelector('#vtab-update-toggle')
+      .addEventListener('click', (ev) => {
+        const log = this._c.querySelector('#vtab-update-log');
+        const hidden = log.classList.toggle('hidden');
+        ev.target.textContent = hidden ? '展开日志' : '收起日志';
+      });
+  }
+
+  // 离开 Tab / 服务掉线时停掉轮询，避免后台无限 fetch
+  _stopUpdatePoll() {
+    if (this._updateTimer) { clearTimeout(this._updateTimer); this._updateTimer = null; }
+    this._updating = false;
   }
 
   setServerStatus(online) {
@@ -2997,6 +3041,7 @@ class VirtualTab {
     } else if (this._timer) {
       clearInterval(this._timer);
       this._timer = null;
+      this._stopUpdatePoll();          // 服务掉线就别再轮询增量任务
       this._banner('离线模式：虚拟盘需要本地服务（点「启动本地服务」）。', 'warn');
       this._kpis([]);
     }
@@ -3140,6 +3185,9 @@ class VirtualTab {
   // ── 动作 ─────────────────────────────────────────────
   async _action(act, btn) {
     if (!this._online) { this._banner('需要本地服务在线才能执行动作。', 'warn'); return; }
+    if (act === 'update-today' || act === 'update-full') {
+      return this._startUpdate(act === 'update-today' ? 'today' : 'full', btn);
+    }
     if (this._busy) return;
     this._busy = act;
     const label = btn.textContent;
@@ -3160,19 +3208,110 @@ class VirtualTab {
       const d = await r.json();
       log.textContent = JSON.stringify(d, null, 2);
       if (this._t) {
-        if (d.ok) this._t.success(`${act} 完成`);
-        else this._t.error(`${act} 失败：${d.error || '未知'}`);
+        if (d.ok) this._t.show(`${act} 完成`, 'success');
+        else this._t.show(`${act} 失败：${d.error || '未知'}`, 'error');
       }
       await this.refresh();
     } catch (e) {
       log.textContent = `${act} 失败：${e}`;
-      if (this._t) this._t.error(`${act} 失败：${e}`);
+      if (this._t) this._t.show(`${act} 失败：${e}`, 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = label;
       this._busy = '';
     }
   }
+
+  // ── 行情库增量（后台任务 + 轮询）────────────────────
+  async _startUpdate(kind, btn) {
+    if (this._updating) { this._warn('已有更新在进行'); return; }
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '启动中…';
+    try {
+      const r = await fetch(`${SERVER}/virtual/update`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind }),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        this._warn(`启动失败：${d.error || '未知'}`);
+        // 后端说「已在跑」时仍然轮询，让用户看到真实状态而不是一个红点
+        if ((d.error || '').indexOf('已有更新') >= 0) this._pollUpdate();
+        return;
+      }
+      this._c.querySelector('#vtab-update-box').classList.remove('hidden');
+      this._pollUpdate();
+    } catch (e) {
+      this._warn(`启动失败：${e}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  _pollUpdate() {
+    if (this._updating) return;
+    this._updating = true;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${SERVER}/virtual/update/status?tail=60`);
+        const d = await r.json();
+        this._renderUpdate(d);
+        if (d.running) {
+          this._updateTimer = setTimeout(tick, 1500);
+        } else {
+          this._updating = false;
+          this._updateTimer = null;
+          await this.refresh();
+        }
+      } catch (e) {
+        this._updating = false;
+        this._updateTimer = null;
+        this._warn(`轮询失败：${e}`);
+      }
+    };
+    tick();
+  }
+
+  _renderUpdate(d) {
+    const box = this._c.querySelector('#vtab-update-box');
+    if (!box) return;
+    box.classList.remove('hidden');
+    const title = this._c.querySelector('#vtab-update-title');
+    const bar   = this._c.querySelector('#vtab-update-bar');
+    const log   = this._c.querySelector('#vtab-update-log');
+
+    const st = d.stats || {};
+    const kindLabel = d.kind === 'full' ? '全量刷新' : '今日行情';
+    const failed = !d.running && (d.error || (st.written === 0 && st.error));
+    let head = d.running ? `⏳ ${kindLabel}进行中…` : `✅ ${kindLabel}结束`;
+    if (!d.running) {
+      if (st.written !== undefined) head += `　写入 ${st.written} 行`;
+      if (st.date) head += `　日期 ${st.date}`;
+      if (failed) head = `⚠️ ${kindLabel}：${st.error || d.error}`;
+    }
+    title.textContent = head;
+    title.className = 'text-[11px] ' + (failed ? 'text-amber-600' : 'text-gray-600');
+
+    // 从日志里解析进度：优先 "行情 x/y"，其次 "[i/N]"
+    let pct = 0;
+    const lines = d.lines || [];
+    for (let i = lines.length - 1; i >= 0 && i >= lines.length - 12; i--) {
+      let m = lines[i].match(/行情\s*(\d+)\/(\d+)/);
+      if (m) { pct = Math.min(99, (+m[1] / +m[2]) * 100); break; }
+      m = lines[i].match(/\[(\d+)\/(\d+)\]/);
+      if (m) { pct = Math.min(99, (+m[1] / +m[2]) * 100); break; }
+    }
+    if (!d.running) pct = 100;
+    bar.style.width = `${pct.toFixed(0)}%`;
+    bar.className = 'h-full transition-all duration-500 ' + (
+      failed ? 'bg-amber-500' : d.running ? 'bg-red-500' : 'bg-emerald-500');
+    log.textContent = lines.join('\n') || '（等待输出…）';
+    log.scrollTop = log.scrollHeight;
+  }
+
+  _warn(msg) { if (this._t) this._t.show(msg, 'warning'); }
 
   // ── 小工具 ───────────────────────────────────────────
   _banner(text, kind) {

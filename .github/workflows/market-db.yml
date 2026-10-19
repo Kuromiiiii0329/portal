@@ -1,0 +1,207 @@
+name: market-db
+
+# A 股回测数据库的每日增量与每周全量刷新。
+#
+# 为什么需要两种模式（不是「一个 update 跑到底」）：
+#   今日行情（update-today） 腾讯批量行情，几十秒，只补今天这一根日K
+#   全量刷新（update）       新浪全量重抓，10~30 分钟，同时刷新复权因子
+#
+# 复权因子只在除权除息日变化，所以「每天全量」是浪费；但「完全不刷新因子」会让
+# 送转之后的复权价错掉。于是：日更用快通道，每周做一次全量兜底。
+#
+# 时间：A 股 15:00 收盘（CST）= 07:00 UTC。cron 用 08:30 UTC（16:30 CST），
+# 留 1.5 小时让数据源把当日 bar 落定。行情时间 < 15:00 时 update-today 会**拒绝写入**，
+# 这是故意的：半天快照写进日K会静默污染回测。
+
+on:
+  schedule:
+    # 周一至周五 16:30 CST —— 当日增量
+    - cron: "30 8 * * 1-5"
+    # 周六 18:00 CST —— 全量刷新（复权因子 + 缺口修补）
+    - cron: "0 10 * * 6"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "today=当日增量（快） / full=全量刷新（慢） / auto=自动判断"
+        type: choice
+        options: [auto, today, full]
+        default: auto
+      rebuild:
+        description: "强制重建（忽略缓存，从头全量构建）"
+        type: boolean
+        default: false
+
+concurrency:
+  # 同一时刻只允许一个跑批，避免两个进程同时写 market.db
+  group: market-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # 数据库落在工作区里，才能被 actions/cache 缓存
+  PORTAL_MARKET_DB: ${{ github.workspace }}/portal/data/market.db
+  PYTHONIOENCODING: utf-8
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # 关键：检出到 `portal/` 子目录。
+      # 代码里大量使用 `from portal.virtual import ...`，要求「仓库根 = portal 的父目录」。
+      # 直接检出到根目录会让这些导入全部失败。
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: portal
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: portal/requirements-marketdb.txt
+
+      - name: Restore market.db cache
+        id: dbcache
+        if: ${{ github.event.inputs.rebuild != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            portal/data/market.db
+            portal/data/market.db-wal
+            portal/data/market.db-shm
+          # run_id 让每次都能写入新缓存；restore-keys 前缀命中最近一份
+          key: marketdb-${{ github.run_id }}
+          restore-keys: |
+            marketdb-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r portal/requirements-marketdb.txt
+
+      - name: Check DB presence
+        id: probe
+        run: |
+          set -e
+          DB="$GITHUB_WORKSPACE/portal/data/market.db"
+          if [ -f "$DB" ]; then
+            SIZE=$(du -m "$DB" | cut -f1)
+            echo "found=true"  >> "$GITHUB_OUTPUT"
+            echo "size_mb=$SIZE" >> "$GITHUB_OUTPUT"
+            echo "已找到数据库：${SIZE} MB"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "没有数据库，将首次全量构建"
+          fi
+
+      - name: Resolve mode
+        id: mode
+        run: |
+          set -e
+          IN="${{ github.event.inputs.mode || 'auto' }}"
+          EVENT="${{ github.event_name }}"
+          CRON="${{ github.event.schedule }}"
+          BASE="python -m portal.virtual.marketdb"
+          MODE=auto
+          if [ "$EVENT" = "schedule" ] && [ "$CRON" = "0 10 * * 6" ]; then
+            MODE=full
+          elif [ "$IN" != "auto" ]; then
+            MODE="$IN"
+          fi
+          if [ "${{ inputs.rebuild }}" = "true" ] || [ "${{ steps.probe.outputs.found }}" != "true" ]; then
+            echo "::notice::数据库不存在或要求重建 → 走全量构建"
+            echo "mode=rebuild" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          fi
+          echo "决定：${MODE}"
+
+      - name: Init stock list & calendar
+        run: python -m portal.virtual.marketdb init
+
+      # ── 首次 / 强制重建：全量构建（可断点续传，失败可重试）──
+      - name: Full build (first run)
+        if: steps.mode.outputs.mode == 'rebuild'
+        run: |
+          set -e
+          python -m portal.virtual.marketdb build --workers 4 --no-resume
+          python -m portal.virtual.marketdb status
+
+      - name: Full build retry (fill gaps)
+        if: steps.mode.outputs.mode == 'rebuild'
+        run: python -m portal.virtual.marketdb build --workers 4 || true
+
+      # ── 全量刷新：刷新复权因子 + 修补缺口 ──
+      - name: Full refresh
+        if: steps.mode.outputs.mode == 'full'
+        run: python -m portal.virtual.marketdb update --workers 4 --lookback 7
+
+      # ── 当日增量：腾讯批量行情，几十秒 ──
+      # 只跑一次。被「盘中护栏」拒绝时（数据源时间戳没到 15:00）不算失败，
+      # 但必须显式告警 —— 静默跳过等于假装更新过了。
+      - name: Today increment
+        if: steps.mode.outputs.mode == 'today'
+        run: |
+          set -e
+          OUT=$(python -m portal.virtual.marketdb update-today | tail -1)
+          echo "$OUT"
+          if echo "$OUT" | grep -q '"written": 0'; then
+            echo "::warning::当日增量没有写入任何行（盘中/节假日/接口异常）：$OUT"
+          fi
+
+      - name: Refresh features (last 5 trading days)
+        run: python -m portal.virtual.warmup --days 5
+
+      - name: Coverage
+        id: cov
+        run: |
+          set -e
+          python -m portal.virtual.marketdb status | tee /tmp/db_status.json
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          d = json.load(open("/tmp/db_status.json", encoding="utf-8"))
+          print(f"codes={d.get('codes_with_data')}")
+          print(f"rows={d.get('rows')}")
+          print(f"date_max={d.get('date_max')}")
+          PY
+
+      - name: Build report
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from portal.srv import virtual_api
+          r = virtual_api.make_report(open_browser=False)
+          print({k: v for k, v in r.items() if k != "audit"})
+          PY
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: virtual-report-${{ github.run_id }}
+          path: portal/data/virtual/reports/*.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## A 股回测数据库"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| 模式 | ${{ steps.mode.outputs.mode }} |"
+            echo "| 有K线股票 | ${{ steps.cov.outputs.codes }} |"
+            echo "| 日K行数 | ${{ steps.cov.outputs.rows }} |"
+            echo "| 最新日期 | ${{ steps.cov.outputs.date_max }} |"
+            echo "| 缓存命中 | ${{ steps.dbcache.outputs.cache-hit }} |"
+            echo ""
+            echo "> 数据库只存在于 Actions 缓存，不进 git（1.9 GB）。"
+            echo "> 缓存按仓库 10 GB 上限滚动淘汰，所以每周一次全量刷新兼作兜底重建。"
+          } >> "$GITHUB_STEP_SUMMARY"

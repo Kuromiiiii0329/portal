@@ -1,0 +1,7 @@
+# GitHub Actions 的 `run:` 脚本在 Linux runner 上由 bash 执行。
+# 如果这些文件被换成 CRLF，bash 会看到 \r 并报
+#   syntax error near unexpected token `$'\r''
+# 而且**只在 CI 上炸、本地完全看不出来**。所以这里显式锁成 LF。
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.sh     text eol=lf

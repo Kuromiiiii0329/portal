@@ -10,7 +10,14 @@ from __future__ import annotations
 
 import datetime
 import json
+import sys
+import threading
+from pathlib import Path
 from typing import Any
+
+
+def _now() -> str:
+    return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 def _err(msg: str, hint: str = "") -> dict[str, Any]:
@@ -308,4 +315,151 @@ def _open(path: str) -> None:
 
 
 __all__ = ["status", "rules_list", "predictions_info", "ledger_text",
-           "warmup", "evolve", "make_report"]
+           "warmup", "evolve", "make_report",
+           "start_update", "update_status", "run_update_sync", "UPDATE_KINDS"]
+
+
+# ─────────────────────────────────────────────────────────────
+# 行情库增量：后台任务（前端按钮 + 轮询）
+# ─────────────────────────────────────────────────────────────
+#: 只允许两种：
+#:   today —— 腾讯批量行情，秒级，只补今天这一根 bar
+#:   full  —— 新浪全量重抓，分钟级，同时刷新复权因子
+UPDATE_KINDS = ("today", "full")
+
+_update_state: dict[str, Any] = {
+    "running": False, "kind": None, "started_at": None, "finished_at": None,
+    "lines": [], "exit": None, "stats": None, "error": None, "argv": None,
+}
+_update_lock = threading.Lock()
+_MAX_LINES = 300
+
+
+def _project_root() -> Path:
+    from portal.virtual import paths
+    return paths.PORTAL_DIR.parent
+
+
+def start_update(kind: str = "today", *, allow_intraday: bool = False,
+                 workers: int = 4, lookback: int = 5) -> dict[str, Any]:
+    """启动后台增量任务。已有一个在跑时返回 ok=False（不排队、不并发写库）。
+
+    为什么用**子进程**而不是线程里的 ProcessPoolExecutor：
+    全量更新会建进程池，而 Windows 的 spawn 会重新 import `__main__`；
+    在 HTTP 服务进程里混进程池，出问题时现象是「进程池被整体终止」，很难查。
+    子进程隔离后 `python -m portal.virtual.marketdb` 自带 __main__ 保护，
+    而且 stdout 天然就是进度流。
+    """
+    if kind not in UPDATE_KINDS:
+        return _err(f"未知 kind：{kind!r}", f"只能是 {UPDATE_KINDS}")
+    with _update_lock:
+        if _update_state["running"]:
+            return _err("已有更新在进行，请等它结束",
+                        f"开始于 {_update_state['started_at']}")
+
+        argv = [sys.executable, "-u", "-m", "portal.virtual.marketdb"]
+        if kind == "today":
+            argv.append("update-today")
+            if allow_intraday:
+                argv.append("--allow-intraday")
+        else:
+            argv += ["update", "--workers", str(max(1, int(workers))),
+                     "--lookback", str(max(1, int(lookback)))]
+
+        _update_state.update({
+            "running": True, "kind": kind, "started_at": _now(),
+            "finished_at": None, "lines": [], "exit": None,
+            "stats": None, "error": None, "argv": argv,
+        })
+        threading.Thread(target=_run_update, args=(argv,), daemon=True).start()
+        return {"ok": True, "kind": kind, "started_at": _update_state["started_at"],
+                "note": ("today（今日行情）通常几秒到几十秒；"
+                         "full（全量刷新）约 10–15 分钟。"
+                         "用 GET /virtual/update/status 轮询进度。")}
+
+
+def _run_update(argv: list[str]) -> None:
+    import os
+    import subprocess
+
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    try:
+        proc = subprocess.Popen(
+            argv, cwd=str(_project_root()), env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace", bufsize=1,
+        )
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            with _update_lock:
+                _update_state["lines"].append(line)
+                if len(_update_state["lines"]) > _MAX_LINES:
+                    del _update_state["lines"][:-_MAX_LINES]
+        code = proc.wait()
+        with _update_lock:
+            _update_state["exit"] = code
+            for line in reversed(_update_state["lines"]):
+                s = line.strip()
+                if s.startswith("{") and s.endswith("}"):
+                    try:
+                        _update_state["stats"] = json.loads(s)
+                        break
+                    except json.JSONDecodeError:
+                        continue
+            if code != 0:
+                _update_state["error"] = (
+                    (_update_state["stats"] or {}).get("error")
+                    or f"退出码 {code}：" + " / ".join(_update_state["lines"][-3:]))
+    except Exception as exc:
+        with _update_lock:
+            _update_state["error"] = f"{type(exc).__name__}: {exc}"
+            _update_state["exit"] = -1
+    finally:
+        with _update_lock:
+            _update_state["running"] = False
+            _update_state["finished_at"] = _now()
+
+
+def update_status(*, tail: int = 40) -> dict[str, Any]:
+    """轮询用：运行状态 + 末尾若干行进度。"""
+    with _update_lock:
+        st = dict(_update_state)
+        st["lines"] = list(_update_state["lines"])[-max(1, min(int(tail), _MAX_LINES)):]
+    st["ok"] = True
+    return st
+
+
+def run_update_sync(kind: str = "today", *, timeout: int = 900,
+                    allow_intraday: bool = False) -> dict[str, Any]:
+    """同步跑一次（CLI / 测试用，不走线程）。"""
+    import os
+    import subprocess
+
+    argv = [sys.executable, "-u", "-m", "portal.virtual.marketdb",
+            "update-today" if kind == "today" else "update"]
+    if kind == "today" and allow_intraday:
+        argv.append("--allow-intraday")
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        p = subprocess.run(argv, cwd=str(_project_root()), env=env,
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return _err(f"超时（>{timeout}s）")
+    out = (p.stdout or "").strip().splitlines()
+    stats = None
+    for line in reversed(out):
+        if line.strip().startswith("{"):
+            try:
+                stats = json.loads(line)
+                break
+            except json.JSONDecodeError:
+                continue
+    return {"ok": p.returncode == 0, "exit": p.returncode,
+            "stats": stats, "tail": out[-5:], "stderr": (p.stderr or "")[-400:]}
