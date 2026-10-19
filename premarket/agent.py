@@ -80,6 +80,19 @@ SYSTEM_ROLE = """你是一名严谨的 A 股策略交易研究员，负责盘前
 # ─────────────────────────────────────────────────────────────
 def default_llm(log: Callable[[str], None] = print) -> Callable[[str], str] | None:
     """返回 `call(prompt) -> str`。优先复用 portal 既有 LLM 网关。"""
+    # 命令行跑的时候进程环境是空的，key 只在 .env 里 —— 必须先加载，
+    # 否则 CLI 永远走兜底路径（实测踩过）。
+    try:
+        from .env import has_key, load_env
+        applied = load_env()
+        if applied:
+            log("🔑 已从 .env 加载：" + "、".join(sorted(applied)))
+        elif not has_key("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
+                         "LITELLM_MODEL", "HAI_API_KEY"):
+            log("🔑 进程环境与 .env 都没有 LLM 配置")
+    except Exception as exc:
+        log(f"⚠️  .env 加载失败：{type(exc).__name__}: {exc}")
+
     try:
         from srv.llm_gateway import _make_llm_caller
         fn = _make_llm_caller(log)
@@ -319,27 +332,36 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 为 {trade_date}（下一个交易日）制定盘前预案。预案日期标记 {plan_date}。
 
 【一、大盘与市场数据（程序采集，数字可直接引用）】
-{dump(market)}
+{dump({k: v for k, v in market.items() if k != "candidates"})}
 
-【二、当前账户（程序计算，初始 100%）】
+【二、可交易候选池（选股**只能**从这里挑，价格直接用给定值）】
+{dump(market.get("candidates") or []) if market.get("candidates") else "（无候选池数据，本次不要新增个股）"}
+说明：{market.get("candidates_note") or ""}
+
+【三、当前账户（程序计算，初始 100%）】
 {dump(acct_view)}
 
-【三、模拟持仓表（{len(pos_view)} 只）】
+【四、模拟持仓表（{len(pos_view)} 只）】
 {dump(pos_view) if pos_view else "（空仓）"}
 
-【四、选股观察表（{len(pool_view)} 只）】
+【五、选股观察表（{len(pool_view)} 只）】
 {dump(pool_view) if pool_view else "（空表）"}
 
-【五、重要信息表（{len(info_view)} 条，盘前必须先通读）】
+【六、重要信息表（{len(info_view)} 条，盘前必须先通读）】
 {dump(info_view) if info_view else "（空表）"}
 
-【六、交易经验表（最近 {len(lesson_view)} 条，历史教训必须遵守）】
+【七、交易经验表（最近 {len(lesson_view)} 条，历史教训必须遵守）】
 {dump(lesson_view) if lesson_view else "（空表）"}
 
 ──────────────────────────────
 【硬约束（违反会被程序拒绝）】
+- **选股只能来自候选池**。不在候选池里的 code 会被拒绝并记为「疑似编造」，
+  因为程序无法校验它的价格，你也无法给出可信的止损止盈。
 - 观察表：当日新增 ≤ 8 只，核心观察（tier=core）合计 ≤ 6 只
 - 观察表每条的 trigger 必须含具体价格或量能数字；stop_loss < take_profit
+- **stop_loss / take_profit 可以留空（填 0 或不填）**：内核会按候选池里的
+  收盘价补全（止损 = 收盘 × 0.95，止盈 = 收盘 × 1.10）。
+  如果你有更好的判断就填写，但必须满足 止损 < 现价 < 止盈 且不远离现价。
 - 已在持仓的标的不能再出现在观察表；买入成交后须从观察表移除
 - 单只标的仓位 alloc_pct ≤ 40；总仓位 ≤ 100
 - 重要信息 content ≤ 50 字；经验必须可验证（含数字或明确条件），禁止「要控制仓位」这类空话
@@ -349,7 +371,7 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 【决策框架（按顺序推导，不许跳步）】
 1. 大盘环境定总仓位：趋势/流动性/情绪 → position_range_pct
 2. 题材方向定优先级：政策催化强 + 资金认可 + 有龙头效应 → sector_priority
-3. 个股选择定标的：题材龙头 + 量价健康 + 基本面有支撑 → pool_actions / position_plan
+3. 个股选择定标的：**从候选池里**挑题材龙头 + 量价健康 + 有席位验证的
 4. 操作执行定时机：明确触发条件与止损止盈，不追高不抄底 → execution_checklist
 
 【输出要求】
@@ -358,8 +380,9 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 
 注意：
 - 数组可以为空 []，但 market_view 必填
-- 所有 code 必须是 6 位数字字符串
+- 所有 code 必须是 6 位数字字符串，且必须出现在候选池里
 - 若某个数据源在 caveats 里标注失败，不要基于它下结论
+- 候选池为空时，pool_actions 与 position_plan.buy 必须为空数组，不要凭想象选股
 """
 
 

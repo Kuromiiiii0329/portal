@@ -236,11 +236,20 @@ def _position_plan(planned: dict, account: dict) -> str:
     out = []
     buys = planned.get("buy") or []
     if buys:
+        def src(it) -> str:
+            s = it.get("price_source")
+            if s == "auto":
+                return '<span class="pill mid">内核补全</span>'
+            if s == "llm":
+                return '<span class="pill ok">模型给出</span>'
+            return '<span class="pill">—</span>'
+
         rows = [[_e(b.get("code")), _e(b.get("name")), _n(b.get("alloc_pct"), 1, "%"),
-                 _n(b.get("stop_loss")), _n(b.get("take_profit")),
+                 _n(b.get("stop_loss")), _n(b.get("take_profit")), src(b),
                  _e(b.get("trigger") or ""), _e(b.get("logic") or "")] for b in buys]
         out.append("<h3>计划买入</h3>" +
-                   _table(["代码", "名称", "仓位", "止损", "止盈", "触发条件", "逻辑"], rows))
+                   _table(["代码", "名称", "仓位", "止损", "止盈", "价格来源",
+                           "触发条件", "逻辑"], rows))
 
     rows = []
     for p in account.get("positions") or []:
@@ -289,17 +298,19 @@ def _account_summary(account: dict) -> str:
 def _changes(applied: dict, rejected: list) -> str:
     """四张表的变动 + 原因（用户要求：变动必须写明原因）。"""
     out = []
+    # 英文键 → 中文标题。**h3 也必须用映射后的标签**，
+    # 否则页面上会出现「pool_add」这种内部键名（第一版就是）。
+    LABELS = {"pool_add": "观察表 · 新增", "pool_update": "观察表 · 更新",
+              "pool_remove": "观察表 · 移除", "info_add": "重要信息 · 新增",
+              "info_remove": "重要信息 · 移除", "lesson_add": "经验表 · 新增",
+              "lesson_remove": "经验表 · 移除"}
 
-    def block(title: str, items: list, fmt) -> None:
+    def block(key: str, items: list, fmt) -> None:
         if not items:
             return
-        rows = [[_e(t), fmt(it)] for t, it in
-                (({"pool_add": "观察表 · 新增", "pool_update": "观察表 · 更新",
-                   "pool_remove": "观察表 · 移除", "info_add": "重要信息 · 新增",
-                   "info_remove": "重要信息 · 移除", "lesson_add": "经验表 · 新增",
-                   "lesson_remove": "经验表 · 移除"}.get(title, title), it)
-                 for it in items)]
-        out.append(f"<h3>{_e(title)}</h3>" + _table(["项", "内容/原因"], rows))
+        label = LABELS.get(key, key)
+        rows = [[label, fmt(it)] for it in items]
+        out.append(f"<h3>{_e(label)}</h3>" + _table(["项", "内容/原因"], rows))
 
     block("pool_add", applied.get("pool_add") or [],
           lambda it: f"{_e(it.get('code'))} {_e(it.get('name'))} "

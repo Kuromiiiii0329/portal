@@ -72,16 +72,47 @@ class Rejections:
         return len(self.items)
 
 
+#: 缺止损止盈时的补全规则（相对候选池收盘价）。
+#: 为什么要有：实测 LLM 把 stop/target 都填 0（它没有价格参照），
+#: 于是四条计划全被拒 —— 预案每天都没有个股计划。补全 + 标注来源是更好的平衡。
+AUTO_STOP_RATIO = 0.95
+AUTO_TARGET_RATIO = 1.10
+
+
+def _fill_prices(item: dict, cand: dict | None) -> tuple[float, float, str]:
+    """返回 (stop_loss, take_profit, price_source)。
+
+    price_source: "llm"（模型给的合理值）| "auto"（内核按收盘价补全）| "none"
+    """
+    try:
+        sl = float(item.get("stop_loss") or 0)
+        tp = float(item.get("take_profit") or 0)
+    except (TypeError, ValueError):
+        sl = tp = 0.0
+    if sl > 0 and tp > sl:
+        return round(sl, 2), round(tp, 2), "llm"
+    close = float((cand or {}).get("close") or 0)
+    if close <= 0:
+        return sl, tp, "none"
+    return (round(close * AUTO_STOP_RATIO, 2),
+            round(close * AUTO_TARGET_RATIO, 2), "auto")
+
+
 def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
                    trade_date: str, prices: dict[str, float] | None = None,
                    latest_close: Callable[[str], float | None] | None = None,
+                   candidates: list[dict] | None = None,
                    log: Callable[[str], None] = print) -> dict[str, Any]:
     """把提议落到四张表。返回 {applied, rejected, planned}。
 
     `latest_close` 可注入：测试里给一个固定价格表，避免依赖真实 market.db。
+    `candidates` 是当日候选池（带价格）。给了就启用「选股必须在池内」的校验 ——
+    这条挡的是 LLM 编造代码（实测它编过一个 603197 保隆科技）。
     """
     prices = prices or {}
     ref = latest_close or _latest_close
+    universe = {str(c.get("code")): c
+                for c in (candidates or []) if c.get("code")}
     rej = Rejections()
     applied: dict[str, list] = {
         "pool_add": [], "pool_update": [], "pool_remove": [],
@@ -96,21 +127,32 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
     for item in pa.get("add") or []:
         code = str(item.get("code", "")).strip()
         try:
+            if universe and code not in universe:
+                raise ValidationError(
+                    f"{code} 不在当日候选池（池内 {len(universe)} 只）。"
+                    f"程序无法校验它的价格，疑似编造，已拒绝。")
+            cand = universe.get(code)
+            sl, tp, psrc = _fill_prices(item, cand)
             fields = {k: item.get(k) for k in
-                      ("code", "name", "tier", "logic", "reason", "trigger",
-                       "stop_loss", "take_profit")}
+                      ("code", "name", "tier", "logic", "reason", "trigger")}
+            fields["stop_loss"], fields["take_profit"] = sl, tp
             fields["added_date"] = trade_date
-            bad = _price_sanity(code, item.get("stop_loss"), item.get("take_profit"),
-                                ref(code) or prices.get(code))
+            bad = _price_sanity(code, sl, tp,
+                                ref(code) or (cand or {}).get("close")
+                                or prices.get(code))
             if bad:
                 raise ValidationError(bad)
-            ev = tables.pool.add(fields, reason=str(item.get("reason") or ""),
-                                 plan_date=p8)
+            tables.pool.add(fields, reason=str(item.get("reason") or ""),
+                            plan_date=p8)
             tables.check_caps(p8)          # 每加一只都重新检查容量
             applied["pool_add"].append({"code": code, "name": item.get("name"),
                                         "tier": item.get("tier"),
-                                        "reason": item.get("reason")})
-            log(f"   ✅ 观察表新增 {code} {item.get('name')}")
+                                        "reason": item.get("reason"),
+                                        "stop_loss": sl, "take_profit": tp,
+                                        "price_source": psrc})
+            log(f"   ✅ 观察表新增 {code} {item.get('name')}"
+                + (f"（止损止盈由内核按收盘价补全：{sl}/{tp}）"
+                   if psrc == "auto" else ""))
         except ValidationError as exc:
             rej.add("pool_add", code or "?", str(exc))
             log(f"   ❌ 观察表新增 {code} 被拒：{str(exc)[:80]}")
@@ -197,7 +239,8 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
             rej.add("lesson_remove", rid or "?", str(exc))
 
     # ── 持仓计划（只进预案，不成交）──────────────────────
-    planned = _plan_positions(proposal.get("position_plan") or {}, tables, rej, ref)
+    planned = _plan_positions(proposal.get("position_plan") or {}, tables, rej,
+                              ref, universe)
 
     # ── 全局一致性 ──────────────────────────────────────
     try:
@@ -222,7 +265,8 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
 
 
 def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
-                    ref: Callable[[str], float | None]) -> dict[str, Any]:
+                    ref: Callable[[str], float | None],
+                    universe: dict[str, dict] | None = None) -> dict[str, Any]:
     """校验买卖计划（只校验、不成交）。"""
     held = tables.positions.alive()
     buys, sells, adjusts = [], [], []
@@ -241,15 +285,22 @@ def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
         if code in held:
             rej.add("buy", code, "已在持仓中，不能重复买入")
             continue
-        bad = _price_sanity(code, item.get("stop_loss"), item.get("take_profit"),
-                            ref(code))
+        if universe and code not in universe:
+            rej.add("buy", code,
+                    f"不在当日候选池（池内 {len(universe)} 只），疑似编造，已拒绝")
+            continue
+        cand = universe.get(code)
+        sl, tp, psrc = _fill_prices(item, cand)
+        bad = _price_sanity(code, sl, tp,
+                            ref(code) or (cand or {}).get("close"))
         if bad:
             rej.add("buy", code, bad)
             continue
         total += alloc
         buys.append({"code": code, "name": item.get("name"), "alloc_pct": alloc,
-                     "trigger": item.get("trigger"), "stop_loss": item.get("stop_loss"),
-                     "take_profit": item.get("take_profit"),
+                     "trigger": item.get("trigger"), "stop_loss": sl,
+                     "take_profit": tp, "price_source": psrc,
+                     "ref_close": (cand or {}).get("close"),
                      "logic": item.get("logic")})
 
     for item in pp.get("sell") or []:

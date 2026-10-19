@@ -183,12 +183,14 @@ def _prev_anchor(plan_date: str) -> str | None:
 def generate(*, plan_date: str | None = None, trade_date: str | None = None,
              llm_call: Callable[[str], str] | None = None,
              latest_close: Callable[[str], float | None] | None = None,
+             market: dict[str, Any] | None = None,
              use_cache: bool = True, allow_fallback: bool = True,
              write: bool = True,
              log: Callable[[str], None] = print) -> dict[str, Any]:
     """生成盘前预案。返回 {ok, plan, report_path, plan_path, ...}。
 
     `latest_close` 可注入：生产用 market.db，测试给固定价格表。
+    `market` 可注入：填了就跳过采集（测试用，避免联网与缓存干扰）。
     """
     paths.ensure_dirs()
     trade8 = (trade_date or latest_trade_date()).replace("-", "")[:8]
@@ -210,9 +212,12 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     acct = account_mod.compute(tables, prices,
                                prev_total=(snap_prev or {}).get("total_pct"))
 
-    # 2) 采集
-    log("  采集盘前数据…")
-    market = collect_mod.collect(trade8, use_cache=use_cache, progress=log)
+    # 2) 采集（允许注入，测试时跳过联网）
+    if market is None:
+        log("  采集盘前数据…")
+        market = collect_mod.collect(trade8, use_cache=use_cache, progress=log)
+    else:
+        log("  使用注入的行情数据（跳过采集）")
     digest = collect_mod.summarize(market)
 
     # 3) 提议
@@ -236,7 +241,7 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     verdict = apply_mod.apply_proposal(
         proposal=proposal, tables=tables, plan_date=plan8,
         trade_date=trade_iso, prices=prices, latest_close=latest_close,
-        log=log)
+        candidates=market.get("candidates"), log=log)
 
     # 5) 组装预案
     snapshot_after = tables.snapshot()
