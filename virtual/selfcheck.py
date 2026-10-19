@@ -40,42 +40,12 @@ import pandas as pd  # noqa: E402
 
 from portal.virtual import anchor, expr as expr_mod, pools, rules, tagging  # noqa: E402
 from portal.virtual import minute_data, paths, ths_reason  # noqa: E402
+from portal.virtual._check import Check  # noqa: E402
 
 
 # ─────────────────────────────────────────────────────────────
-# 断言工具（与 P0 一致：必须能失败才算断言）
+# 断言工具：统一由 _check.Check 提供（P2 自检共用同一套）
 # ─────────────────────────────────────────────────────────────
-class Check:
-    def __init__(self, cid: str, title: str):
-        self.cid, self.title = cid, title
-        self.passed = True
-        self.lines: list[str] = []
-
-    def expect(self, cond: bool, msg: str) -> "Check":
-        if not cond:
-            self.passed = False
-            self.lines.append(f"   ✗ {msg}")
-        else:
-            self.lines.append(f"   ✓ {msg}")
-        return self
-
-    def note(self, msg: str) -> "Check":
-        self.lines.append(f"   · {msg}")
-        return self
-
-    def raises(self, exc_types, fn, msg: str) -> "Check":
-        """断言某个调用必须抛指定异常（证明校验真的在拦）。"""
-        try:
-            fn()
-        except exc_types:
-            return self.expect(True, msg)
-        except Exception as exc:  # 抛了别的异常也算失败：说明拦错了地方
-            return self.expect(False, f"{msg}（抛的是 {type(exc).__name__}: {exc}）")
-        return self.expect(False, f"{msg}（没有抛异常，校验形同虚设）")
-
-    def to_dict(self) -> dict:
-        return {"id": self.cid, "title": self.title,
-                "passed": self.passed, "detail": self.lines}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -259,6 +229,11 @@ def check_rules() -> Check:
 def check_anchor() -> Check:
     c = Check("S3", "锚点链：冻结/校验、改一个空格被抓、改 anchors 断链、幂等")
     paths.ensure_dirs()
+
+    # 本检查会故意把 anchors.json 改坏。必须保存/还原，否则同一进程里后续的
+    # P2 结算检查会因为「锚点链已损坏」而集体失败 —— 那是测试没隔离干净，
+    # 不是被测代码有问题。（第一次跑就踩到了这个：S3 之后 T8/T9 全红。）
+    _orig_anchors = paths.ANCHORS.read_text(encoding="utf-8") if paths.ANCHORS.exists() else None
     for p in (paths.ANCHORS,):
         if p.exists():
             p.unlink()
@@ -314,6 +289,14 @@ def check_anchor() -> Check:
     write_plan("20261010", {"trade_date": "2026-10-10", "picks": []})
     ok5, _ = anchor.verify("20261010")
     c.expect(not ok5, "未锚定的 plan 默认不放行（strict=True）")
+
+    # ── 还原 anchors.json，保证后续检查在干净状态上跑
+    if _orig_anchors is None:
+        if paths.ANCHORS.exists():
+            paths.ANCHORS.unlink()
+    else:
+        paths.ANCHORS.write_text(_orig_anchors, encoding="utf-8")
+    c.expect(anchor.verify_chain(anchor.load()) == [], "还原后锚点链完整（检查已隔离）")
     return c
 
 
@@ -572,7 +555,7 @@ CHECKS = (
 
 def run() -> dict:
     results = []
-    for _, fn in CHECKS:
+    for _, fn in _all_checks():
         try:
             results.append(fn())
         except Exception as exc:  # 检查本身崩了也算失败，但要说清在哪
@@ -590,6 +573,13 @@ def run() -> dict:
     }
 
 
+def _all_checks():
+    """P1 的 S1–S7 + P2 的 T1–T10。P2 若导入失败必须显式暴露，不许静默少跑一批。"""
+    from portal.virtual import selfcheck_p2
+
+    return tuple(CHECKS) + tuple(selfcheck_p2.CHECKS)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     report = run()
@@ -598,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["passed"] else 1
 
     print("=" * 72)
-    print("portal.virtual 自检（P1 特征层 / 规则层 / 锚点 / 数据层）")
+    print("portal.virtual 自检（P1 记忆层 + P2 结算闭环）")
     print(f"数据根（隔离）：{paths.VIRTUAL_ROOT}")
     print("=" * 72)
     for chk in report["checks"]:
