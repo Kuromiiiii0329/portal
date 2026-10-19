@@ -27,3 +27,8 @@ Thumbs.db
 
 # Scratch space for the upgrade analysis (extracted third-party report text, probes).
 .upgrade_analysis/
+
+# Virtual trading: derived feature snapshots are regenerable and grow daily.
+# Decision records (rules.jsonl / anchors.json / plans / fills / ledger) ARE committed
+# on purpose — they are the audit trail.
+data/virtual/features/
