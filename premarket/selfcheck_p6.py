@@ -376,10 +376,18 @@ def check_render() -> Check:
     h = render.render_plan(payload)
 
     heads = re.findall(r"<h2>([^<]+)</h2>", h)
-    c.expect(len(heads) == 12, f"12 节（实际 {len(heads)}）")
-    for needle in ("九、四张表变动", "十二、数据来源与缺口"):
+    # 一、决策摘要 在顶部深色区块里，不是 <h2>；其余十节是 <h2>
+    c.expect(len(heads) == 10, f"10 个 <h2> 章节（实际 {len(heads)}）")
+    for needle in ("二、大盘环境与资金", "四、题材优先级与龙头", "五、财经消息与影响",
+                   "六、当日持仓与盈亏", "七、次日计划与调仓", "八、四张表变动",
+                   "十、当日复盘与经验", "十一、风险与执行"):
         c.expect(any(needle in x for x in heads), f"含章节 {needle}")
-    c.expect("anchor" not in h.lower() or "锚点" in h, "显示锚点")
+    # 用户明确要求去掉的两块
+    c.expect("数据来源与缺口" not in h, "已去掉「数据来源与缺口」")
+    c.expect("价格来源" not in h, "已去掉「价格来源」列")
+    # 资金面并入大盘：不应再有独立的「资金面」章节
+    c.expect(not any(x.strip() == "六、资金面" for x in heads), "资金面已并入大盘")
+    c.expect("锚点" in h, "显示锚点")
     c.expect(not re.search(r'(?:src|href)=["\']?(?:https?:)?//', h), "零外部引用")
     c.expect("<script" not in h.lower(), "不含 script 标签")
 

@@ -184,13 +184,19 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
              llm_call: Callable[[str], str] | None = None,
              latest_close: Callable[[str], float | None] | None = None,
              market: dict[str, Any] | None = None,
+             settle: bool = True,
              use_cache: bool = True, allow_fallback: bool = True,
              write: bool = True,
              log: Callable[[str], None] = print) -> dict[str, Any]:
-    """生成盘前预案。返回 {ok, plan, report_path, plan_path, ...}。
+    """盘后一条龙：结算当日 → 采集 → agent（次日计划 + 复盘）→ 裁决 → 一份报告。
+
+    顺序按用户要求：**先收集信息 → 再总结当日持仓涨跌 → 再定次日计划 → 最后复盘**。
+    注意实现上结算必须排在 agent 之前（agent 要看到当日盈亏才能复盘），
+    但报告里的章节顺序仍按用户要求排列（消息/大盘/情绪/题材 → 持仓 → 计划 → 复盘）。
 
     `latest_close` 可注入：生产用 market.db，测试给固定价格表。
     `market` 可注入：填了就跳过采集（测试用，避免联网与缓存干扰）。
+    `settle=False` 可跳过结算（只出预案，不执行昨日计划）。
     """
     paths.ensure_dirs()
     trade8 = (trade_date or latest_trade_date()).replace("-", "")[:8]
@@ -199,20 +205,34 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
 
     log(f"📋 生成盘前预案：数据日 {trade_iso} → 预案日 {plan8}")
 
-    # 1) 四张表 + 账户
+    # 1) 四张表
     tables = Tables()
     log("  读取四张表…")
     expired = tables.expire_infos()
     if expired:
         log(f"  自动清理过期重要信息 {len(expired)} 条")
+
+    # 1.5) ★ 先结算「昨天为今天制定的计划」，得到今日成交与已实现盈亏。
+    #      必须放在账户核算与 agent 之前 —— 否则 agent 看不到今天的盈亏，
+    #      复盘就成了凭空猜测。
+    settle_info = {"applied": [], "skipped": [], "had_plan": False}
+    if settle:
+        settle_info = _settle_plan(tables, trade8, trade_iso, log)
+        if settle_info["had_plan"]:
+            log(f"  今日按预案结算：成交 {len(settle_info['applied'])} 笔，"
+                f"跳过 {len(settle_info['skipped'])} 笔")
+
+    # 2) 账户（含当日盈亏）
     snapshot = tables.snapshot()
     held = list(tables.positions.alive())
-    prices = held_prices(held)
+    px_ctx = _price_ctx(held, trade_iso)
+    prices = {c: v["last"] for c, v in px_ctx.items() if v.get("last") is not None}
     snap_prev = account_mod.load_snapshot()
     acct = account_mod.compute(tables, prices,
-                               prev_total=(snap_prev or {}).get("total_pct"))
+                               prev_total=(snap_prev or {}).get("total_pct"),
+                               trades_path=paths.TRADES)
 
-    # 2) 采集（允许注入，测试时跳过联网）
+    # 3) 采集（允许注入，测试时跳过联网）
     if market is None:
         log("  采集盘前数据…")
         market = collect_mod.collect(trade8, use_cache=use_cache, progress=log)
@@ -220,13 +240,31 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
         log("  使用注入的行情数据（跳过采集）")
     digest = collect_mod.summarize(market)
 
-    # 3) 提议
+    # 4) 复盘素材（给 agent 的「已发生事实」）
+    review_ctx = {
+        "date": trade_iso,
+        "account": {k: acct.get(k) for k in
+                    ("total_pct", "cash_pct", "market_value_pct",
+                     "position_ratio_pct", "day_pnl_pct", "day_pnl_ratio_pct",
+                     "cum_pnl_ratio_pct", "n_positions")},
+        "positions": [
+            {**{k: p.get(k) for k in
+                ("code", "name", "entry_price", "last_price", "unrealized_pct",
+                 "stop_loss", "take_profit", "entry_logic", "weight_pct")},
+             "today_chg_pct": (px_ctx.get(p["code"]) or {}).get("chg_pct")}
+            for p in (acct.get("positions") or [])
+        ],
+        "executed": settle_info["applied"],
+        "skipped": settle_info["skipped"],
+    }
+
+    # 5) 提议
     source = "llm"
     raw: list[str] = []
     try:
         proposal = agent_mod.propose(
             snapshot=snapshot, market=digest, account=acct,
-            plan_date=plan8, trade_date=trade_iso,
+            plan_date=plan8, trade_date=trade_iso, review_context=review_ctx,
             llm_call=llm_call, log=log, raw_sink=raw)
     except Exception as exc:
         if not allow_fallback:
@@ -236,7 +274,7 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
         proposal = agent_mod.validate(rule_fallback_proposal(market))
         proposal["_fallback_reason"] = f"{type(exc).__name__}: {str(exc)[:200]}"
 
-    # 4) 裁决
+    # 6) 裁决
     log("  内核裁决…")
     verdict = apply_mod.apply_proposal(
         proposal=proposal, tables=tables, plan_date=plan8,
@@ -266,6 +304,10 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
                          "lessons": len(snapshot_after["lessons"])},
         "caveats": market.get("caveats") or [],
         "errors": market.get("errors") or [],
+        "settlement": {"had_plan": settle_info["had_plan"],
+                       "executed": len(settle_info["applied"]),
+                       "skipped": len(settle_info["skipped"])},
+        "review": proposal.get("review"),
     }
     plan["anchor"] = {"sha256": anchor_of(plan), "prev": _prev_anchor(plan8),
                       "at": plan["generated_at"],
@@ -274,7 +316,7 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     if not write:
         return {"ok": True, "plan": plan, "written": False}
 
-    # 6) 落盘：plan JSON + HTML
+    # 7) 落盘：plan JSON + HTML（含复盘素材与当日盈亏）
     ppath = paths.plan_path(plan8)
     ppath.parent.mkdir(parents=True, exist_ok=True)
     ppath.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -282,10 +324,12 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     rpath = paths.report_path(plan8)
     r = render_mod.write_plan({
         "plan_date": plan8, "trade_date": trade_iso,
+        "plan_date_iso": f"{plan8[:4]}-{plan8[4:6]}-{plan8[6:8]}",
         "generated_at": plan["generated_at"],
         "market": market, "proposal": proposal,
         "applied": verdict["applied"], "rejected": verdict["rejected"],
         "planned": verdict["planned"], "snapshot": snapshot_after, "account": acct,
+        "review_context": review_ctx,
         "proposal_source": source, "anchor": plan["anchor"],
     }, rpath)
 
@@ -300,27 +344,59 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
 # ─────────────────────────────────────────────────────────────
 # 盘后复盘（更新持仓表 + 已实现盈亏）
 # ─────────────────────────────────────────────────────────────
-def review(*, date8: str | None = None, log: Callable[[str], None] = print) -> dict[str, Any]:
-    """盘后复盘：按预案执行计划，用实际收盘价结算，更新持仓表与账户。
+# 结算：把「为今天制定的计划」按今日收盘价机械执行
+# ─────────────────────────────────────────────────────────────
+def _price_ctx(codes: list[str], iso: str) -> dict[str, dict]:
+    """取每只票的最新收盘与前收 → 当日涨跌幅（用于持仓当日表现）。"""
+    if not codes:
+        return {}
+    out: dict[str, dict] = {}
+    try:
+        from portal.virtual import marketdb as M
+        conn = M.connect()
+        if conn is None:
+            return {}
+        try:
+            for c in codes:
+                rows = conn.execute(
+                    "SELECT date, close FROM day WHERE code=? AND date<=? "
+                    "ORDER BY date DESC LIMIT 2", (c, iso)).fetchall()
+                if not rows:
+                    continue
+                last = float(rows[0]["close"])
+                prev = float(rows[1]["close"]) if len(rows) > 1 else None
+                out[c] = {"last": last, "prev": prev,
+                          "chg_pct": round((last / prev - 1) * 100, 3) if prev else None}
+        finally:
+            conn.close()
+    except Exception:
+        return {}
+    return out
 
-    只做**机械结算**：买/卖都按当日收盘价成交（虚拟盘口径），费用 0.10% 往返。
-    真实成交价与滑点属于执行层，不在本函数内假设。
+
+def _settle_plan(tables: Tables, d8: str, iso: str,
+                 log: Callable[[str], None] = print) -> dict[str, Any]:
+    """执行 `plan_<d8>.json` 里的买卖计划（按 d8 当日收盘价）。
+
+    返回 {had_plan, applied, skipped}。没有预案就返回 had_plan=False（不报错）——
+    首次运行、或用户某天没生成预案，都是正常情况。
     """
-    paths.ensure_dirs()
-    d8 = (date8 or latest_trade_date()).replace("-", "")[:8]
-    iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
-    tables = Tables()
-
     ppath = paths.plan_path(d8)
     if not ppath.exists():
-        return {"ok": False, "error": f"找不到 {d8} 的预案 {ppath.name}"}
-    plan = json.loads(ppath.read_text(encoding="utf-8"))
-    planned = plan.get("planned") or {}
+        return {"had_plan": False, "applied": [], "skipped": []}
+    try:
+        plan = json.loads(ppath.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"had_plan": False, "applied": [], "skipped": []}
 
+    planned = plan.get("planned") or {}
     applied, skipped = [], []
     codes = [b["code"] for b in planned.get("buy") or []] + \
             [s["code"] for s in planned.get("sell") or []]
     px = held_prices(sorted(set(codes)))
+    if not px:
+        ctx = _price_ctx(sorted(set(codes)), iso)
+        px = {c: v["last"] for c, v in ctx.items() if v.get("last") is not None}
 
     for s in planned.get("sell") or []:
         code = s["code"]
@@ -328,12 +404,15 @@ def review(*, date8: str | None = None, log: Callable[[str], None] = print) -> d
         if price is None:
             skipped.append({"action": "sell", "code": code, "reason": "取不到收盘价"})
             continue
-        rec = account_mod.close_position(
-            tables, code=code, exit_price=price,
-            reason=f"复盘按收盘价结算：{s.get('reason') or ''}",
-            plan_date=d8, exit_date=iso)
-        applied.append({"action": "sell", **rec})
-        log(f"  ✅ 卖出 {code} @{price} 已实现 {rec['realized_pct']} 份")
+        try:
+            rec = account_mod.close_position(
+                tables, code=code, exit_price=price,
+                reason=f"按收盘价结算：{s.get('reason') or ''}",
+                plan_date=d8, exit_date=iso)
+            applied.append({"action": "sell", **rec})
+            log(f"  ✅ 卖出 {code} @{price} 已实现 {rec['realized_pct']} 份")
+        except Exception as exc:
+            skipped.append({"action": "sell", "code": code, "reason": str(exc)[:120]})
 
     for b in planned.get("buy") or []:
         code = b["code"]
@@ -346,10 +425,11 @@ def review(*, date8: str | None = None, log: Callable[[str], None] = print) -> d
                 tables, code=code, name=b.get("name") or code,
                 alloc_pct=float(b["alloc_pct"]), entry_price=price,
                 stop_loss=float(b["stop_loss"]), take_profit=float(b["take_profit"]),
-                entry_logic=b.get("logic") or "", reason="复盘按收盘价成交",
+                entry_logic=b.get("logic") or "", reason="按收盘价成交",
                 plan_date=d8, entry_date=iso)
-            applied.append({"action": "buy", "code": code, "price": price,
-                            "alloc_pct": b["alloc_pct"]})
+            applied.append({"action": "buy", "code": code, "name": b.get("name"),
+                            "price": price, "alloc_pct": b["alloc_pct"],
+                            "reason": b.get("trigger") or ""})
             log(f"  ✅ 买入 {code} @{price} 仓位 {b['alloc_pct']}%")
         except Exception as exc:
             skipped.append({"action": "buy", "code": code, "reason": str(exc)[:120]})
@@ -359,31 +439,68 @@ def review(*, date8: str | None = None, log: Callable[[str], None] = print) -> d
             account_mod.adjust_position(
                 tables, code=a["code"], plan_date=d8,
                 stop_loss=a.get("stop_loss"), take_profit=a.get("take_profit"),
-                reason=f"复盘调整：{a.get('reason') or ''}")
-            applied.append({"action": "adjust", "code": a["code"]})
+                reason=f"调整：{a.get('reason') or ''}")
+            applied.append({"action": "adjust", "code": a["code"],
+                            "reason": a.get("reason")})
         except Exception as exc:
-            skipped.append({"action": "adjust", "code": a["code"], "reason": str(exc)[:120]})
+            skipped.append({"action": "adjust", "code": a["code"],
+                            "reason": str(exc)[:120]})
+    return {"had_plan": True, "applied": applied, "skipped": skipped}
 
-    # 按最新价重算账户
+
+# ─────────────────────────────────────────────────────────────
+def review(*, date8: str | None = None, log: Callable[[str], None] = print) -> dict[str, Any]:
+    """仅做结算（不生成新报告）。保留给需要单独复盘结算的场景。
+
+    现在完整的「盘后复盘 + 盘前预案」走 `daily()` / `generate()`。
+    """
+    paths.ensure_dirs()
+    d8 = (date8 or latest_trade_date()).replace("-", "")[:8]
+    iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
+    tables = Tables()
+
+    ppath = paths.plan_path(d8)
+    if not ppath.exists():
+        return {"ok": False, "error": f"找不到 {d8} 的预案 {ppath.name}"}
+
+    info = _settle_plan(tables, d8, iso, log)
     held = list(tables.positions.alive())
     prices = held_prices(held)
     prev = account_mod.load_snapshot()
     acct = account_mod.compute(tables, prices,
-                               prev_total=(prev or {}).get("total_pct"))
+                               prev_total=(prev or {}).get("total_pct"),
+                               trades_path=paths.TRADES)
     account_mod.save_snapshot(acct)
 
-    out = {"ok": True, "date": iso, "applied": applied, "skipped": skipped,
-           "account": acct, "plan_path": str(ppath)}
+    out = {"ok": True, "date": iso, "applied": info["applied"],
+           "skipped": info["skipped"], "account": acct, "plan_path": str(ppath)}
     rpath = paths.review_path(d8)
     rpath.parent.mkdir(parents=True, exist_ok=True)
     rpath.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-    log(f"✅ 复盘完成：执行 {len(applied)} 笔，跳过 {len(skipped)} 笔，"
+    log(f"✅ 复盘完成：执行 {len(info['applied'])} 笔，跳过 {len(info['skipped'])} 笔，"
         f"总资产 {acct['total_pct']}（累计 {acct['cum_pnl_ratio_pct']}%）")
     return out
 
 
 # ─────────────────────────────────────────────────────────────
 # 状态
+# ─────────────────────────────────────────────────────────────
+def daily(*, date8: str | None = None, plan_date: str | None = None,
+          **kwargs) -> dict[str, Any]:
+    """「盘后复盘 + 盘前预案」合并入口（用户要求的一条流程）。
+
+    正常用法就是每天收盘后跑一次：它会
+      1. 按今日收盘价结算昨天为今天制定的计划（成交 / 已实现盈亏）
+      2. 采集当日信息（指数 / 情绪 / 题材 / 消息 / 候选池）
+      3. 让 agent 看到**当日真实盈亏**后出次日计划与复盘
+      4. 内核裁决四张表与买卖计划
+      5. 输出一份合并 HTML
+
+    `date8` 是「数据日」（今天），预案自动落到下一个工作日。
+    """
+    return generate(trade_date=date8, plan_date=plan_date, settle=True, **kwargs)
+
+
 # ─────────────────────────────────────────────────────────────
 def status() -> dict[str, Any]:
     tables = Tables()
