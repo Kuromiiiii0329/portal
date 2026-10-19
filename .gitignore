@@ -24,3 +24,6 @@ Thumbs.db
 # Local runtime cache (regenerated when the app runs).
 # Kept in the v1.0 snapshot on purpose; uncomment to ignore it going forward.
 # data/
+
+# Scratch space for the upgrade analysis (extracted third-party report text, probes).
+.upgrade_analysis/
