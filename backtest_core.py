@@ -578,6 +578,69 @@ def collect_samples(
 
 
 # ─────────────────────────────────────────────────────────────
+# 单笔前瞻收益（供特征层 / 演化器取「可执行收益」，口径仍只有这里一份）
+# ─────────────────────────────────────────────────────────────
+def forward_return_after(
+    df: pd.DataFrame,
+    signal_date: str,
+    horizon: int = 1,
+    *,
+    code: str | None = None,
+    cost: float = COST_ROUND_TRIP,
+) -> dict[str, Any] | None:
+    """信号日之后的第一交易日开盘买入，持有 `horizon` 个交易日后收盘卖出。
+
+    这是**唯一**该被用来给特征打「结果」标签的接口 —— 演化器、日报、结算都走它，
+    避免任何地方再写一套收益公式（口径分叉本身就是静默错误的来源）。
+
+    Returns:
+        {"entry_date","entry_price","exit_date","exit_price",
+         "gross_pct","net_pct","excluded"}；数据不足返回 None。
+        `excluded` 非空表示这笔物理上不成立（如次日开盘即涨停买不进）。
+    """
+    if df is None or len(df) == 0:
+        return None
+    d = df.copy()
+    d["date"] = pd.to_datetime(d["date"], errors="coerce")
+    d = d.dropna(subset=["date"]).sort_values("date").drop_duplicates("date", keep="last")
+    d = d.reset_index(drop=True)
+    target = pd.to_datetime(str(signal_date).replace("-", "")[:8],
+                            format="%Y%m%d", errors="coerce")
+    if pd.isna(target):
+        return None
+
+    after = d.index[d["date"] > target]
+    if len(after) == 0:
+        return None
+    i = int(after[0])
+    k = i + int(horizon)
+    if k >= len(d):
+        return None
+
+    prev_close = float(d.loc[i - 1, "close"]) if i > 0 else None
+    buy = float(d.loc[i, "open"])
+    sell = float(d.loc[k, "close"])
+    if not (np.isfinite(buy) and np.isfinite(sell)) or buy <= 0 or sell <= 0:
+        return None
+
+    lim = limit_pct_for_code(code)
+    excluded = None
+    if prev_close and buy >= prev_close * (1 + lim) - 0.005:
+        excluded = "limit_up_open"          # 次日开盘即涨停：买不进
+
+    gross = sell / buy - 1.0
+    return {
+        "entry_date": d.loc[i, "date"].strftime("%Y-%m-%d"),
+        "entry_price": round(buy, 3),
+        "exit_date": d.loc[k, "date"].strftime("%Y-%m-%d"),
+        "exit_price": round(sell, 3),
+        "gross_pct": round(gross * 100, 4),
+        "net_pct": round((gross - cost) * 100, 4),
+        "excluded": excluded,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
 # 摘要（供报告 / LLM prompt 使用）
 # ─────────────────────────────────────────────────────────────
 def summarize_for_prompt(result: dict, horizons: Iterable[int] = DEFAULT_HORIZONS) -> str:

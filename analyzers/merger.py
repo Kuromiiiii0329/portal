@@ -12,10 +12,16 @@ from .base import DimensionResult
 TZ_CN = timezone(timedelta(hours=8))
 
 DIMENSION_WEIGHTS = {
-    "technical": 0.40,
-    "fundamental": 0.40,
-    "industry": 0.20,
+    "technical": 0.35,
+    "fundamental": 0.30,
+    "industry": 0.15,
+    "yuzi": 0.20,
 }
+
+WEIGHTS_STATUS = (
+    "hypothesis（未经回测）—— 权重本身也是一种规则，必须过闸门才算证据。"
+    "当前取值来自 UPGRADE_PLAN.md 的初始方案，不是结论。"
+)
 
 SIGNAL_PRIORITY = {
     "buy": 4,
@@ -100,6 +106,8 @@ def merge_results(
         "conclusion": conclusion,
         "tech_summary": _build_tech_summary(result_map.get("technical")),
         "dimensions": [r.to_dict() for r in results],
+        "weights": dict(DIMENSION_WEIGHTS),
+        "weights_status": WEIGHTS_STATUS,
         "generated_at": datetime.now(TZ_CN).isoformat(),
     }
 
