@@ -1,0 +1,115 @@
+# -*- coding: utf-8 -*-
+"""
+portal/premarket/__main__.py — 命令行入口
+
+    python -m portal.premarket generate [--plan-date YYYYMMDD] [--trade-date YYYYMMDD]
+                                        [--no-cache] [--no-fallback] [--json]
+    python -m portal.premarket review   [--date YYYYMMDD]
+    python -m portal.premarket status
+    python -m portal.premarket tables
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+from . import account as account_mod
+from . import paths
+from . import pipeline
+
+
+def _print_status() -> int:
+    st = pipeline.status()
+    print(json.dumps(st, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _print_tables() -> int:
+    from .store import Tables
+    snap = Tables().snapshot()
+    for name in ("pool", "positions", "infos", "lessons"):
+        rows = snap[name]
+        print(f"\n=== {name}（{len(rows)} 条）===")
+        for r in rows:
+            brief = {k: v for k, v in r.items()
+                     if k in ("code", "name", "tier", "status", "content", "lesson",
+                              "alloc_pct", "entry_price", "level", "result",
+                              "expires_on", "added_date", "entry_date")}
+            print("  ", json.dumps(brief, ensure_ascii=False))
+        if not rows:
+            print("   （空）")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="python -m portal.premarket")
+    sub = ap.add_subparsers(dest="cmd")
+
+    g = sub.add_parser("generate", help="生成盘前预案")
+    g.add_argument("--plan-date", default=None)
+    g.add_argument("--trade-date", default=None)
+    g.add_argument("--no-cache", action="store_true", help="不读采集缓存")
+    g.add_argument("--no-fallback", action="store_true", help="没有 LLM 就直接失败")
+    g.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+
+    r = sub.add_parser("review", help="盘后复盘（按收盘价结算计划）")
+    r.add_argument("--date", default=None)
+
+    sub.add_parser("status", help="查看状态")
+    sub.add_parser("tables", help="打印四张表")
+
+    args = ap.parse_args(argv)
+    paths.ensure_dirs()
+
+    if args.cmd in (None, "status"):
+        return _print_status()
+    if args.cmd == "tables":
+        return _print_tables()
+
+    if args.cmd == "generate":
+        try:
+            out = pipeline.generate(
+                plan_date=args.plan_date, trade_date=args.trade_date,
+                use_cache=not args.no_cache,
+                allow_fallback=not args.no_fallback, write=True)
+        except Exception as exc:
+            print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"},
+                             ensure_ascii=False))
+            return 1
+        if args.json:
+            print(json.dumps({
+                "ok": out["ok"], "plan_path": out.get("plan_path"),
+                "report_path": out.get("report_path"),
+                "report_bytes": out.get("report_bytes"),
+                "proposal_source": out.get("proposal_source"),
+                "plan_date": out["plan"]["plan_date"],
+                "trade_date": out["plan"]["trade_date"],
+                "anchor": out["plan"]["anchor"]["sha256"],
+            }, ensure_ascii=False))
+        else:
+            print(f"✅ 预案：{out.get('report_path')}")
+            print(json.dumps({k: out["plan"][k] for k in
+                              ("plan_date", "trade_date", "proposal_source",
+                               "tables_after")}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.cmd == "review":
+        out = pipeline.review(date8=args.date)
+        print(json.dumps({"ok": out["ok"],
+                          "applied": len(out.get("applied") or []),
+                          "skipped": len(out.get("skipped") or []),
+                          "account": {k: out["account"][k] for k in
+                                      ("total_pct", "cash_pct",
+                                       "position_ratio_pct", "cum_pnl_ratio_pct")}
+                          if out.get("account") else None,
+                          "error": out.get("error")},
+                         ensure_ascii=False))
+        return 0 if out.get("ok") else 1
+
+    ap.print_help()
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

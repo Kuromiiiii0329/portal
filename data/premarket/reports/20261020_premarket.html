@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>盘前预案 · 2026-10-20</title><style>
+:root{--ink:#1a1a1a;--sub:#666;--line:#e3e3e3;--red:#c62828;--green:#2e7d32;
+--amber:#ef6c00;--blue:#1565c0;--bg:#fafafa;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;padding:26px;background:var(--bg);color:var(--ink);
+font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:15px;margin:26px 0 10px;padding-left:9px;border-left:3px solid var(--ink)}
+h3{font-size:13px;margin:16px 0 8px;color:#333}
+.meta{color:var(--sub);font-size:12px;margin-bottom:14px}
+.hero{background:linear-gradient(135deg,#1f2937,#374151);color:#fff;border-radius:12px;
+padding:16px 18px;margin:12px 0}
+.hero .k{font-size:11px;opacity:.7}
+.hero .v{font-size:24px;font-weight:700;letter-spacing:.5px}
+.hero-grid{display:flex;gap:26px;flex-wrap:wrap}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.card{flex:1 1 140px;background:var(--card);border:1px solid var(--line);
+border-radius:8px;padding:10px 12px}
+.card .k{color:var(--sub);font-size:11.5px}
+.card .v{font-size:19px;font-weight:600;margin-top:2px}
+table{width:100%;border-collapse:collapse;background:var(--card);
+border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:8px 0}
+th,td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line);
+font-size:12.5px;vertical-align:top}
+th{background:#f0f0f0;font-weight:600;color:#333;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.pos{color:var(--red)}.neg{color:var(--green)}.warn{color:var(--amber)}
+.dim{color:var(--sub)}
+.pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;
+border:1px solid var(--line);background:#f7f7f7;white-space:nowrap}
+.pill.ok{background:#e8f5e9;border-color:#a5d6a7;color:#256029}
+.pill.no{background:#ffebee;border-color:#ef9a9a;color:#b71c1c}
+.pill.mid{background:#fff3e0;border-color:#ffcc80;color:#e65100}
+.note{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
+padding:9px 12px;font-size:12.5px;color:#6d4c00;margin:10px 0}
+.err{background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;
+padding:9px 12px;font-size:12.5px;color:#b71c1c;margin:10px 0}
+.bad{background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;
+padding:9px 12px;font-size:12.5px;color:#0d47a1;margin:10px 0}
+ul{margin:6px 0 6px 18px;padding:0}
+li{margin:3px 0;font-size:12.5px}
+.foot{margin-top:26px;color:var(--sub);font-size:11.5px;
+border-top:1px solid var(--line);padding-top:12px}
+code{background:#f2f2f2;padding:1px 5px;border-radius:4px;font-size:11.5px}
+details{margin:6px 0}
+summary{cursor:pointer;font-size:12.5px;color:var(--blue)}
+</style></head>
+<body><div class="wrap">
+<h1>盘前预案 · 2026-10-20</h1>
+<div class="meta">生成时间 2026-10-20T00:39:36+08:00 ｜ 适用于 2026-10-20 开盘 ｜ 数据截至 20261019 ｜ 判断来源 规则兜底</div>
+<div class="err"><b>本次为规则兜底，不是 agent 判断。</b><br>未接入 LLM（RuntimeError: 没有可用的 LLM。请配置 DEEPSEEK_API_KEY / OPENAI_API_KEY / LITELLM_MODEL，或在设置页填好模型后再生成。）。本预案只做了「大盘趋势 → 仓位区间」的机械映射与题材排序，<b>没有生成个股计划、没有改动四张表</b>。配置 LLM 后重新生成才会得到 agent 版本。</div>
+<h2>一、决策摘要</h2>
+<div class="hero">
+  <div class="hero-grid">
+    <div><div class="k">趋势判断</div><div class="v">弱势</div></div>
+    <div><div class="k">建议总仓位</div>
+         <div class="v">10% ~ 30%</div></div>
+    <div><div class="k">置信度</div>
+         <div class="v">30</div></div>
+  </div>
+</div><ul><li>上证指数 +0.39%，5日 -1.75%，成交额 6870.1亿</li><li>上涨 2202 家 / 下跌 2861 家，上涨占比 42.24%</li><li>炸板率 31.34%，最高连板 3 板</li></ul><h2>二、大盘环境</h2><table><thead><tr><th>指数</th><th>收盘</th><th>涨跌</th><th>成交额</th><th>5日</th><th>趋势</th><th>站上MA20</th><th>MA20</th></tr></thead><tbody><tr><td>上证指数</td><td>3,730.92</td><td><span class="pos">+0.39%</span></td><td>6,870亿</td><td><span class="neg">-1.75%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>3,839.88</td></tr><tr><td>深证成指</td><td>11,817.42</td><td><span class="pos">+0.13%</span></td><td>7,505亿</td><td><span class="neg">-4.58%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>12,889.09</td></tr><tr><td>创业板指</td><td>2,746.29</td><td><span class="neg">-0.94%</span></td><td>3,563亿</td><td><span class="neg">-7.34%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>3,128.62</td></tr><tr><td>科创50</td><td>1,329.19</td><td><span class="neg">-2.17%</span></td><td>687亿</td><td><span class="neg">-6.84%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>1,520.55</td></tr><tr><td>上证50</td><td>2,774.30</td><td><span class="pos">+0.21%</span></td><td>1,086亿</td><td><span class="neg">-1.60%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>2,827.72</td></tr><tr><td>中证500</td><td>6,800.66</td><td><span class="pos">+0.41%</span></td><td>2,446亿</td><td><span class="neg">-4.12%</span></td><td><span class="pill no">走弱</span></td><td>否</td><td>7,382.18</td></tr></tbody></table><h2>三、市场情绪与宽度</h2><div class="cards"><div class="card"><div class="k">上涨/下跌</div><div class="v">2202 / 2861</div></div><div class="card"><div class="k">上涨占比</div><div class="v">42.2%</div></div><div class="card"><div class="k">涨停/跌停</div><div class="v">46 / 22</div></div><div class="card"><div class="k">炸板率</div><div class="v">31.3%</div></div><div class="card"><div class="k">最高连板</div><div class="v">3</div></div><div class="card"><div class="k">连板家数</div><div class="v">11</div></div><div class="card"><div class="k">封板资金</div><div class="v">40.2亿</div></div><div class="card"><div class="k">活跃度</div><div class="v"><span class="dim">—</span></div></div></div><h2>四、题材优先级</h2><table><thead><tr><th>题材/行业</th><th>涨停数</th><th>最高板</th><th>封板资金</th><th>龙头</th><th>Agent强度</th><th>Agent 逻辑</th></tr></thead><tbody><tr><td>汽车零部</td><td>10</td><td>2</td><td>9.9亿</td><td>长春一东、保隆科技、东安动力</td><td>80</td><td>涨停 10 家、最高 2 板</td></tr><tr><td>塑料</td><td>4</td><td>1</td><td>3.1亿</td><td>—</td><td>32</td><td>涨停 4 家、最高 1 板</td></tr><tr><td>通用设备</td><td>3</td><td>2</td><td>2.1亿</td><td>京城股份、大业股份</td><td>24</td><td>涨停 3 家、最高 2 板</td></tr><tr><td>家居用品</td><td>3</td><td>1</td><td>1.3亿</td><td>—</td><td>24</td><td>涨停 3 家、最高 1 板</td></tr><tr><td>电力</td><td>3</td><td>1</td><td>1.6亿</td><td>—</td><td>24</td><td>涨停 3 家、最高 1 板</td></tr><tr><td>元件</td><td>3</td><td>1</td><td>1.0亿</td><td>—</td><td><span class="dim">—</span></td><td></td></tr><tr><td>软件开发</td><td>2</td><td>3</td><td>2.7亿</td><td>吉大正元</td><td><span class="dim">—</span></td><td></td></tr><tr><td>IT服务Ⅱ</td><td>2</td><td>1</td><td>2.1亿</td><td>—</td><td><span class="dim">—</span></td><td></td></tr><tr><td>化学制品</td><td>2</td><td>1</td><td>1.2亿</td><td>—</td><td><span class="dim">—</span></td><td></td></tr><tr><td>物流</td><td>1</td><td>3</td><td>0.3亿</td><td>东方嘉盛</td><td><span class="dim">—</span></td><td></td></tr><tr><td>照明设备</td><td>1</td><td>2</td><td>1.2亿</td><td>海洋王</td><td><span class="dim">—</span></td><td></td></tr><tr><td>地面兵装</td><td>1</td><td>2</td><td>0.3亿</td><td>甘化科工</td><td><span class="dim">—</span></td><td></td></tr></tbody></table><p class="dim">Agent 给出的题材优先级：汽车零部 → 塑料 → 通用设备 → 家居用品 → 电力</p><h2>五、连板梯队</h2><table><thead><tr><th>名称</th><th>代码</th><th>连板</th><th>涨跌</th><th>封板资金</th><th>行业</th><th>炸板次数</th></tr></thead><tbody><tr><td>吉大正元</td><td>003029</td><td>3</td><td><span class="pos">+10.00%</span></td><td>2.0亿</td><td>软件开发</td><td>0</td></tr><tr><td>东方嘉盛</td><td>002889</td><td>3</td><td><span class="pos">+9.99%</span></td><td>0.3亿</td><td>物流</td><td>1</td></tr></tbody></table><h2>六、资金面</h2><h3>北向资金</h3><table><thead><tr><th>板块</th><th>成交净买额</th><th>涨/跌家数</th><th>指数涨跌</th></tr></thead><tbody><tr><td>沪股通</td><td>0.0亿</td><td>856 / 733</td><td><span class="pos">+0.39%</span></td></tr><tr><td>深股通</td><td>0.0亿</td><td>959 / 868</td><td><span class="pos">+0.13%</span></td></tr></tbody></table><h3>龙虎榜（净买额前列）</h3><table><thead><tr><th>名称</th><th>代码</th><th>涨跌</th><th>净买额</th><th>解读</th></tr></thead><tbody><tr><td>慈文传媒</td><td>002343</td><td><span class="pos">+9.97%</span></td><td>21,576万</td><td>2家机构买入，成功率54.40%</td></tr><tr><td>大普微</td><td>301666</td><td><span class="pos">+20.00%</span></td><td>19,905万</td><td>3家机构买入，成功率39.92%</td></tr><tr><td>宇树科技</td><td>688836</td><td><span class="pos">+16.15%</span></td><td>18,217万</td><td>普通席位买入，成功率45.05%</td></tr><tr><td>万丰奥威</td><td>002085</td><td><span class="pos">+9.99%</span></td><td>12,700万</td><td>1家机构买入，成功率37.15%</td></tr><tr><td>天津普林</td><td>002134</td><td><span class="pos">+8.95%</span></td><td>10,448万</td><td>4家机构买入，成功率41.57%</td></tr><tr><td>保隆科技</td><td>603197</td><td><span class="pos">+10.00%</span></td><td>10,220万</td><td>普通席位买入，成功率36.83%</td></tr><tr><td>振华股份</td><td>603067</td><td><span class="neg">-9.13%</span></td><td>10,115万</td><td>1家机构卖出，成功率34.09%</td></tr><tr><td>九阳股份</td><td>002242</td><td><span class="pos">+5.06%</span></td><td>9,940万</td><td>普通席位买入，成功率38.35%</td></tr></tbody></table><h2>七、财经与消息</h2><table><thead><tr><th>时间</th><th>来源</th><th>内容</th></tr></thead><tbody><tr><td>2026-10-20 00:35</td><td>财联社</td><td>苹果宣布10月28日举行发布会 将推出触控屏MacBookPro</td></tr><tr><td>2026-10-20 00:34</td><td>财联社</td><td>财联社10月20日电，高盛将2026年底铜价预测从每吨13,735美元上调至14,700美元，2027年铜均价预测从每吨13,800美元上调至15,400美元。</td></tr><tr><td>2026-10-20 00:34</td><td>东方财富</td><td>高盛将2026年底铜价预测从每吨13,735美元上调至14,700美元</td></tr><tr><td>2026-10-20 00:30</td><td>财联社</td><td>俄罗斯确诊5例猴痘病例</td></tr><tr><td>2026-10-20 00:04</td><td>财联社</td><td>财联社10月20日电，摩根大通预计未来10至15年60/40股债组合年回报率为7%。</td></tr><tr><td>2026-10-20 00:04</td><td>东方财富</td><td>摩根大通预计未来10至15年60/40股债组合年回报率为7%</td></tr><tr><td>2026-10-20 00:02</td><td>财联社</td><td>财联社10月20日电，Cognizant与谷歌云扩大合作联盟，加速企业智能体转型。</td></tr><tr><td>2026-10-20 00:02</td><td>东方财富</td><td>Cognizant与谷歌云扩大合作联盟 加速企业智能体转型</td></tr><tr><td>2026-10-19 23:56</td><td>财联社</td><td>财联社10月19日电，伊朗称“别无选择”，只能主张对霍尔木兹海峡的控制权。可为“友好国家”提供霍尔木兹海峡通行便利。</td></tr><tr><td>2026-10-19 23:56</td><td>东方财富</td><td>伊朗称“别无选择” 只能主张对霍尔木兹海峡的控制权</td></tr><tr><td>2026-10-19 23:51</td><td>财联社</td><td>财联社10月19日电，宜家法国公司将裁减多达303个岗位，同时增加100个新职位。</td></tr><tr><td>2026-10-19 23:44</td><td>财联社</td><td>财联社10月19日电，施耐德电气已启动规模约60亿欧元的增资计划，用于为其收购美国工业软件公司PTC的交易提供部分资金。</td></tr><tr><td>2026-10-19 23:35</td><td>财联社</td><td>欧洲主要股指收盘集体下跌</td></tr><tr><td>2026-10-19 23:32</td><td>财联社</td><td>财联社10月19日电，美国财政部拍卖三个月期国债，得标利率4.095%，投标倍数2.77；拍卖六个月期国债，得标利率4.220%，投标倍数2.84。</td></tr><tr><td>2026-10-19 23:32</td><td>东方财富</td><td>重仅1克 我国科学家研制世界最轻无线介观显微镜</td></tr><tr><td>2026-10-19 23:32</td><td>东方财富</td><td>美国财政部拍卖三个月期国债</td></tr><tr><td>2026-10-19 23:30</td><td>财联社</td><td>纳斯达克100指数涨幅扩大至2% SK海力士、英特尔等涨超6%</td></tr><tr><td>2026-10-19 23:28</td><td>财联社</td><td>Lombard Odier认为美元进一步走强</td></tr><tr><td>2026-10-19 23:22</td><td>财联社</td><td>财联社10月19日电，Netflix电影部门负责人Dan Lin据称于本周末被解雇。</td></tr><tr><td>2026-10-19 23:22</td><td>东方财富</td><td>Netflix电影部门负责人Dan Lin据称于本周末被解雇</td></tr><tr><td>2026-10-19 23:13</td><td>财联社</td><td>高速光模块组件订单排到2027年底 一片玻璃价值提升超60倍</td></tr><tr><td>2026-10-19 23:10</td><td>财联社</td><td>财联社10月19日电，沙特阿拉伯将未来投资倡议大会（FII）活动推迟至2027年。</td></tr><tr><td>2026-10-19 23:10</td><td>东方财富</td><td>沙特阿拉伯将未来投资倡议大会（FII）活动推迟至2027年</td></tr><tr><td>2026-10-19 23:10</td><td>东方财富</td><td>汽车零部件保税再制造新业态在海南正式落地</td></tr><tr><td>2026-10-19 23:08</td><td>财联社</td><td>财联社10月19日电，法德10年期国债收益率利差扩大10个基点，至148个基点。</td></tr><tr><td>2026-10-19 23:08</td><td>东方财富</td><td>法德10年期国债收益率利差扩大10个基点 至148个基点</td></tr><tr><td>2026-10-19 23:06</td><td>财联社</td><td>纳斯达克综合指数涨幅扩大至1.5%</td></tr><tr><td>2026-10-19 23:04</td><td>财联社</td><td>亚马逊股价涨幅扩大至5%</td></tr><tr><td>2026-10-19 23:02</td><td>财联社</td><td>财联社10月19日电，联合利华据称同意将Welly创可贴业务出售给一家私募股权公司。</td></tr><tr><td>2026-10-19 23:02</td><td>东方财富</td><td>联合利华据称同意将Welly创可贴业务出售给一家私募股权公司</td></tr></tbody></table><h2>八、账户与持仓计划</h2><div class="cards"><div class="card"><div class="k">总资产</div><div class="v">100.00</div></div><div class="card"><div class="k">可用资金</div><div class="v">100.00</div></div><div class="card"><div class="k">持仓市值</div><div class="v">0.00</div></div><div class="card"><div class="k">仓位占比</div><div class="v">0.0%</div></div><div class="card"><div class="k">累计收益</div><div class="v"><span class="dim">+0.00%</span></div></div><div class="card"><div class="k">已实现</div><div class="v">0.00</div></div><div class="card"><div class="k">持仓数</div><div class="v">0</div></div></div><p class="dim">口径：总资产以 100 为基准（份额），全部数字为百分比；费用 往返 0.10%，与 backtest_core 口径一致</p><p class="dim">（本日无买卖计划）</p><h2>九、四张表变动（含原因）</h2><p class="dim">本日四张表无任何增删改。</p><h2>十、四张表当前状态</h2><p class="dim">四张表当前均为空。生成第一份预案后，agent 的增删改会出现在统计里。</p><h2>十一、风险与执行</h2><h3>风险提示</h3><ul><li>北向成交净买额为 0：沪深港通实时额度已停止披露，该字段不可用于判断资金方向。</li><li>本次为规则兜底（未接入 LLM），只做仓位与题材排序，未生成个股计划</li></ul><h3>开盘执行清单</h3><ul><li>开盘 30 分钟先看量能与涨跌家数，不追高</li><li>总仓位控制在 10-30%</li><li>无 LLM 时按规则兜底，个股决策请人工复核</li></ul><h2>十二、数据来源与缺口</h2><div class="note"><b>口径与数据说明</b><br>北向成交净买额为 0：沪深港通实时额度已停止披露，该字段不可用于判断资金方向。</div><p class="dim">数据来源：快讯：stock_info_global_cls / stock_info_global_em；指数：stock_zh_index_spot_sina / stock_zh_index_daily；本地库：market.db（最新 2026-10-19）；池子：stock_zt_pool_em / zbgc / dtgc；题材：涨停池「所属行业」聚合（板块接口 push2 不可用）；龙虎榜：stock_lhb_detail_em</p>
+<p class="dim">预案锚点 <code>9e2734ed5fa60de51677e6c7a80caccf…</code> ｜ 上一份 <code>（首个预案）</code><br>锚点 = 预案内容的 sha256。事后任何改动都会让锚点对不上。</p>
+<div class="foot">
+本预案由 portal.premarket 生成：数字全部由程序计算，判断文字由 LLM 提供并逐条经内核校验。<br>
+这是**虚拟盘**的盘前预案，不含真实资金、不构成任何投资建议。市场有风险，决策需自负。
+</div>
+</div></body></html>

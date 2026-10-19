@@ -139,6 +139,28 @@ class Handler(BaseHTTPRequestHandler):
                 tail = 40
             self._send_json(200, virtual_api.update_status(tail=tail))
 
+        elif path == "/premarket/status":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.status())
+
+        elif path == "/premarket/tables":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.tables())
+
+        elif path == "/premarket/job":
+            from urllib.parse import urlparse, parse_qs
+            from srv import premarket_api
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                tail = int((qs.get("tail", ["40"])[0]))
+            except ValueError:
+                tail = 40
+            self._send_json(200, premarket_api.job_status(tail=tail))
+
+        elif path == "/premarket/latest":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.latest_report())
+
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
@@ -185,6 +207,19 @@ class Handler(BaseHTTPRequestHandler):
                 allow_intraday=bool(payload.get("allow_intraday")),
                 workers=int(payload.get("workers") or 4),
                 lookback=int(payload.get("lookback") or 5)))
+        elif path == "/premarket/generate":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.start_generate(
+                plan_date=payload.get("plan_date"),
+                trade_date=payload.get("trade_date"),
+                use_cache=bool(payload.get("use_cache", True))))
+        elif path == "/premarket/review":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.start_review(
+                date8=payload.get("date")))
+        elif path == "/premarket/open":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.open_report())
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
