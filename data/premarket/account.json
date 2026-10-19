@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-10-20T01:27:36+08:00",
+  "as_of": "2026-10-20T01:40:06+08:00",
   "date": "2026-10-20",
   "initial": 100.0,
   "total_pct": 100.0,
@@ -14,10 +14,5 @@
   "invested_cost_pct": 0.0,
   "n_positions": 0,
   "positions": [],
-  "stale_codes": [],
-  "fee_model": {
-    "buy": 0.0005,
-    "sell": 0.0005,
-    "note": "往返 0.10%，与 backtest_core 口径一致"
-  }
+  "stale_codes": []
 }

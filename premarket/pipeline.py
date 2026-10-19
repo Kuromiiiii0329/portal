@@ -281,7 +281,29 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
         trade_date=trade_iso, prices=prices, latest_close=latest_close,
         candidates=market.get("candidates"), log=log)
 
-    # 5) 组装预案
+    # 6.5) ★ 当场按收盘价完成调仓（用户要求：持仓不是"买入计划"）
+    #      先卖后买由 execute_changes 保证；缺价就跳过并记原因，绝不猜价。
+    need = {c for c in
+            ([b.get("code") for b in verdict["planned"].get("buy") or []]
+             + [s.get("code") for s in verdict["planned"].get("sell") or []]) if c}
+    exec_prices = {c: prices[c] for c in need if c in prices}
+    missing = [c for c in need if c not in exec_prices]
+    if missing:
+        for c, v in _price_ctx(missing, trade_iso).items():
+            if v.get("last") is not None:
+                exec_prices[c] = v["last"]
+    if need:
+        log(f"  执行调仓（{len(exec_prices)}/{len(need)} 只可取价）…")
+    exec_result = account_mod.execute_changes(
+        tables, verdict["planned"], exec_prices,
+        plan_date=plan8, iso_date=trade_iso, log=log)
+
+    # 调仓后的账户：报告「持仓」用这个，而「当日盈亏」用调仓前的
+    acct_after = account_mod.compute(tables, prices,
+                                     prev_total=(snap_prev or {}).get("total_pct"),
+                                     trades_path=paths.TRADES)
+
+    # 7) 组装预案
     snapshot_after = tables.snapshot()
     plan: dict[str, Any] = {
         "plan_date": plan8,
@@ -307,6 +329,11 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
         "settlement": {"had_plan": settle_info["had_plan"],
                        "executed": len(settle_info["applied"]),
                        "skipped": len(settle_info["skipped"])},
+        "executed_now": exec_result["executed"],
+        "exec_skipped": exec_result["skipped"],
+        "account_after": {k: acct_after[k] for k in
+                          ("total_pct", "cash_pct", "market_value_pct",
+                           "position_ratio_pct", "cum_pnl_ratio_pct", "n_positions")},
         "review": proposal.get("review"),
     }
     plan["anchor"] = {"sha256": anchor_of(plan), "prev": _prev_anchor(plan8),
@@ -316,7 +343,7 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     if not write:
         return {"ok": True, "plan": plan, "written": False}
 
-    # 7) 落盘：plan JSON + HTML（含复盘素材与当日盈亏）
+    # 8) 落盘：plan JSON + HTML
     ppath = paths.plan_path(plan8)
     ppath.parent.mkdir(parents=True, exist_ok=True)
     ppath.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -328,17 +355,25 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
         "generated_at": plan["generated_at"],
         "market": market, "proposal": proposal,
         "applied": verdict["applied"], "rejected": verdict["rejected"],
-        "planned": verdict["planned"], "snapshot": snapshot_after, "account": acct,
-        "review_context": review_ctx,
+        "planned": verdict["planned"], "snapshot": snapshot_after,
+        "account": acct_after,
+        "review_context": {**review_ctx,
+                           "executed": exec_result["executed"],
+                           "skipped": exec_result["skipped"]},
         "proposal_source": source, "anchor": plan["anchor"],
     }, rpath)
 
-    account_mod.save_snapshot(acct)
+    account_mod.save_snapshot(acct_after)
     log(f"✅ 预案已生成：{rpath.name}（{r['bytes']} 字节）")
+    if exec_result["executed"]:
+        log(f"   本次调仓已执行 {len(exec_result['executed'])} 笔，"
+            f"跳过 {len(exec_result['skipped'])} 笔")
     return {"ok": True, "written": True, "plan": plan,
             "plan_path": str(ppath), "report_path": str(rpath),
             "report_bytes": r["bytes"], "proposal_source": source,
-            "applied": verdict["applied"], "rejected": verdict["rejected"]}
+            "applied": verdict["applied"], "rejected": verdict["rejected"],
+            "executed": exec_result["executed"],
+            "exec_skipped": exec_result["skipped"]}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -498,7 +533,8 @@ def daily(*, date8: str | None = None, plan_date: str | None = None,
 
     `date8` 是「数据日」（今天），预案自动落到下一个工作日。
     """
-    return generate(trade_date=date8, plan_date=plan_date, settle=True, **kwargs)
+    # 调仓已改为「当场按收盘价成交」，所以不需要再结算昨日计划。
+    return generate(trade_date=date8, plan_date=plan_date, settle=False, **kwargs)
 
 
 # ─────────────────────────────────────────────────────────────

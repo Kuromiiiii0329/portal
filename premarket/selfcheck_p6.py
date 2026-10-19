@@ -283,10 +283,10 @@ def check_account_open() -> Check:
     # qty = 20% * 100 / 100 = 0.2；value = 0.2*110 = 22
     c.expect(close_enough(snap["positions"][0]["qty"], 0.2), "股数 0.2（分数股）")
     c.expect(close_enough(snap["market_value_pct"], 22.0), "持仓市值 22")
-    c.expect(close_enough(snap["cash_pct"], 100 - 20 * 1.0005),
-             f"现金扣买入费：{snap['cash_pct']}")
-    c.expect(close_enough(snap["total_pct"], 22.0 + 100 - 20 * 1.0005),
-             f"总资产 {snap['total_pct']}")
+    c.expect(close_enough(snap["cash_pct"], 80.0),
+             f"现金扣 20（不计费用）：{snap['cash_pct']}")
+    c.expect(close_enough(snap["total_pct"], 102.0),
+             f"总资产 {snap['total_pct']}（22 市值 + 80 现金）")
     c.expect(close_enough(snap["positions"][0]["unrealized_pct"], 10.0), "浮盈 10%")
     c.expect(close_enough(snap["position_ratio_pct"],
                           round(22.0 / snap["total_pct"] * 100, 2)), "仓位占比自洽")
@@ -317,9 +317,9 @@ def check_account_close() -> Check:
     acc.append_trade(rec, tp)
     trades = acc.load_trades(tp)
     c.expect(len(trades) == 1, "流水 1 条")
-    # 0.2*110*0.9995 - 0.2*100*1.0005 = 21.989 - 20.01 = 1.979
-    c.expect(close_enough(trades[0]["realized_pct"], 1.979, tol=1e-3),
-             f"已实现 {trades[0]['realized_pct']} 份")
+    # 不计费用：0.2*110 - 0.2*100 = 2.0
+    c.expect(close_enough(trades[0]["realized_pct"], 2.0, tol=1e-3),
+             f"已实现 {trades[0]['realized_pct']} 份（不计费用）")
     c.expect(len(tables.positions.alive()) == 0, "持仓行已移除")
     snap = acc.compute(tables, {})
     c.expect(abs(snap["total_pct"] - 100.0) > 1.0, "总资产已变化")
@@ -379,12 +379,13 @@ def check_render() -> Check:
     # 一、决策摘要 在顶部深色区块里，不是 <h2>；其余十节是 <h2>
     c.expect(len(heads) == 10, f"10 个 <h2> 章节（实际 {len(heads)}）")
     for needle in ("二、大盘环境与资金", "四、题材优先级与龙头", "五、财经消息与影响",
-                   "六、当日持仓与盈亏", "七、次日计划与调仓", "八、四张表变动",
+                   "六、当日持仓与盈亏", "七、调仓（已按收盘价执行）", "八、四张表变动",
                    "十、当日复盘与经验", "十一、风险与执行"):
         c.expect(any(needle in x for x in heads), f"含章节 {needle}")
     # 用户明确要求去掉的两块
     c.expect("数据来源与缺口" not in h, "已去掉「数据来源与缺口」")
     c.expect("价格来源" not in h, "已去掉「价格来源」列")
+    c.expect("fee_model" not in h and "0.10%" not in h, "报告里不再出现费率")
     # 资金面并入大盘：不应再有独立的「资金面」章节
     c.expect(not any(x.strip() == "六、资金面" for x in heads), "资金面已并入大盘")
     c.expect("锚点" in h, "显示锚点")
@@ -625,6 +626,86 @@ def check_candidates_guard() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V12 · 禁止追高打板 + 调仓当场执行
+# ─────────────────────────────────────────────────────────────
+def check_no_chase_and_execute() -> Check:
+    c = Check("V12", "禁止追高打板（内核拦）+ 调仓按收盘价当场成交")
+
+    def proposal_buy(code: str, alloc: float = 10) -> dict:
+        p = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+        p["pool_actions"] = {"add": [], "update": [], "remove": []}
+        p["info_actions"] = {"add": [], "remove": []}
+        p["lesson_actions"] = {"add": [], "remove": []}
+        p["position_plan"] = {"buy": [
+            {"code": code, "name": "T", "alloc_pct": alloc,
+             "trigger": "收盘价买入", "stop_loss": 0, "take_profit": 0,
+             "logic": "test"}], "sell": [], "adjust": []}
+        return p
+
+    # 打板：收盘 == 涨停价 → 必须拒绝
+    tables, _ = _fresh_tables()
+    v = apply_mod.apply_proposal(
+        proposal=proposal_buy("600000"), tables=tables, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda c: 11.0,
+        candidates=[{"code": "600000", "name": "T", "close": 11.0,
+                     "prev_close": 10.0, "limit_up": 11.0, "chg_pct": 10.0}],
+        log=lambda *_: None)
+    c.expect(len(v["planned"]["buy"]) == 0, "打板买入被拒")
+    c.expect(any("打板" in r["reason"] for r in v["rejected"]),
+             f"原因提到打板：{v['rejected'][0]['reason'][:50] if v['rejected'] else '—'}")
+
+    # 追高：涨幅 >= 7% 但未封板 → 必须拒绝
+    tables2, _ = _fresh_tables()
+    v2 = apply_mod.apply_proposal(
+        proposal=proposal_buy("600000"), tables=tables2, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda c: 10.8,
+        candidates=[{"code": "600000", "name": "T", "close": 10.8,
+                     "prev_close": 10.0, "limit_up": 11.0, "chg_pct": 8.0}],
+        log=lambda *_: None)
+    c.expect(len(v2["planned"]["buy"]) == 0, "追高买入被拒")
+    c.expect(any("追高" in r["reason"] for r in v2["rejected"]),
+             f"原因提到追高：{v2['rejected'][0]['reason'][:50] if v2['rejected'] else '—'}")
+
+    # 温和上涨（<7%）且未封板 → 允许
+    tables3, _ = _fresh_tables()
+    v3 = apply_mod.apply_proposal(
+        proposal=proposal_buy("600000"), tables=tables3, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda c: 10.3,
+        candidates=[{"code": "600000", "name": "T", "close": 10.3,
+                     "prev_close": 10.0, "limit_up": 11.0, "chg_pct": 3.0}],
+        log=lambda *_: None)
+    c.expect(len(v3["planned"]["buy"]) == 1, "涨幅 3% 的标的不被拦")
+
+    # 调仓当场执行：按收盘价开仓，且不计费用
+    tables4, _ = _fresh_tables()
+    planned = {"buy": [{"code": "600000", "name": "T", "alloc_pct": 20,
+                        "stop_loss": 9.5, "take_profit": 12.0, "logic": "x",
+                        "trigger": "收盘买入"}],
+               "sell": [], "adjust": []}
+    ex = acc.execute_changes(tables4, planned, {"600000": 10.0},
+                             plan_date="20261020", iso_date="2026-10-16",
+                             log=lambda *_: None)
+    c.expect(len(ex["executed"]) == 1, "买入已当场执行")
+    c.expect("600000" in tables4.positions.alive(), "持仓表里已有该票")
+    snap = acc.compute(tables4, {"600000": 10.0})
+    c.expect(close_enough(snap["cash_pct"], 80.0), f"现金扣 20（不计费）= {snap['cash_pct']}")
+    c.expect(close_enough(snap["total_pct"], 100.0), "总资产不变（无费用）")
+    c.expect("fee_model" not in snap or not snap.get("fee_model"),
+             "账户快照里没有费率字段")
+
+    # 卖出也是当场执行，且已实现 = 纯价差
+    ex2 = acc.execute_changes(tables4, {"buy": [], "sell": [
+        {"code": "600000", "reason": "止盈", "all": True}], "adjust": []},
+        {"600000": 11.0}, plan_date="20261021", iso_date="2026-10-17",
+        log=lambda *_: None)
+    c.expect(len(ex2["executed"]) == 1, "卖出已当场执行")
+    tr = acc.load_trades(paths.TRADES)[-1]
+    c.expect(close_enough(tr["realized_pct"], 2.0, tol=1e-3),
+             f"已实现 2.0 份额（20% × 10% 涨幅）= {tr['realized_pct']}")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -637,6 +718,7 @@ CHECKS = (
     ("V9", check_fallback),
     ("V10", check_event_sourcing),
     ("V11", check_candidates_guard),
+    ("V12", check_no_chase_and_execute),
 )
 
 

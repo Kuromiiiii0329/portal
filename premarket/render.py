@@ -2,7 +2,7 @@
 """
 portal/premarket/render.py — 盘前预案 + 盘后复盘（一份 HTML，代码生成）
 
-版面（按用户要求的顺序：信息 → 当日盈亏 → 次日计划 → 复盘）
+版面（按用户要求的顺序：信息 → 当日盈亏 → 调仓 → 复盘）
 -----------------------------------------------------------
 一、决策摘要          明日趋势 / 仓位区间 / 置信度（顶部深色区块）
 二、大盘环境与资金     指数 K 线细节 + 量能 + 北向 + 龙虎榜（资金面并入此处）
@@ -10,7 +10,7 @@ portal/premarket/render.py — 盘前预案 + 盘后复盘（一份 HTML，代�
 四、题材优先级与龙头   题材五项（资金/催化/持续性/龙头/地位）+ 多日涨停趋势
 五、财经消息与影响     **LLM 筛选后的分析**，不是新闻列表
 六、当日持仓与盈亏     逐只浮盈 + 当日/累计
-七、次日计划与调仓     买入（含触发与止损止盈）/ 卖出 / 调整
+七、调仓（已执行）     买卖已按当日收盘价成交 + 调仓后持仓
 八、四张表变动         每条都带原因
 九、四张表当前状态
 十、当日复盘与经验     做对/做错/题材兑现 + 新增经验
@@ -372,64 +372,54 @@ def _positions(review_ctx: dict, account: dict) -> str:
              _n(p.get("stop_loss")), _n(p.get("take_profit")),
              _e(p.get("entry_logic") or "")]
             for p in (review_ctx.get("positions") or [])]
-    out.append("<h3>持仓明细</h3>" + _table(
+    out.append("<h3>调仓前持仓</h3>" + _table(
         ["代码", "名称", "成本", "现价", "浮盈", "当日", "止损", "止盈", "买入逻辑"],
-        rows, empty="（今日空仓 —— 空仓也是一种决策，见第十节复盘）"))
-
-    ex = review_ctx.get("executed") or []
-    if ex:
-        rows = []
-        for t in ex:
-            act = {"buy": "买入", "sell": "卖出"}.get(t.get("action"), "调整")
-            val = (t.get("realized_pct") if t.get("realized_pct") is not None
-                   else t.get("alloc_pct"))
-            rows.append([_e(act), _e(t.get("code")), _e(t.get("name")),
-                         _n(t.get("price") or t.get("exit_price")),
-                         _pct(val),
-                         _e((t.get("reason") or "")[:60])])
-        out.append("<h3>今日按预案执行的成交</h3>" + _table(
-            ["操作", "代码", "名称", "成交价", "已实现/仓位", "依据"], rows))
-    else:
-        out.append('<p class="dim">今日无成交（预案未触发或空仓）。</p>')
+        rows, empty="（调仓前空仓 —— 空仓也是一种决策，见第十节复盘）"))
     return "".join(out)
 
 
 # ─────────────────────────────────────────────────────────────
-# 七、次日计划与调仓
+# 七、调仓（已按收盘价执行）
 # ─────────────────────────────────────────────────────────────
-def _plan(planned: dict, account: dict) -> str:
+def _plan(planned: dict, account: dict, review_ctx: dict | None = None) -> str:
+    """买卖**已按当日收盘价成交**，这里展示执行结果与调仓后的持仓。"""
+    review_ctx = review_ctx or {}
+    ex = review_ctx.get("executed") or []
+    sk = review_ctx.get("skipped") or []
     out = []
-    buys = planned.get("buy") or []
-    if buys:
-        rows = [[_e(b.get("code")), _e(b.get("name")), _n(b.get("alloc_pct"), 1, "%"),
-                 _n(b.get("stop_loss")), _n(b.get("take_profit")),
-                 _n(b.get("ref_close")),
-                 _e(b.get("trigger") or ""), _e(b.get("logic") or "")] for b in buys]
-        out.append("<h3>计划买入</h3>" + _table(
-            ["代码", "名称", "仓位", "止损", "止盈", "参考收盘", "触发条件", "逻辑"], rows))
+
+    if ex:
+        out.append('<div class="note">本次调仓<b>已按当日收盘价成交</b>（不计费用）。</div>')
+        rows = []
+        for t in ex:
+            act = {"buy": "买入", "sell": "卖出"}.get(t.get("action"), "调整")
+            if t.get("action") == "sell":
+                price, val = _n(t.get("exit_price")), _pct(t.get("realized_pct"))
+            elif t.get("action") == "buy":
+                price, val = _n(t.get("price")), _n(t.get("alloc_pct"), 1, "%")
+            else:
+                price = '<span class="dim">—</span>'
+                val = f'止损 {_n(t.get("stop_loss"))} / 止盈 {_n(t.get("take_profit"))}'
+            rows.append([_e(act), _e(t.get("code")), _e(t.get("name")),
+                         price, val, _e((t.get("reason") or "")[:60])])
+        out.append("<h3>已执行</h3>" + _table(
+            ["操作", "代码", "名称", "成交价", "已实现 / 仓位", "依据"], rows))
+    else:
+        out.append('<p class="dim">本次无调仓（维持原持仓或空仓）。</p>')
+
+    if sk:
+        rows = [[_e(s.get("action")), _e(s.get("code")), _e(s.get("reason"))]
+                for s in sk]
+        out.append("<h3>未执行</h3>" + _table(["动作", "代码", "原因"], rows))
 
     rows = [[_e(p.get("code")), _e(p.get("name")), _n(p.get("weight_pct"), 1, "%"),
              _n(p.get("entry_price")), _n(p.get("last_price")),
              _pct(p.get("unrealized_pct")), _n(p.get("stop_loss")),
              _n(p.get("take_profit"))] for p in (account.get("positions") or [])]
-    if rows:
-        out.append("<h3>当前持仓（明日管理对象）</h3>" + _table(
-            ["代码", "名称", "占比", "成本", "现价", "浮盈", "止损", "止盈"], rows))
-
-    sells = planned.get("sell") or []
-    if sells:
-        rows = [[_e(s.get("code")), _e(s.get("name")),
-                 "全部" if s.get("all") else "部分", _e(s.get("reason") or "")]
-                for s in sells]
-        out.append("<h3>计划卖出</h3>" + _table(["代码", "名称", "比例", "原因"], rows))
-
-    adj = planned.get("adjust") or []
-    if adj:
-        rows = [[_e(a.get("code")), _n(a.get("stop_loss")),
-                 _n(a.get("take_profit")), _e(a.get("reason") or "")] for a in adj]
-        out.append("<h3>计划调整止损/止盈</h3>" +
-                   _table(["代码", "新止损", "新止盈", "原因"], rows))
-    return "".join(out) or '<p class="dim">（本日无买卖计划）</p>'
+    out.append("<h3>调仓后持仓（明日持有）</h3>" + _table(
+        ["代码", "名称", "占比", "成本", "现价", "浮盈", "止损", "止盈"], rows,
+        empty="（调仓后空仓）"))
+    return "".join(out)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -593,7 +583,7 @@ def render_plan(payload: dict) -> str:
         ("四、题材优先级与龙头", _themes(market, proposal)),
         ("五、财经消息与影响", _news(proposal)),
         ("六、当日持仓与盈亏", _positions(review_ctx, account)),
-        ("七、次日计划与调仓", _plan(planned, account)),
+        ("七、调仓（已按收盘价执行）", _plan(planned, account, review_ctx)),
         ("八、四张表变动（含原因）", _changes(applied, rejected)),
         ("九、四张表当前状态", _tables(snapshot)),
         ("十、当日复盘与经验", _review(proposal, review_ctx)),
