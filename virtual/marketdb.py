@@ -559,6 +559,187 @@ def latest_trade_date(conn: sqlite3.Connection) -> str | None:
 
 
 # ─────────────────────────────────────────────────────────────
+# 当日增量：批量实时行情（快，数秒级）
+# ─────────────────────────────────────────────────────────────
+_QT_URL = "https://qt.gtimg.cn/q="
+_QT_UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+    "Referer": "https://gu.qq.com/",
+}
+
+#: 收盘后才有完整 bar。早于此时间抓到的是**盘中快照**，不能当日K写库。
+MARKET_CLOSE_HHMM = "1500"
+
+
+def parse_qt_line(line: str) -> dict[str, Any] | None:
+    """解析腾讯 `v_sh600519="..."` 一条。字段口径已实测：
+
+        f[3]=最新价 f[4]=昨收 f[5]=今开 f[6]=成交量(手，×100=股)
+        f[30]=时间戳 YYYYMMDDHHMMSS  f[33]=最高 f[34]=最低
+        f[37]=成交额(万元，×10000=元)
+
+    单位与库内一致：实测 600519 / 000001 / 300750 三只，
+    volume 比值恰好 **100.00**、amount 比值 **1.0000**，可直接 UPSERT。
+    """
+    if "=" not in line:
+        return None
+    payload = line.split("=", 1)[1].strip().strip('";')
+    f = payload.split("~")
+    if len(f) < 50:
+        return None
+
+    def num(i: int) -> float | None:
+        try:
+            v = float(f[i])
+            return v if v == v and v != 0 else None
+        except (ValueError, IndexError):
+            return None
+
+    ts = f[30].strip()
+    if len(ts) < 12 or not ts.isdigit():
+        return None
+    vol = num(6)
+    amt = num(37)
+    return {
+        "code": f[2].strip(),
+        "name": f[1].strip(),
+        "date": ts[:8],
+        "hhmm": ts[8:12],
+        "open": num(5),
+        "high": num(33),
+        "low": num(34),
+        "close": num(3),
+        "prev_close": num(4),
+        "volume": vol * 100 if vol is not None else None,        # 手 → 股
+        "amount": amt * 10000 if amt is not None else None,      # 万元 → 元
+    }
+
+
+def fetch_quotes_batch(codes: list[str], *, timeout: int = 15) -> list[dict[str, Any]]:
+    """批量取实时行情。腾讯一次可带 50~60 个代码，全市场约 110 次请求。"""
+    import urllib.request
+
+    from . import minute_data
+
+    syms = [minute_data.tencent_symbol(c) for c in codes]
+    try:
+        raw = urllib.request.urlopen(
+            urllib.request.Request(_QT_URL + ",".join(syms), headers=_QT_UA),
+            timeout=timeout).read()
+    except Exception:
+        return []
+    out = []
+    for line in raw.decode("gbk", "ignore").split(";"):
+        rec = parse_qt_line(line.strip())
+        if rec:
+            out.append(rec)
+    return out
+
+
+def update_today(
+    conn: sqlite3.Connection,
+    *,
+    batch: int = 50,
+    sleep: float = 0.12,
+    allow_intraday: bool = False,
+    progress: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    """当日增量：批量实时行情 → 追加当天一根日K。**数秒到几十秒完成。**
+
+    为什么需要这个快速通道
+    ----------------------
+    `update()` 是**全量重抓**（新浪一次返回全历史，没有区间参数），全市场约 13 分钟 ——
+    对「点一下按钮看最新」太慢。而当日增量只需要**今天这一根 bar**：
+    腾讯批量行情一次 50 只，110 次请求就能覆盖全市场。
+
+    ★ 时间护栏（关键，别去掉）
+    -------------------------
+    盘中抓到的 bar 是**半天快照**（成交量/成交额都没走完）。写进日K会静默污染回测，
+    而且事后看不出来。所以默认要求行情时间 ≥ 15:00；不满足就**拒绝写入**并说清原因。
+    确实要盘中数据时传 `allow_intraday=True`，返回里会标 `intraday=True`。
+
+    复权因子的局限
+    -------------
+    本函数**不更新**复权因子（腾讯批量行情不含）。因子只在除权除息日变化，
+    由 `update()`（全量）定期刷新即可；当日增量不动因子是安全的。
+    """
+    from collections import Counter
+
+    codes = [c for c in universe(conn) if board_of(c) != "bse"]
+    stats: dict[str, Any] = {"codes": len(codes), "fetched": 0, "written": 0,
+                             "skipped_intraday": 0, "skipped_other_day": 0,
+                             "failed_batches": 0, "date": None, "intraday": False}
+    if not codes:
+        return stats
+
+    quotes: list[dict[str, Any]] = []
+    for i in range(0, len(codes), batch):
+        got = fetch_quotes_batch(codes[i:i + batch])
+        if not got:
+            stats["failed_batches"] += 1
+        quotes.extend(got)
+        stats["fetched"] = len(quotes)
+        if sleep:
+            time.sleep(sleep)
+        if progress and (i // batch) % 20 == 0:
+            progress(f"  行情 {min(i + batch, len(codes))}/{len(codes)}…")
+
+    if not quotes:
+        stats["error"] = "一条行情都没取到（网络或接口异常）"
+        return stats
+
+    # 以多数日期为准，避免个别停滞票把日期带歪
+    main_date = Counter(q["date"] for q in quotes).most_common(1)[0][0]
+    stats["date"] = main_date
+    iso = f"{main_date[:4]}-{main_date[4:6]}-{main_date[6:8]}"
+
+    after_close = [q for q in quotes if q["hhmm"] >= MARKET_CLOSE_HHMM]
+    stats["intraday"] = len(after_close) < max(1, int(len(quotes) * 0.5))
+    if stats["intraday"] and not allow_intraday:
+        stats["skipped_intraday"] = len(quotes)
+        sample = quotes[0]["hhmm"]
+        stats["error"] = (
+            f"行情时间是盘中（样本时间 {sample}），不是收盘后的完整 bar。"
+            f"写进日K会静默污染回测，已拒绝。收盘后（≥{MARKET_CLOSE_HHMM}）再跑一次；"
+            f"或用 --allow-intraday 明确接受半日数据。")
+        return stats
+
+    rows = []
+    for q in quotes:
+        if q["date"] != main_date:
+            stats["skipped_other_day"] += 1
+            continue
+        if not (q["open"] and q["high"] and q["low"] and q["close"]):
+            continue
+        if not allow_intraday and q["hhmm"] < MARKET_CLOSE_HHMM:
+            stats["skipped_intraday"] += 1
+            continue
+        rows.append((q["code"], iso, q["open"], q["high"], q["low"], q["close"],
+                     q["volume"], q["amount"]))
+
+    if rows:
+        with conn:
+            conn.executemany(
+                """INSERT INTO day(code,date,open,high,low,close,volume,amount,
+                                   outstanding_share,turnover)
+                   VALUES(?,?,?,?,?,?,?,?,NULL,NULL)
+                   ON CONFLICT(code,date) DO UPDATE SET
+                     open=excluded.open, high=excluded.high, low=excluded.low,
+                     close=excluded.close, volume=excluded.volume,
+                     amount=excluded.amount""", rows)
+        stats["written"] = len(rows)
+        conn.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('last_update_today_at', ?)",
+                     (_now(),))
+        conn.execute(
+            """UPDATE ingest_log SET last_date=? , updated_at=?
+               WHERE code IN (%s)""" % ",".join("?" * len(rows)),
+            [iso, _now()] + [r[0] for r in rows])
+        conn.commit()
+    return stats
+
+
+# ─────────────────────────────────────────────────────────────
 # 读取（给回测/特征层用）
 # ─────────────────────────────────────────────────────────────
 def load_kline(conn: sqlite3.Connection, code: str, *,
@@ -686,10 +867,15 @@ __all__ = [
     "fetch_one",
     "build",
     "update",
+    "update_today",
+    "fetch_quotes_batch",
+    "parse_qt_line",
     "latest_trade_date",
     "load_kline",
     "coverage",
     "spot_check",
+    "round_half_up",
+    "limit_prices",
     "main",
 ]
 
@@ -704,9 +890,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="portal.virtual.marketdb",
                                 description="A 股回测数据库：全量构建 / 每日增量")
     ap.add_argument("cmd", nargs="?", default="status",
-                    choices=["init", "build", "update", "status", "spot", "list"])
+                    choices=["init", "build", "update", "update-today", "status",
+                             "spot", "list"])
     ap.add_argument("--db", default=None, help="数据库路径（默认 portal/data/market.db）")
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--lookback", type=int, default=5,
+                    help="全量更新时每只票回看几天（复权修正会改写历史）")
+    ap.add_argument("--allow-intraday", action="store_true",
+                    help="允许盘中快照写入日K（默认拒绝：会污染回测）")
     ap.add_argument("--limit", type=int, default=None, help="只处理前 N 只（冒烟用）")
     ap.add_argument("--no-resume", action="store_true", help="不跳过已完成项")
     ap.add_argument("--sleep", type=float, default=0.0, help="每只额外随机等待秒数")
@@ -735,8 +926,13 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(stats, ensure_ascii=False))
         return 0
 
+    if args.cmd == "update-today":
+        stats = update_today(conn, allow_intraday=args.allow_intraday)
+        print(json.dumps(stats, ensure_ascii=False))
+        return 0 if not stats.get("error") else 1
+
     if args.cmd == "update":
-        stats = update(conn, workers=args.workers)
+        stats = update(conn, workers=args.workers, lookback_days=args.lookback)
         print(json.dumps(stats, ensure_ascii=False))
         return 0
 

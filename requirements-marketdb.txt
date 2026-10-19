@@ -1,0 +1,20 @@
+# A 股回测数据库（marketdb）所需的**最小**依赖。
+#
+# 为什么单列一个文件：marketdb 只需要「日K + 复权因子 + 交易日历 + 实时行情」，
+# 不需要 portal 分析链路里的 LLM / 邮件 / 浏览器那一堆。CI 里只装这些能少一半时间。
+#
+# 实测过的接口选择（详见 docs/data-and-ui.md）：
+#   新浪 stock_zh_a_daily   → 日K + hfq-factor（需 py_mini_racer 解 JS）
+#   新浪 tool_trade_date_hist_sina → 交易日历
+#   东财 push2his 系        → 本机不可用，不要依赖
+#   腾讯 qt.gtimg.cn        → 当日批量行情（标准库 urllib 即可，无需额外依赖）
+
+akshare>=1.16,<2
+pandas>=2.0
+numpy>=1.26
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+openpyxl>=3.1
+# 新浪日K 的 JS 解码依赖 V8 绑定；缺了会报 "Please install py_mini_racer"
+py_mini_racer>=0.6

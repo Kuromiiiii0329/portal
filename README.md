@@ -1,5 +1,8 @@
 # Portal — 股票分析配置中心
 
+> **当前版本 v1.1**（2026-10-19）。版本变更、实测结论、已知限制与维护约定见
+> [CHANGELOG.md](CHANGELOG.md) —— **每个大版本必须维护它**，规则写在文件末尾「维护约定」。
+
 ## 作用
 
 Portal 是一个**独立的股票分析系统**，分两种使用模式：
@@ -33,10 +36,43 @@ portal/
 │   ├── llm_gateway.py          LLM 调用闭包 / agent 环境映射 / 报告摘要
 │   ├── data_access.py          .env 加载 / K线获取 / 技术维度重算 / JSON 兜底
 │   ├── tasks.py                4 个 _run_*_task 后台任务
-│   └── http_handler.py         Handler（HTTP 路由 + 各 _handle_*，13 端点）
+│   ├── virtual_api.py          ★ 虚拟盘 9 个端点（status/rules/predictions/ledger/update/update.status/warmup/evolve/report）
+│   └── http_handler.py         Handler（HTTP 路由 + 各 _handle_*，22 端点）
 ├── send_report.py              邮件发送脚本（GitHub Action 调用）
 ├── data_cache.py               数据缓存管理器（K线增量缓存 + 商品搜索缓存）
+├── backtest_core.py            ★ 统一回测内核（收益口径唯一来源，caliber v3）
+├── backtest_audit.py           ★ C1–C12 十二条对照实验（退出码非 0 即不可信）
+├── build_standalone.py         单文件版构建 + 7 项产物校验 + --self-test
+├── CHANGELOG.md                ★ 版本汇总（v1.1 起强制维护，末尾有维护约定）
 ├── 启动本地服务.bat             Windows 双击启动 server.py
+├── virtual/                    ★ 虚拟盘内核（计划→结算→账本→闸门→演化）
+│   ├── paths.py                数据根约定（决策记录提交 / 派生数据忽略）
+│   ├── marketdb.py             回测数据库（全量构建 + 增量 + 复权因子）
+│   ├── datafeed.py             统一取数（数据库优先，csv 缓存兜底）
+│   ├── scan.py                 从日K重建涨停/炸板/跌停池（任意历史日期）
+│   ├── warmup.py               批量生成特征（提升 zone_pos_120 覆盖）
+│   ├── minute_data.py          分时（腾讯）+ 强制日期护栏
+│   ├── ths_reason.py           同花顺题材归因
+│   ├── pools.py                三个池 + 情绪快照（brake_only）
+│   ├── tagging.py              pre/post 两阶段特征（防时序泄漏）
+│   ├── dataset.py              特征 + 收益拼装（演化器输入）
+│   ├── expr.py                 规则表达式白名单求值（禁 eval）
+│   ├── rules.py                规则注册表（四态生命周期 + 角色权限）
+│   ├── anchor.py               参数锚点链（外置 sha256，防作弊）
+│   ├── plan.py                 计划 schema + params_hash + 冻结
+│   ├── fill_model.py           费用 / 股数 / R0–R4 / 排队撮合
+│   ├── settle.py               机械回放结算 + 三把尺子 + 账本
+│   ├── gate.py                 G1–G5 活化闸门
+│   ├── decay.py                衰减监控（机械降级）
+│   ├── evolve.py               演化器（只提议，单维度，BH-FDR）
+│   ├── weights.py              维度权重回测（含走查验证）
+│   ├── predictions.py          预测账本 + 校准（命中率 / Brier）
+│   ├── audit.py                报告签发前 A1–A7 自检
+│   ├── report.py               自包含 HTML（内联 ECharts）
+│   ├── verify_report.py        Playwright 真实渲染校验（canvas + pageerror）
+│   ├── toolbox.py              Agent 四把工具 + 禁则清单
+│   ├── selfcheck*.py           S/T/U/V 共 32 条自检
+│   └── assets/echarts.min.js   报告内联用图表库（1010 KB）
 ├── analyzers/                  深度分析引擎（全在 portal/ 内）
 │   ├── __init__.py             注册所有分析器（ANALYZER_REGISTRY）
 │   ├── base.py                 BaseAnalyzer 基类 + Section/DimensionResult 数据类
@@ -55,7 +91,8 @@ portal/
 │   │   └── chain.py            产业链分析（LLM + 搜索）+ 大宗商品映射
 │   ├── sector.py               板块数据层（efinance 个股→板块 + 板块K线 + 缓存降级）
 │   ├── market.py               轻量大盘分析器（上证+创业板，复用技术指标+MA250年线）
-│   └── merger.py               合并报告（技术40% + 基本面40% + 产业链20%）
+│   ├── yuzi.py                 ★ 游资情绪维度（涨停池定位/可买性/情绪刹车/龙虎榜）
+│   └── merger.py               合并报告（技术35% + 基本30% + 产业15% + 游资20%，权重标注为假设）
 ├── report_html.py              独立 HTML 报告生成器（个股+大盘两套模板,ECharts,去重,自动打开）
 ├── llm_notes.py                逐指标 LLM 点评（偏多/偏空/影响,双模式+交易日缓存）
 ├── lib/                        捆绑的依赖库（portal 独立运行所需）
@@ -192,13 +229,19 @@ python portal/server.py
 
 ## 深度分析引擎（`analyzers/`）
 
-### 三个维度
+### 四个维度
 
 | 维度 | 文件 | 默认子模块 | 数据来源 |
 |------|------|-----------|----------|
 | 技术面 | `technical/`（包） | MA/MACD/RSI/KDJ/布林带/量价 | 本地K线缓存 → 网络 |
 | 基本面 | `fundamental.py` | 财报/成长/估值/主力资金 | fundamental_adapter |
 | 产业链 | `industry.py` + `sector.py` | **所属板块/板块景气/相对强弱**（真实数据）+ 商品价格/产业链地位/竞争/政策（LLM） | efinance 板块数据 + LLM |
+| **游资情绪** | `yuzi.py` | 涨停池定位 / 可买性（封单÷流通）/ 情绪刹车读数 / 龙虎榜 | `virtual.pools` + 东财涨停池 |
+
+> ⚠️ **情绪读数不参与个股评分**。涨停家数/连板高度/炸板率是**同步指标**（华泰金工对
+> 21 个情绪指标的统一回测），只能用于仓位档位，不能用来选股。
+> `yuzi.py` 的 `_score_from_stock_level()` 只接受个股级事实，这条约束写进了代码结构，
+> 并由自检 V2 守住（换一套情绪数据，评分必须完全不变）。
 
 ### 板块子模块（真实数据，不依赖 LLM）
 
@@ -217,14 +260,71 @@ python portal/server.py
 ### 加权评分
 
 ```
-综合评分 = 技术面×40% + 基本面×40% + 产业链×20%
+综合评分 = 技术面×35% + 基本面×30% + 产业链×15% + 游资情绪×20%
 ```
+
+> ⚠️ **这四个权重是未经验证的假设，不是结论。**
+> `merger.WEIGHTS_STATUS` 会把这句话带进返回值和报告里。
+> 已做过能做的部分（`python -m portal.virtual.weights`）：技术 vs 游资的相对权重
+> 在 60 个交易日 / 3605 条样本上回测过，结论是**走查验证不复现**（过拟合），因此不改。
+> 基本面与产业链的权重无法回测 —— 数据库里没有历史财报快照与历史板块归属。
+> 详见 [CHANGELOG.md](CHANGELOG.md) v1.1「三、实测结论」。
 
 ### 新增分析器
 
 1. 在 `portal/analyzers/` 新建 `my_dim.py`（或 `my_dim/` 包），继承 `BaseAnalyzer`，实现 `analyze()` 方法
 2. 在 `portal/analyzers/__init__.py` 的 `ANALYZER_REGISTRY` 中注册
 3. 在 `portal/js/tabs/run.js` 的 `DIM_DEFS` 中添加维度定义
+
+---
+
+## 虚拟盘（v1.1 新增，`virtual/`）
+
+一套「计划 → 机械回放结算 → 账本 → 规则闸门 → 演化」的闭环。
+核心原则是**Agent 只提议，确定性内核裁决** —— 成交由算法判定，不许人工叙述。
+
+### 最小上手
+
+```bash
+# 1) 建回测数据库（首次约 13 分钟，可断点续传；约 1.9 GB）
+python -m portal.virtual.marketdb init
+python -m portal.virtual.marketdb build --workers 8
+
+# 2) 每日增量（收盘后）
+python -m portal.virtual.marketdb update
+
+# 3) 重建涨停池与官方池对照（地基自检）
+python -m portal.virtual.warmup --check
+
+# 4) 批量生成特征（把 zone_pos_120 覆盖率从「看你点过哪些票」提到全市场）
+python -m portal.virtual.warmup --days 30
+
+# 5) 规则库 / 权重回测 / 结算
+python -m portal.virtual.rules list
+python -m portal.virtual.weights --start 20260101 --days 60
+python -m portal.virtual.settle <plan_id> [--exit] [--dry]
+```
+
+网页端在「📈 虚拟盘」Tab（需本地服务在线）。
+
+### 自检（改动后必跑）
+
+```bash
+python portal/backtest_audit.py --real            # 回测内核 12/12
+python -m portal.virtual.selfcheck                # 虚拟盘 32/32
+python portal/build_standalone.py                 # 前端产物校验
+python -m portal.virtual.verify_report --selftest # 图表渲染探针
+```
+
+**判据是退出码 0**。哪一项不为 0，就说明对应的数字不可信。
+
+### 三条最重要的约束
+
+1. **规则只能在前一晚改**。盘后改参数会被锚点链抓到并**中止结算**。
+2. **情绪指标只能当刹车**（仓位），不能当方向盘（选股）。
+3. **未经闸门 G1–G5 的规则不许活化**。免责声明不能代替回测。
+
+完整口径、实测数字与已知限制见 [CHANGELOG.md](CHANGELOG.md) 与 `docs/`。
 
 ---
 

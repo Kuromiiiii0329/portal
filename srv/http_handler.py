@@ -129,6 +129,16 @@ class Handler(BaseHTTPRequestHandler):
             from srv import virtual_api
             self._send_json(200, virtual_api.ledger_text())
 
+        elif path == "/virtual/update/status":
+            from urllib.parse import urlparse, parse_qs
+            from srv import virtual_api
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                tail = int((qs.get("tail", ["40"])[0]))
+            except ValueError:
+                tail = 40
+            self._send_json(200, virtual_api.update_status(tail=tail))
+
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
@@ -168,6 +178,13 @@ class Handler(BaseHTTPRequestHandler):
             from srv import virtual_api
             self._send_json(200, virtual_api.make_report(
                 open_browser=bool(payload.get("open", True))))
+        elif path == "/virtual/update":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.start_update(
+                str(payload.get("kind") or "today"),
+                allow_intraday=bool(payload.get("allow_intraday")),
+                workers=int(payload.get("workers") or 4),
+                lookback=int(payload.get("lookback") or 5)))
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
