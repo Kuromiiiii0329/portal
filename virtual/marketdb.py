@@ -170,6 +170,34 @@ def limit_pct_at(code: str, date8: str | None = None, *, is_st: bool = False) ->
     return 0.10
 
 
+def round_half_up(value: float, digits: int = 2) -> float:
+    """四舍五入到指定小数位，**交易所口径**（ROUND_HALF_UP）。
+
+    ★ 绝对不能用 Python 的 `round()`：它是银行家舍入（round-half-even），
+    而 A 股涨跌停价是四舍五入。凡是落在 `.xx5` 边界的股票都会被算低一分钱，
+    然后「收盘价 == 涨停价」永远判不出来 —— 而且**不报错**。
+
+    实测（2026-10-16 官方涨停池对照）：
+        001319 昨收 19.45 → 19.45×1.1 = 21.395
+            Python round → 21.39（漏判涨停）
+            交易所       → 21.40 ✓
+        600721 昨收 10.95 → 12.045 → round 12.04 / 交易所 12.05 ✓
+    一次对照就漏报了 3 只，占比 5%。
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+
+    q = Decimal(1).scaleb(-digits)
+    return float(Decimal(str(float(value))).quantize(q, rounding=ROUND_HALF_UP))
+
+
+def limit_prices(prev_close: float, code: str, date8: str | None = None,
+                 *, is_st: bool = False) -> tuple[float, float]:
+    """(涨停价, 跌停价)。**已修正银行家舍入**，可直接与收盘价比较。"""
+    lim = limit_pct_at(code, date8, is_st=is_st)
+    return (round_half_up(float(prev_close) * (1 + lim)),
+            round_half_up(float(prev_close) * (1 - lim)))
+
+
 def is_st_name(name: str | None) -> bool:
     n = str(name or "").upper()
     return "ST" in n or "*ST" in n or "退" in n
@@ -323,9 +351,20 @@ def _sina_symbol(code: str) -> str:
 
 def fetch_one(code: str, *, sleep: float = 0.0) -> dict[str, Any]:
     """抓一只票的原始日K + 复权因子。**只返回数据，不碰数据库**
-    （多进程写 SQLite 会锁争用，写统一放主进程）。"""
+    （多进程写 SQLite 会锁争用，写统一放主进程）。
+
+    北交所（4/8/9 开头）：实测**两个免费源都拿不到历史日K** ——
+    新浪 `stock_zh_a_daily` 不支持 `bj` 前缀（返回 KeyError: 'date'），
+    腾讯 `fqkline` 对 bj 只返回 0~1 行。所以这里直接标 `unsupported`，
+    而不是让它反复失败。要用北交所数据必须换付费源或东财（本机 push2his 不通）。
+    """
     out: dict[str, Any] = {"code": code, "status": "ok", "err": None,
                            "bars": [], "factors": []}
+    if board_of(code) == "bse":
+        out["status"] = "unsupported"
+        out["err"] = ("北交所：新浪不支持 bj 前缀，腾讯只返回 0~1 行，"
+                      "免费源无历史日K。需改用付费源/东财。")
+        return out
     try:
         if sleep:
             time.sleep(sleep + random.random() * sleep)
@@ -421,14 +460,15 @@ def build(
     if resume:
         last_td = latest_trade_date(conn)
         done = {r[0] for r in conn.execute(
-            "SELECT code FROM ingest_log WHERE status IN ('ok','empty') AND last_date >= ?",
+            "SELECT code FROM ingest_log WHERE status IN ('ok','empty','unsupported') "
+            "AND (last_date >= ? OR status='unsupported')",
             (last_td or "",))}
         todo = [c for c in todo if c not in done]
     if limit:
         todo = todo[:limit]
 
     stats = {"requested": len(todo), "ok": 0, "empty": 0, "error": 0,
-             "bars": 0, "factors": 0}
+             "unsupported": 0, "bars": 0, "factors": 0}
     if not todo:
         progress("没有待处理的代码（已是最新）")
         return stats
