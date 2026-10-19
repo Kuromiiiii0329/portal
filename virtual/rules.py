@@ -315,6 +315,59 @@ def transition(
     return new
 
 
+def revise(
+    rule_id: str,
+    *,
+    actor: str,
+    evidence_patch: dict | None = None,
+    decay_monitor: dict | None = None,
+    status_reason: str | None = None,
+    extra: dict | None = None,
+) -> dict:
+    """**不改状态**地追加一个新版本（用于衰减计数、证据补录）。
+
+    与 `transition()` 的分工：
+        transition  改变状态（hypothesis → testing → active …），受角色矩阵约束
+        revise      状态不变，只更新元数据（`consecutive_fail` 计数、evidence）
+
+    为什么需要它：衰减监控要在**还没降级**的时候累加「连续 N 次低于阈值」，
+    那不是状态迁移。但又必须留痕（append-only），所以走这里。
+
+    权限：只有 `decay_monitor` / `gate` / `human` 能改元数据。
+    `agent:propose` 不许动已入库规则的证据。
+    """
+    cur = get(rule_id)
+    if cur is None:
+        raise RuleError(f"规则 {rule_id} 不存在")
+
+    role = _role(actor)
+    if role not in ("decay_monitor", "gate", "human"):
+        raise RuleError(
+            f"{rule_id} 的元数据修订只能由 decay_monitor/gate/human 执行，"
+            f"当前 actor={actor!r}（角色 {role!r}）"
+        )
+
+    new = dict(cur)
+    new["version"] = next_version(rule_id)
+    new["created_at"] = _now()
+    new["author"] = str(actor)
+    new["supersedes"] = f"{rule_id}@{cur.get('version')}"
+    new["expr"] = cur.get("expr")
+    new["evidence"] = dict(cur.get("evidence") or {})
+    if evidence_patch:
+        new["evidence"].update(evidence_patch)
+    if decay_monitor:
+        new["decay_monitor"] = dict(decay_monitor)
+    if status_reason is not None:
+        new["status_reason"] = status_reason
+    if extra:
+        new.update(extra)
+
+    _require_valid(new)
+    _append_jsonl(paths.RULES, new)
+    return new
+
+
 def record_rejection(
     *,
     rule_id: str,
@@ -605,6 +658,7 @@ __all__ = [
     "next_version",
     "append",
     "transition",
+    "revise",
     "record_rejection",
     "rejected_keys",
     "rejected_records",
