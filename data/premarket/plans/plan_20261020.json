@@ -2,7 +2,7 @@
   "plan_date": "20261020",
   "trade_date": "2026-10-19",
   "data_date": "20261019",
-  "generated_at": "2026-10-20T00:39:36+08:00",
+  "generated_at": "2026-10-20T00:46:58+08:00",
   "proposal_source": "rule_fallback",
   "proposal": {
     "market_view": {
@@ -513,7 +513,7 @@
   "anchor": {
     "sha256": "9e2734ed5fa60de51677e6c7a80caccf07f48f2ac5d1fbf601b5e4bf6264e6f4",
     "prev": null,
-    "at": "2026-10-20T00:39:36+08:00",
+    "at": "2026-10-20T00:46:58+08:00",
     "note": "锚点 = 预案内容的 sha256，事后可验证未被修改"
   }
 }
