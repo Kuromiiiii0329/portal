@@ -12,19 +12,43 @@ portal/virtual/report.py — 自包含 HTML 报告（复盘 / 闸门状态）
    一份数字无来源、参数与引擎不一致、把同步指标写成预测的报告，
    不该出现在磁盘上。
 
-「生成了文件」≠「图表能画」：本模块不做 canvas，所以不需要 Playwright 数 canvas；
-但如果将来加图表，必须补上这一步（原包 §4 的教训）。
+「生成了文件」≠「图表能画」：带图表的报告必须用
+`python -m portal.virtual.verify_report <html>` 做一次真实渲染校验
+（Playwright 数 canvas + 收集 pageerror）。这是原包 §4 的教训。
 """
 from __future__ import annotations
 
 import datetime
 import html
+import json
 import re
 from pathlib import Path
 from typing import Any
 
 from . import audit as audit_mod
 from . import paths
+
+#: 内联 echarts 的默认路径（仓库自带，保证离线可用）
+ECHARTS_PATH = Path(__file__).resolve().parent / "assets" / "echarts.min.js"
+_ECHARTS_CACHE: str | None = None
+
+
+class ChartAssetError(RuntimeError):
+    """缺少 echarts 资源 —— 必须报错，不能静默降级成空白图。"""
+
+
+def echarts_js() -> str:
+    """读取 echarts 源码（进程内缓存）。缺文件就抛错，不返回空串。"""
+    global _ECHARTS_CACHE
+    if _ECHARTS_CACHE is None:
+        if not ECHARTS_PATH.exists():
+            raise ChartAssetError(
+                f"找不到 {ECHARTS_PATH}。图表需要内联 echarts（离线可用）；"
+                f"把 echarts.min.js 放到 virtual/assets/ 下，"
+                f"或调用 render(..., with_charts=False) 生成纯表格版。")
+        _ECHARTS_CACHE = ECHARTS_PATH.read_text(encoding="utf-8", errors="ignore")
+    return _ECHARTS_CACHE
+
 
 _CSS = """
 :root{--ink:#1a1a1a;--sub:#666;--line:#e3e3e3;--red:#c62828;--green:#2e7d32;
@@ -54,6 +78,11 @@ border:1px solid var(--line);background:#f7f7f7}
 .pill.no{background:#ffebee;border-color:#ef9a9a;color:#b71c1c}
 .note{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
 padding:10px 13px;font-size:12.5px;color:#6d4c00;margin:12px 0}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:8px;
+padding:8px;margin:10px 0}
+.chart-t{font-size:12.5px;font-weight:600;color:#333;padding:4px 6px 0}
+.chart-note{font-size:11.5px;color:var(--sub);padding:0 6px 6px}
+.chart-box{width:100%;height:300px}
 .foot{margin-top:26px;color:var(--sub);font-size:11.5px;
 border-top:1px solid var(--line);padding-top:12px}
 code{background:#f2f2f2;padding:1px 5px;border-radius:4px;font-size:12px}
@@ -174,6 +203,163 @@ def _findings(findings: list[dict] | None) -> str:
     return "<ul>" + "".join(items) + "</ul>"
 
 
+def _notes_block(notes: list | None) -> str:
+    if not notes:
+        return ""
+    return '<div class="note">' + "<br>".join(_esc(n) for n in notes) + "</div>"
+
+
+# ─────────────────────────────────────────────────────────────
+# 图表
+# ─────────────────────────────────────────────────────────────
+def _js(obj: Any) -> str:
+    """把 Python 对象安全嵌入 <script>：转义 `<` 防止提前闭合标签。"""
+    return json.dumps(obj, ensure_ascii=False).replace("<", "\\u003c")
+
+
+def _chart_html(spec: dict, idx: int) -> str:
+    title = spec.get("title") or "图表"
+    note = spec.get("note")
+    return (
+        f'<div class="chart"><div class="chart-t">{_esc(title)}</div>'
+        + (f'<div class="chart-note">{_esc(note)}</div>' if note else "")
+        + f'<div class="chart-box" id="chart{idx}"></div></div>'
+    )
+
+
+def _chart_script(specs: list[dict]) -> str:
+    """生成初始化脚本。**不含 echarts 本体**，本体由 render() 单独内联。"""
+    configs = []
+    for i, s in enumerate(specs):
+        cfg = {
+            "id": f"chart{i}",
+            "type": s.get("type", "line"),
+            "x": s.get("x") or [],
+            "series": s.get("series") or [],
+            "yName": s.get("y_name") or "",
+            "valueFmt": s.get("value_fmt") or "num",
+            "zeroLine": bool(s.get("zero_line", False)),
+        }
+        configs.append(cfg)
+    return """
+<script>
+(function(){
+  var CFG = %s;
+  function fmt(v, kind){
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    if (kind === 'pct') return (v>0?'+':'') + Number(v).toFixed(2) + '%%';
+    if (kind === 'money') return Number(v).toLocaleString('zh-CN', {maximumFractionDigits:0});
+    return String(v);
+  }
+  function build(c){
+    var el = document.getElementById(c.id);
+    if (!el || typeof echarts === 'undefined') return;
+    var isBar = c.type === 'bar';
+    var opt = {
+      animation: false,
+      tooltip: {trigger: 'axis', valueFormatter: function(v){ return fmt(v, c.valueFmt); }},
+      legend: {show: c.series.length > 1, bottom: 0, textStyle: {fontSize: 11}},
+      grid: {left: 8, right: 16, top: 16, bottom: c.series.length > 1 ? 34 : 26,
+             containLabel: true},
+      xAxis: {type: 'category', data: c.x,
+              axisLabel: {fontSize: 10, color: '#666'}, axisTick: {show: false}},
+      yAxis: {type: 'value', name: c.yName, nameTextStyle: {fontSize: 10, color: '#999'},
+              axisLabel: {fontSize: 10, color: '#666',
+                          formatter: function(v){ return fmt(v, c.valueFmt); }},
+              splitLine: {lineStyle: {color: '#f0f0f0'}}},
+      series: c.series.map(function(s, i){
+        var base = {name: s.name, type: isBar ? 'bar' : 'line', data: s.data,
+                    itemStyle: {color: (s.color || '#c62828')},
+                    lineStyle: {width: 1.6, color: (s.color || '#c62828')},
+                    symbol: 'circle', symbolSize: 3};
+        if (isBar) base.barMaxWidth = 34;
+        if (i === 0) base.markLine = c.zeroLine ? {silent: true, symbol: 'none',
+          lineStyle: {color: '#bbb', type: 'dashed'},
+          data: [{yAxis: 0}]} : undefined;
+        return base;
+      })
+    };
+    var chart = echarts.init(el, null, {renderer: 'canvas'});
+    chart.setOption(opt);
+    window.addEventListener('resize', function(){ chart.resize(); });
+    window.__PORTAL_CHARTS__ = (window.__PORTAL_CHARTS__ || 0) + 1;
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ CFG.forEach(build); });
+  } else { CFG.forEach(build); }
+})();
+</script>""" % _js(configs)
+
+
+def equity_chart(points: list[dict], *, title: str = "净值曲线") -> dict:
+    """从 `[{date, total_asset}]` 生成净值曲线配置。"""
+    pts = [p for p in points if isinstance(p.get("total_asset"), (int, float))]
+    return {
+        "title": title,
+        "note": "纵轴为期末总资产（元）。数据来自每次买入日结算。",
+        "type": "line",
+        "x": [str(p.get("date") or "") for p in pts],
+        "series": [{"name": "总资产", "data": [round(float(p["total_asset"]), 2) for p in pts],
+                    "color": "#c62828"}],
+        "value_fmt": "money",
+    }
+
+
+def ruler_chart(rulers: dict | None, *, title: str = "三把零自由度尺子") -> dict | None:
+    """实际 / 影子 / 基准 / 大盘 的收益率对比（柱状）。"""
+    if not rulers:
+        return None
+    a = rulers.get("attribution") or {}
+    idx = (rulers.get("index") or {}).get("ret_pct")
+    items = [
+        ("实际", a.get("actual_pct"), "#c62828"),
+        ("影子", a.get("shadow_pct"), "#ef6c00"),
+        ("基准", a.get("baseline_pct"), "#5c6bc0"),
+        ("大盘", idx, "#78909c"),
+    ]
+    items = [(k, v, c) for k, v, c in items if isinstance(v, (int, float))]
+    if not items:
+        return None
+    return {
+        "title": title,
+        "note": "口径统一到「投入资金」。执行贡献 = 实际 − 影子；选股贡献 = 影子 − 基准。",
+        "type": "bar",
+        "x": [k for k, _, _ in items],
+        "series": [{"name": "收益率%", "data": [round(float(v), 3) for _, v, _ in items],
+                    "color": "#c62828"}],
+        "value_fmt": "pct",
+        "zero_line": True,
+    }
+
+
+def calibration_chart(rows: list[dict], *, title: str = "每笔已实现收益") -> dict | None:
+    """每笔平仓的已实现收益率（按时间顺序），用来看分布而不是看均值。"""
+    pts = [(i + 1, r.get("realized_pct")) for i, r in enumerate(rows)
+           if isinstance(r.get("realized_pct"), (int, float))]
+    if not pts:
+        return None
+    return {
+        "title": title,
+        "note": "逐笔而非均值：均值会掩盖「少数大赢撑起平均数」。",
+        "type": "bar",
+        "x": [f"#{i}" for i, _ in pts],
+        "series": [{"name": "已实现%", "data": [round(float(v), 3) for _, v in pts],
+                    "color": "#2e7d32"}],
+        "value_fmt": "pct",
+        "zero_line": True,
+    }
+
+
+def _charts(payload: dict) -> tuple[str, str]:
+    """返回 (容器 HTML, 脚本 HTML)。无图表时两者都为空。"""
+    specs = [c for c in (payload.get("charts") or []) if c]
+    if not specs or payload.get("with_charts") is False:
+        return "", ""
+    html_part = "".join(_chart_html(s, i) for i, s in enumerate(specs))
+    script = "<script>" + echarts_js() + "</script>" + _chart_script(specs)
+    return html_part, script
+
+
 def render(payload: dict) -> str:
     """把结构化载荷渲染成自包含 HTML 字符串（不写盘、不审计）。"""
     title = payload.get("title") or "虚拟盘报告"
@@ -196,6 +382,10 @@ def render(payload: dict) -> str:
         sections.append('<div class="note">' + "<br>".join(
             _esc(n) for n in payload["notes"]) + "</div>")
 
+    chart_html, chart_script = _charts(payload)
+    if chart_html:
+        sections.insert(0, "<h2>图形</h2>" + chart_html)
+
     caliber = payload.get("caliber")
     caliber_html = f"<div class='note'>口径：{_esc(caliber)}</div>" if caliber else ""
 
@@ -212,7 +402,7 @@ def render(payload: dict) -> str:
 本报告由 portal.virtual 生成，成交与收益均由确定性内核计算，未经人工修饰。<br>
 所有历史数字均为虚拟盘或历史统计结果，<b>不构成投资建议</b>。市场有风险，决策需自负。
 </div>
-</div></body></html>"""
+</div>{chart_script}</body></html>"""
 
 
 _EXTERNAL_REF = re.compile(
