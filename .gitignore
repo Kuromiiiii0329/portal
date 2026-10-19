@@ -32,3 +32,10 @@ Thumbs.db
 # Decision records (rules.jsonl / anchors.json / plans / fills / ledger) ARE committed
 # on purpose — they are the audit trail.
 data/virtual/features/
+
+# Backtest market database: rebuildable from the network and measured in hundreds of MB.
+# Never commit it. Rebuild with: python -m portal.virtual.marketdb build
+data/market.db
+data/market.db-wal
+data/market.db-shm
+data/multi_*.db

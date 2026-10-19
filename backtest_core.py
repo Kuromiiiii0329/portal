@@ -48,12 +48,16 @@ DEFAULT_HORIZONS = (1, 3, 5, 10, 20)
 # 单日移动超过「涨跌停幅 × 此倍数」→ 判定为复权断裂/脏数据
 ANOMALY_MULTIPLIER = 1.5
 
-CALIBER_VERSION = 2
+CALIBER_VERSION = 3
 """口径版本号。任何会改变收益数字的口径改动都必须 +1。
 
 为什么必须有：`data_cache.save_backtest/get_backtest` 会把回测结果落盘复用。
 若没有版本号，口径修好之后旧缓存仍会被读出来继续喂给报告和 LLM —— 修了个寂寞。
 调用方拿到缓存后必须先 `backtester.is_current_caliber()` 校验，不符就重算。
+
+v3：支持「两套价格体系」——若输入带 `aopen/aclose` 等复权列，则**收益用复权价、
+涨跌停判定用真实价**。依据《回测避坑手册》§1.2：复权价上的价格永远「不涨停」
+（被缩放了），而不复权价的均线在送转后会坏掉。用错任一边都是错的。
 """
 
 CALIBER = {
@@ -66,6 +70,7 @@ CALIBER = {
     "reported": "回报一律为扣除成本后的净值；同时给均值/中位数/胜率/t 值/分年",
     "excluded": "剔除「次日开盘即涨停」（买不进）与复权断裂样本，并报告剔除数",
     "pct_chg_used": False,
+    "price_basis": "有 aopen/aclose 列时收益用复权价、涨跌停判定用真实价；否则统一用真实价",
     "note": "旧版口径为 close[T+d]/close[T] 且不扣费，本版数字与旧版不可直接比较",
 }
 
@@ -96,6 +101,27 @@ def _anomaly_threshold(code: str | None) -> float:
     return limit_pct_for_code(code) * ANOMALY_MULTIPLIER + 0.01
 
 
+#: 复权列名 → 真实列名的映射。有这套列就用它算收益（`marketdb.load_kline` 会提供）
+ADJ_OPEN = "aopen"
+ADJ_CLOSE = "aclose"
+
+
+def has_adjusted(df: pd.DataFrame) -> bool:
+    """是否带复权列（决定收益用哪套价格）。
+
+    《回测避坑手册》§1.2：两套价格体系必须并存。
+    - 复权价：收益、均线、净值
+    - 真实价：涨跌停、价格笼子、成交可行性
+    只用其中一套，要么收益被除权污染，要么涨停永远判不出来。
+    """
+    return ADJ_OPEN in df.columns and ADJ_CLOSE in df.columns
+
+
+def return_cols(df: pd.DataFrame) -> tuple[str, str]:
+    """(买入价列, 卖出价列)。有复权列就用复权，否则退回真实价。"""
+    return (ADJ_OPEN, ADJ_CLOSE) if has_adjusted(df) else ("open", "close")
+
+
 def prepare_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     """规范输入：按日期升序、数值化、去重。返回 (df, warnings)。"""
     warnings: list[str] = []
@@ -112,7 +138,8 @@ def prepare_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     if len(out) != before:
         warnings.append(f"有 {before - len(out)} 行日期无法解析，已剔除")
 
-    for col in ("open", "high", "low", "close", "volume"):
+    for col in ("open", "high", "low", "close", "volume",
+                ADJ_OPEN, "ahigh", "alow", ADJ_CLOSE):
         if col in out.columns:
             out[col] = pd.to_numeric(out[col], errors="coerce")
 
@@ -127,6 +154,16 @@ def prepare_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
     out = out[out["close"] > 0]
     out = out[out["open"] > 0]
+
+    # 复权列只保留「完整且为正」的行；残缺则整列作废（宁可退回真实价，也不要半套）
+    if has_adjusted(out):
+        bad = (~np.isfinite(out[ADJ_OPEN])) | (~np.isfinite(out[ADJ_CLOSE])) \
+              | (out[ADJ_OPEN] <= 0) | (out[ADJ_CLOSE] <= 0)
+        if bad.any():
+            warnings.append(
+                f"复权列有 {int(bad.sum())} 行不可用，整列退回真实价（避免半套口径）")
+            out = out.drop(columns=[ADJ_OPEN, "ahigh", "alow", ADJ_CLOSE], errors="ignore")
+
     out = out.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
     return out, warnings
 
@@ -154,13 +191,17 @@ def compute_anomaly_mask(df: pd.DataFrame, code: str | None) -> np.ndarray:
     但那些行的 open/close 本身是好的。若让一个坏字段作废一整个样本，就会静默丢掉
     有效数据 —— 那是另一种「不报错只出错数」。pct_chg 的问题只在 data_quality() 里
     作为诊断计数报出来，不参与样本选择。
+
+    ★ 有复权列时用**复权价**判异常：不复权价在除权日必然跳空（送转会腰斩），
+    拿它判异常会把每一个除权日都标成「脏数据」，等于系统性丢样本。
     """
     n = len(df)
     mask = np.zeros(n, dtype=bool)
     if n < 2:
         return mask
 
-    close = df["close"].to_numpy(dtype=float)
+    _, close_col = return_cols(df)
+    close = df[close_col].to_numpy(dtype=float)
     mask |= np.abs(_daily_moves(close)) > _anomaly_threshold(code)
 
     # 价格本身非正 / 非有限 → 不可信
@@ -223,7 +264,15 @@ def data_quality(df: pd.DataFrame, code: str | None = None) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────
 def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    close = out["close"].astype(float)
+    # ★ 指标必须算在**连续**价格上。有复权列就用复权价：
+    #   不复权的均线在送转后会坏掉（一次腰斩污染其后 60 个交易日的全部均线，
+    #   手册 §1.1 实测把某策略事件日平均跌幅从 −31% 修到 −1.7%）。
+    _, close_col = return_cols(out)
+    close = out[close_col].astype(float)
+    high = out["ahigh"].astype(float) if has_adjusted(out) and "ahigh" in out.columns \
+        else out["high"].astype(float)
+    low = out["alow"].astype(float) if has_adjusted(out) and "alow" in out.columns \
+        else out["low"].astype(float)
 
     for n in (5, 10, 20):
         out[f"ma{n}"] = close.rolling(n).mean()
@@ -238,8 +287,8 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     loss = (-delta).clip(lower=0).ewm(com=5, adjust=False).mean()
     out["rsi6"] = 100 - 100 / (1 + gain / loss.replace(0, 1e-9))
 
-    low9 = out["low"].rolling(9).min()
-    high9 = out["high"].rolling(9).max()
+    low9 = low.rolling(9).min()
+    high9 = high.rolling(9).max()
     rsv = (close - low9) / (high9 - low9 + 1e-9) * 100
     out["kdj_k"] = rsv.ewm(com=2, adjust=False).mean()
     out["kdj_d"] = out["kdj_k"].ewm(com=2, adjust=False).mean()
@@ -256,6 +305,8 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
         out["vol_ratio"] = 1.0
 
     out["close_chg"] = close.pct_change() * 100
+    # 供「跌破布林下轨」用：必须是同一套价格，否则判据张冠李戴
+    out["_ret_close"] = close
     return out
 
 
@@ -282,7 +333,7 @@ def compute_signal_flags(df: pd.DataFrame) -> pd.DataFrame:
     ma5, ma10, ma20 = df["ma5"], df["ma10"], df["ma20"]
     f["均线多头排列"] = (ma5 > ma10) & (ma10 > ma20) & (ma20 > 0)
 
-    f["价格跌破布林下轨"] = df["close"] < df["boll_lower"]
+    f["价格跌破布林下轨"] = df["_ret_close"] < df["boll_lower"]
 
     return f.fillna(False).astype(bool)
 
@@ -343,9 +394,16 @@ def _harvest(
     """按「T+1 开盘买 → T+1+h 收盘卖」收割样本。
 
     返回 ({h: [净收益...]}, 剔除计数, [每条样本的入场索引]) —— 用于按年分组。
+
+    两套价格体系（手册 §1.2）：
+      - **收益**用复权价（有 a* 列时），否则除权日会产生假跌
+      - **涨跌停判定**必须用真实价：复权价被缩放过，在上面永远判不出「涨停」
     """
-    open_ = df["open"].to_numpy(dtype=float)
-    close = df["close"].to_numpy(dtype=float)
+    bcol, scol = return_cols(df)
+    buy_px = df[bcol].to_numpy(dtype=float)
+    sell_px = df[scol].to_numpy(dtype=float)
+    raw_open = df["open"].to_numpy(dtype=float)
+    raw_close = df["close"].to_numpy(dtype=float)
     n = len(df)
     lim = limit_pct_for_code(code)
     rets: dict[int, list[float]] = {h: [] for h in horizons}
@@ -357,13 +415,15 @@ def _harvest(
         if j >= n:
             excl["no_next_day"] += 1
             continue
-        buy = open_[j]
+        buy = buy_px[j]
         if not np.isfinite(buy) or buy <= 0:
             excl["no_next_day"] += 1
             continue
 
-        prev_close = close[j - 1]
-        if prev_close > 0 and buy >= prev_close * (1 + lim) - 0.005:
+        # 涨停判定用真实价（buy_px 在无复权列时等于 open，比较结果一致）
+        raw_buy = raw_open[j]
+        prev_raw = raw_close[j - 1]
+        if prev_raw > 0 and raw_buy >= prev_raw * (1 + lim) - 0.005:
             # 次日开盘即涨停：物理上买不进，留在回测里就是系统性高估
             excl["limit_up_entry"] += 1
             continue
@@ -377,7 +437,7 @@ def _harvest(
             if anomaly[j] or anomaly[k]:
                 n_anom += 1
                 continue
-            sell = close[k]
+            sell = sell_px[k]
             if not np.isfinite(sell) or sell <= 0:
                 continue
             gross = sell / buy - 1.0
@@ -617,15 +677,17 @@ def forward_return_after(
     if k >= len(d):
         return None
 
+    bcol, scol = return_cols(d)
     prev_close = float(d.loc[i - 1, "close"]) if i > 0 else None
-    buy = float(d.loc[i, "open"])
-    sell = float(d.loc[k, "close"])
+    buy = float(d.loc[i, bcol])          # 收益用复权（无复权列时等于 open）
+    sell = float(d.loc[k, scol])
+    raw_buy = float(d.loc[i, "open"])    # 涨跌停判定用真实价
     if not (np.isfinite(buy) and np.isfinite(sell)) or buy <= 0 or sell <= 0:
         return None
 
     lim = limit_pct_for_code(code)
     excluded = None
-    if prev_close and buy >= prev_close * (1 + lim) - 0.005:
+    if prev_close and raw_buy >= prev_close * (1 + lim) - 0.005:
         excluded = "limit_up_open"          # 次日开盘即涨停：买不进
 
     gross = sell / buy - 1.0
@@ -634,6 +696,7 @@ def forward_return_after(
         "entry_price": round(buy, 3),
         "exit_date": d.loc[k, "date"].strftime("%Y-%m-%d"),
         "exit_price": round(sell, 3),
+        "price_basis": "adjusted" if has_adjusted(d) else "raw",
         "gross_pct": round(gross * 100, 4),
         "net_pct": round((gross - cost) * 100, 4),
         "excluded": excluded,

@@ -35,11 +35,14 @@ except ImportError:  # pragma: no cover
 
 
 def _default_kline_provider(code: str) -> pd.DataFrame | None:
-    """默认从 portal 的本地缓存取日K；不可用就返回 None（不猜）。"""
+    """默认取数：回测数据库优先，portal 的 csv 缓存兜底。
+
+    走 `datafeed` 而不是直接读 `data_cache`，是为了让「用哪份数据」只有一个答案
+    （数据库有复权列、缓存没有 —— 这个差别会改变收益口径）。
+    """
     try:
-        from portal.data_cache import StockDataCache
-        df = StockDataCache().get_kline(code)
-        return df if df is not None and len(df) else None
+        from . import datafeed
+        return datafeed.kline(code)
     except Exception:
         return None
 
