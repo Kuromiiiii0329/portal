@@ -191,14 +191,38 @@ def evolve(max_days: int = 40, *, commit: bool = False,
         return _err(f"{type(exc).__name__}: {exc}")
 
 
-def make_report(*, open_browser: bool = True) -> dict[str, Any]:
-    """生成自包含复盘报告（含审计；审计不过则不落盘）。"""
+def make_report(*, open_browser: bool = True, with_charts: bool = True) -> dict[str, Any]:
+    """生成自包含复盘报告（含审计；审计不过则不落盘）。
+
+    `with_charts=True` 会内联 echarts（约 1 MB）并画净值/尺子/逐笔三张图。
+    内联后文件约 1.0–1.1 MB —— 这是「离线可画图」的代价，必须明说。
+    """
     try:
         from portal.virtual import decay, predictions, report, rules
+        charts: list[dict] = []
+        settled = []
+        if with_charts:
+            try:
+                settled = predictions.settled()
+            except Exception:
+                settled = []
+            points = [{"date": r.get("trade_date"), "total_asset": r.get("total_asset")}
+                      for r in settled if isinstance(r.get("total_asset"), (int, float))]
+            if points:
+                charts.append(report.equity_chart(points))
+            rc = report.ruler_chart(_last_rulers(settled))
+            if rc:
+                charts.append(rc)
+            cc = report.calibration_chart(
+                [{"realized_pct": r.get("realized_pct")} for r in settled])
+            if cc:
+                charts.append(cc)
+
         payload = {
             "title": "虚拟盘复盘报告",
             "caliber": "所有收益均为 T+1 开盘买入口径，已扣往返成本 0.10%",
             "kpis": _kpis(),
+            "charts": charts,
             "rules": rules.summary_table(),
             "text": "",
             "claims": [],
@@ -207,15 +231,31 @@ def make_report(*, open_browser: bool = True) -> dict[str, Any]:
             "params_machine": {},
             "backtest": None,
             "known_bias_declared": True,
-            "notes": _notes(decay, predictions),
+            "notes": _notes(decay, predictions) + (
+                [] if charts else ["本次没有可画的图（还没有成交记录）；"
+                                   "表格数字仍然完整。"]),
         }
         res = report.build_and_write(
             payload, filename=f"virtual_{datetime.date.today():%Y%m%d}.html")
         if res.get("written") and open_browser:
             _open(res["path"])
-        return {"ok": bool(res.get("written")), **res}
+        return {"ok": bool(res.get("written")), "charts": len(charts), **res}
     except Exception as exc:
         return _err(f"{type(exc).__name__}: {exc}")
+
+
+def _last_rulers(settled: list[dict]) -> dict | None:
+    for r in reversed(settled or []):
+        ru = r.get("rulers") or {}
+        if ru.get("actual_pct") is not None:
+            return {"index": {"ret_pct": ru.get("index_pct")},
+                    "attribution": {"actual_pct": ru.get("actual_pct"),
+                                    "shadow_pct": ru.get("shadow_pct"),
+                                    "baseline_pct": ru.get("baseline_pct"),
+                                    "execution_pp": ru.get("execution_pp"),
+                                    "selection_pp": ru.get("selection_pp"),
+                                    "basis": "统一到投入资金"}}
+    return None
 
 
 def _kpis() -> list[dict]:
