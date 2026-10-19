@@ -404,15 +404,42 @@ def check_pipeline_e2e() -> Check:
 
     def fake_llm(prompt: str) -> str:
         calls["n"] += 1
-        c.expect("四、选股观察表" in prompt, "prompt 含观察表")
+        c.expect("选股观察表" in prompt, "prompt 含观察表")
         c.expect("选股观察表" in prompt and "交易经验表" in prompt,
                  "prompt 含四张表中的观察表与经验表")
         c.expect("硬约束" in prompt, "prompt 含硬约束")
+        c.expect("候选池" in prompt, "prompt 含候选池（防编造）")
         return "```json\n" + json.dumps(GOOD_PROPOSAL, ensure_ascii=False) + "\n```"
 
+    fake_market = {
+        "date": "20261016",
+        "indices": [{"name": "上证指数", "close": 3730.9, "chg_pct": 0.39,
+                     "amount_yi": 6870.1, "trend": "走弱", "chg_5d_pct": -1.75,
+                     "above_ma20": False, "ma20": 3800}],
+        "breadth": {"up": 2202, "down": 2861, "up_ratio_pct": 42.24,
+                    "pool_zt": 46, "pool_dt": 22, "break_rate_pct": 31.34,
+                    "max_boards": 3, "multi_board_n": 11, "seal_amount_yi": 40.2},
+        "themes": [{"name": "汽车零部", "limit_up_n": 10, "boards_sum": 15,
+                    "max_boards": 2, "seal_yi": 9.6,
+                    "leaders": [{"name": "保隆科技"}]}],
+        "leaders": [{"name": "吉大正元", "code": "003029", "boards": 3,
+                     "chg_pct": 10.0, "seal_yi": 2.0, "industry": "软件开发",
+                     "break_times": 0}],
+        "candidates": [
+            {"code": "600519", "name": "贵州茅台", "close": 100.0,
+             "prev_close": 99.0, "limit_up": 108.9, "limit_down": 89.1},
+            {"code": "603906", "name": "龙蟠科技", "close": 20.0,
+             "prev_close": 19.5, "limit_up": 21.45, "limit_down": 17.55},
+            {"code": "600000", "name": "浦发银行", "close": 12.0,
+             "prev_close": 11.8, "limit_up": 12.98, "limit_down": 10.62},
+        ],
+        "candidates_note": "测试用",
+        "news": [], "caveats": [], "errors": [],
+    }
     out = pipeline.generate(plan_date="20261020", trade_date="20261016",
                             llm_call=fake_llm, latest_close=_fake_close,
-                            use_cache=True, write=True, log=lambda *_: None)
+                            market=fake_market,
+                            use_cache=False, write=True, log=lambda *_: None)
     c.expect(out["ok"] and out["written"], "生成成功")
     c.expect(out["proposal_source"] == "llm", "来源标记为 llm")
     c.expect(calls["n"] == 1, "LLM 只调用 1 次")
@@ -508,6 +535,88 @@ def check_event_sourcing() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V11 · 候选池护栏（防编造）+ 价格自动补全 + 缓存版本
+# ─────────────────────────────────────────────────────────────
+def check_candidates_guard() -> Check:
+    c = Check("V11", "候选池护栏：编造代码被拒、缺失价格由内核补全并标注")
+
+    # 1) 不在候选池的代码必须被拒（挡 LLM 编造）
+    tables, _ = _fresh_tables()
+    prop = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+    prop["pool_actions"]["add"] = [
+        {"code": "999999", "name": "凭空捏造", "tier": "core", "logic": "x",
+         "reason": "y", "trigger": "突破 100 元",
+         "stop_loss": 95, "take_profit": 120}]
+    prop["position_plan"]["buy"] = []
+    prop["info_actions"] = {"add": [], "remove": []}
+    prop["lesson_actions"] = {"add": [], "remove": []}
+    v = apply_mod.apply_proposal(
+        proposal=prop, tables=tables, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda code: 100.0,
+        candidates=[{"code": "600000", "name": "浦发银行", "close": 12.0}],
+        log=lambda *_: None)
+    c.expect(len(v["applied"]["pool_add"]) == 0, "编造代码没有被写进观察表")
+    c.expect(any("候选池" in r["reason"] or "编造" in r["reason"]
+                 for r in v["rejected"]),
+             f"拒绝原因提到候选池：{v['rejected'][0]['reason'][:50] if v['rejected'] else '—'}")
+
+    # 2) 涨停池里真实存在但缺价格 → 内核按收盘价补全，并标注 auto
+    tables2, _ = _fresh_tables()
+    prop2 = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+    prop2["pool_actions"]["add"] = [
+        {"code": "600000", "name": "浦发银行", "tier": "core", "logic": "x",
+         "reason": "y", "trigger": "突破 12.5 元",
+         "stop_loss": 0, "take_profit": 0}]
+    prop2["position_plan"]["buy"] = [
+        {"code": "600000", "name": "浦发银行", "alloc_pct": 10,
+         "trigger": "突破 12.5 元", "stop_loss": 0, "take_profit": 0,
+         "logic": "z"}]
+    prop2["info_actions"] = {"add": [], "remove": []}
+    prop2["lesson_actions"] = {"add": [], "remove": []}
+    v2 = apply_mod.apply_proposal(
+        proposal=prop2, tables=tables2, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda code: 12.0,
+        candidates=[{"code": "600000", "name": "浦发银行", "close": 12.0}],
+        log=lambda *_: None)
+    c.expect(len(v2["applied"]["pool_add"]) == 1, "缺价格时仍然写入（自动补全）")
+    if v2["applied"]["pool_add"]:
+        a = v2["applied"]["pool_add"][0]
+        c.expect(a["price_source"] == "auto", f"来源标记 auto（实际 {a['price_source']}）")
+        c.expect(close_enough(a["stop_loss"], 11.4), f"止损 = 12×0.95 = {a['stop_loss']}")
+        c.expect(close_enough(a["take_profit"], 13.2), f"止盈 = 12×1.10 = {a['take_profit']}")
+    c.expect(len(v2["planned"]["buy"]) == 1, "买入计划也自动补全")
+    if v2["planned"]["buy"]:
+        c.expect(v2["planned"]["buy"][0]["price_source"] == "auto", "买入计划标注 auto")
+
+    # 3) 模型给了合理价格时不该被覆盖
+    tables3, _ = _fresh_tables()
+    prop3 = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+    prop3["pool_actions"]["add"] = [
+        {"code": "600000", "name": "浦发银行", "tier": "core", "logic": "x",
+         "reason": "y", "trigger": "突破 12.5 元",
+         "stop_loss": 11.0, "take_profit": 14.0}]
+    prop3["info_actions"] = {"add": [], "remove": []}
+    prop3["lesson_actions"] = {"add": [], "remove": []}
+    prop3["position_plan"]["buy"] = []
+    v3 = apply_mod.apply_proposal(
+        proposal=prop3, tables=tables3, plan_date="20261020",
+        trade_date="2026-10-16", latest_close=lambda code: 12.0,
+        candidates=[{"code": "600000", "name": "浦发银行", "close": 12.0}],
+        log=lambda *_: None)
+    if v3["applied"]["pool_add"]:
+        a = v3["applied"]["pool_add"][0]
+        c.expect(a["price_source"] == "llm", "模型给的价格被保留")
+        c.expect(close_enough(a["stop_loss"], 11.0), f"止损仍为 11.0（{a['stop_loss']}）")
+
+    # 4) 采集缓存必须带结构版本，否则改了字段会静默复用旧结构
+    from portal.premarket import collect as collect_mod
+    d = str(paths.cache_dir("20260101") / "collect.json")
+    c.expect(collect_mod.CACHE_SCHEMA >= 2, f"缓存结构版本 = {collect_mod.CACHE_SCHEMA}")
+    c.expect(hasattr(collect_mod, "CACHE_SCHEMA"), "存在 CACHE_SCHEMA 常量")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -519,6 +628,7 @@ CHECKS = (
     ("V8", check_pipeline_e2e),
     ("V9", check_fallback),
     ("V10", check_event_sourcing),
+    ("V11", check_candidates_guard),
 )
 
 

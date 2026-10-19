@@ -41,6 +41,12 @@ INDICES = [
     ("sh000905", "中证500"),
 ]
 
+#: 采集结果的结构版本。**改动采集字段时必须 +1**，否则旧缓存会被静默复用：
+#: 实测加了候选池之后，因为缓存命中，模型收到的候选池是空的，于是它严格遵守
+#: 「无候选池就不要选股」，整份预案一个个股计划都没有 —— 而且日志里只有一行
+#: 「复用缓存」，看不出问题。缓存必须能自证新鲜。
+CACHE_SCHEMA = 2
+
 #: 新闻保留窗口（小时）与条数上限
 NEWS_HOURS = 36
 NEWS_MAX = 40
@@ -396,6 +402,100 @@ def news(out: dict) -> None:
     out["news_total_seen"] = len(items)
 
 
+def candidates(out: dict, date8: str) -> None:
+    """候选池：**带价格的**可交易标的清单，避免 LLM 编造代码。
+
+    为什么必须有
+    ------------
+    第一版只给了「题材聚合（汽车零部 10 家涨停）」和「连板梯队前 10 名」，
+    结果 LLM 为了选汽车零部的票，**自己编了一个 603197 保隆科技**
+    （它确实属于汽车零部件，但当天不在任何池子里，价格也无从得知），
+    接着 stop_loss / take_profit 只能填 0，四条计划全被内核拒绝。
+
+    所以这里把「当天真正在池子里的票」连价格一起给它：涨停池 + 强势股池 +
+    龙虎榜净买前列，带上前收与涨跌停价，让模型给的止损止盈可被校验。
+    """
+    import akshare as ak
+
+    from portal.virtual import marketdb as M
+
+    universe: dict[str, dict] = {}
+
+    def add(code, name, close, chg, *, src: str, **extra) -> None:
+        code = str(code or "").strip()
+        if not (len(code) == 6 and code.isdigit()):
+            return
+        px = _f(close)
+        if px is None or px <= 0:
+            return
+        rec = universe.get(code)
+        if rec is None:
+            c = _f(chg)
+            prev = round(px / (1 + c / 100), 2) if c not in (None, -100) else None
+            try:
+                up, down = (M.limit_prices(prev, code, date8) if prev else (None, None))
+            except Exception:
+                up = down = None
+            rec = {"code": code, "name": name, "close": round(px, 2),
+                   "chg_pct": _num(chg, 2), "prev_close": prev,
+                   "limit_up": up, "limit_down": down,
+                   "sources": [], "boards": None, "industry": None,
+                   "seal_yi": None, "amount_yi": None, "turnover": None,
+                   "lhb_net_wan": None}
+            universe[code] = rec
+        rec["sources"].append(src)
+        for k, v in extra.items():
+            if v is not None:
+                rec[k] = v
+
+    try:
+        for r in _rows(ak.stock_zt_pool_em(date=date8)):
+            add(r.get("代码"), r.get("名称"), r.get("最新价"), r.get("涨跌幅"),
+                src="涨停", boards=int(_f(r.get("连板数")) or 1),
+                industry=str(r.get("所属行业") or "") or None,
+                seal_yi=round((_f(r.get("封板资金")) or 0) / 1e8, 2),
+                amount_yi=round((_f(r.get("成交额")) or 0) / 1e8, 2),
+                turnover=_num(r.get("换手率"), 2))
+    except Exception as exc:
+        _err(out, "candidates_zt", exc)
+
+    try:
+        for r in _rows(ak.stock_zt_pool_strong_em(date=date8)):
+            add(r.get("代码"), r.get("名称"), r.get("最新价"), r.get("涨跌幅"),
+                src="强势", boards=int(_f(r.get("连板数")) or 0) or None,
+                industry=str(r.get("所属行业") or "") or None,
+                amount_yi=round((_f(r.get("成交额")) or 0) / 1e8, 2),
+                turnover=_num(r.get("换手率"), 2))
+    except Exception as exc:
+        _err(out, "candidates_strong", exc)
+
+    try:
+        rows = _rows(ak.stock_lhb_detail_em(start_date=date8, end_date=date8))
+        best: dict[str, float] = {}
+        for r in rows:
+            code = str(r.get("代码") or "")
+            net = _f(r.get("龙虎榜净买额"))
+            if code and net is not None:
+                best[code] = max(best.get(code, -1e18), net)
+        for r in rows:
+            code = str(r.get("代码") or "")
+            if code in best and best[code] == _f(r.get("龙虎榜净买额")):
+                add(code, r.get("名称"), r.get("收盘价"), r.get("涨跌幅"),
+                    src="龙虎榜", lhb_net_wan=round(best[code] / 1e4, 1))
+    except Exception as exc:
+        _err(out, "candidates_lhb", exc)
+
+    rows = sorted(universe.values(),
+                  key=lambda x: (-(x.get("boards") or 0), -(x.get("seal_yi") or 0),
+                                 -(x.get("amount_yi") or 0)))
+    for r in rows:
+        r["sources"] = sorted(set(r["sources"]))
+    out["candidates"] = rows[:60]
+    out["candidates_n"] = len(universe)
+    out["candidates_note"] = ("只含当日涨停/强势/龙虎榜的票，带前收与涨跌停价；"
+                              "模型选股必须来自这里")
+
+
 def market_db_context(out: dict) -> None:
     """用本地 market.db 补充：最新交易日、当日涨停重建对照、成交额合计。
 
@@ -444,6 +544,7 @@ BLOCKS: list[tuple[str, Callable[..., None]]] = [
     ("leaders", leaders),
     ("northbound", northbound),
     ("lhb", lhb),
+    ("candidates", candidates),
     ("news", news),
 ]
 
@@ -457,10 +558,15 @@ def collect(date8: str | None = None, *, use_cache: bool = True,
     if use_cache and cache_file.exists():
         try:
             data = json.loads(cache_file.read_text(encoding="utf-8"))
-            data["_from_cache"] = True
-            if progress:
-                progress(f"  复用缓存 {cache_file.name}")
-            return data
+            if data.get("_schema") != CACHE_SCHEMA:
+                if progress:
+                    progress(f"  缓存结构版本不符（{data.get('_schema')} != "
+                             f"{CACHE_SCHEMA}），重新采集")
+            else:
+                data["_from_cache"] = True
+                if progress:
+                    progress(f"  复用缓存 {cache_file.name}")
+                return data
         except json.JSONDecodeError:
             pass
 
@@ -468,13 +574,14 @@ def collect(date8: str | None = None, *, use_cache: bool = True,
         "date": d8, "collected_at": _now(),
         "errors": [], "caveats": [],
         "_from_cache": False,
+        "_schema": CACHE_SCHEMA,
     }
 
     for name, fn in BLOCKS:
         if progress:
             progress(f"  采集 {name}…")
         try:
-            if name in ("breadth", "themes", "leaders", "lhb"):
+            if name in ("breadth", "themes", "leaders", "lhb", "candidates"):
                 fn(out, d8)
             else:
                 fn(out)
@@ -526,6 +633,15 @@ def summarize(collect_data: dict) -> dict[str, Any]:
         ],
         "northbound": collect_data.get("northbound") or [],
         "lhb_top": (collect_data.get("lhb_top") or [])[:6],
+        "candidates": [
+            {"code": c["code"], "name": c["name"], "close": c["close"],
+             "prev_close": c.get("prev_close"), "limit_up": c.get("limit_up"),
+             "limit_down": c.get("limit_down"), "chg_pct": c.get("chg_pct"),
+             "boards": c.get("boards"), "industry": c.get("industry"),
+             "seal_yi": c.get("seal_yi"), "sources": c.get("sources")}
+            for c in (collect_data.get("candidates") or [])[:40]
+        ],
+        "candidates_note": collect_data.get("candidates_note"),
         "news": [
             {"t": n["time"][:16], "src": n["src"],
              "text": (n["title"] or n["content"])[:70]}
