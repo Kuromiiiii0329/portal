@@ -1,72 +1,105 @@
 # -*- coding: utf-8 -*-
 """
-portal/premarket/render.py — 盘前预案 HTML（代码生成，非 agent 拼接）
+portal/premarket/render.py — 盘前预案 + 盘后复盘（一份 HTML，代码生成）
 
-为什么必须代码生成
------------------
-用户明确要求「通过 code based 的方法加上最新的数据和 agent 分析 json 来生成，
-而不是用 agent 自己拼接 html」。原因很实在：
+版面（按用户要求的顺序：信息 → 当日盈亏 → 次日计划 → 复盘）
+-----------------------------------------------------------
+一、决策摘要          明日趋势 / 仓位区间 / 置信度（顶部深色区块）
+二、大盘环境与资金     指数 K 线细节 + 量能 + 北向 + 龙虎榜（资金面并入此处）
+三、市场情绪与宽度     涨跌分布 / 量能变化 / 涨停跌停炸板 / 连板高度
+四、题材优先级与龙头   题材五项（资金/催化/持续性/龙头/地位）+ 多日涨停趋势
+五、财经消息与影响     **LLM 筛选后的分析**，不是新闻列表
+六、当日持仓与盈亏     逐只浮盈 + 当日/累计
+七、次日计划与调仓     买入（含触发与止损止盈）/ 卖出 / 调整
+八、四张表变动         每条都带原因
+九、四张表当前状态
+十、当日复盘与经验     做对/做错/题材兑现 + 新增经验
+十一、风险与执行清单
 
-- agent 拼 HTML 会漏标签、会忘转义、会把 `<` 写进正文，而且**每次都不一样**
-- 模板固定后，样式/结构可回归测试，数字位置稳定，便于程序解析存档
-- 数字来自程序计算，agent 只提供判断文本 → 报告里的数永远与表一致
-
-输出是**自包含单文件**：不引外部 CSS/JS/图片，双击即可看，可直接归档。
+设计约束
+--------
+- **代码生成**，绝不由 agent 拼 HTML
+- 自包含单文件，零外部引用
+- 数字全部来自程序；agent 只提供判断文字
+- 不设「价格来源」「数据来源与缺口」两栏（用户明确要求去掉）
 """
 from __future__ import annotations
 
-import datetime
 import html
-import json
 from typing import Any
 
 _CSS = """
-:root{--ink:#1a1a1a;--sub:#666;--line:#e3e3e3;--red:#c62828;--green:#2e7d32;
---amber:#ef6c00;--blue:#1565c0;--bg:#fafafa;--card:#fff}
+:root{
+--ink:#0f172a; --ink2:#334155; --sub:#64748b; --line:#e2e8f0; --bg:#f6f8fb;
+--card:#ffffff; --up:#e11d48; --down:#059669; --warn:#d97706;
+--accent:#4f46e5; --accent2:#7c3aed;
+}
 *{box-sizing:border-box}
-body{margin:0;padding:26px;background:var(--bg);color:var(--ink);
-font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:1180px;margin:0 auto}
-h1{font-size:22px;margin:0 0 4px}
-h2{font-size:15px;margin:26px 0 10px;padding-left:9px;border-left:3px solid var(--ink)}
-h3{font-size:13px;margin:16px 0 8px;color:#333}
-.meta{color:var(--sub);font-size:12px;margin-bottom:14px}
-.hero{background:linear-gradient(135deg,#1f2937,#374151);color:#fff;border-radius:12px;
-padding:16px 18px;margin:12px 0}
-.hero .k{font-size:11px;opacity:.7}
-.hero .v{font-size:24px;font-weight:700;letter-spacing:.5px}
-.hero-grid{display:flex;gap:26px;flex-wrap:wrap}
-.cards{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
-.card{flex:1 1 140px;background:var(--card);border:1px solid var(--line);
-border-radius:8px;padding:10px 12px}
-.card .k{color:var(--sub);font-size:11.5px}
-.card .v{font-size:19px;font-weight:600;margin-top:2px}
-table{width:100%;border-collapse:collapse;background:var(--card);
-border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:8px 0}
-th,td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line);
+body{margin:0;padding:0 0 40px;background:var(--bg);color:var(--ink);
+font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+.top{background:linear-gradient(120deg,#1e1b4b 0%,#312e81 45%,#4c1d95 100%);
+color:#fff;padding:26px 0 22px;margin-bottom:20px;
+box-shadow:0 6px 24px -12px rgba(49,46,129,.55)}
+.top h1{font-size:23px;margin:0 0 6px;font-weight:700;letter-spacing:.3px}
+.top .meta{color:#c7d2fe;font-size:12px}
+.top .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+border-radius:10px;padding:8px 14px;min-width:104px}
+.chip .k{font-size:11px;color:#c7d2fe}
+.chip .v{font-size:20px;font-weight:700;margin-top:1px;letter-spacing:.5px}
+.chip.weak .v{color:#fda4af}.chip.mid .v{color:#fcd34d}.chip.strong .v{color:#6ee7b7}
+h2{font-size:15px;margin:28px 0 12px;font-weight:700;color:var(--ink);
+display:flex;align-items:center;gap:9px}
+h2:before{content:"";width:4px;height:16px;border-radius:2px;
+background:linear-gradient(180deg,var(--accent),var(--accent2))}
+h3{font-size:13px;margin:18px 0 8px;color:var(--ink2);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin:10px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:11px 13px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.card .k{color:var(--sub);font-size:11.5px;letter-spacing:.2px}
+.card .v{font-size:19px;font-weight:700;margin-top:3px;color:var(--ink)}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);
+border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0;
+box-shadow:0 1px 2px rgba(15,23,42,.03)}
+th,td{padding:8px 11px;text-align:left;border-bottom:1px solid #f1f5f9;
 font-size:12.5px;vertical-align:top}
-th{background:#f0f0f0;font-weight:600;color:#333;white-space:nowrap}
+th{background:#f8fafc;font-weight:600;color:var(--ink2);white-space:nowrap;
+font-size:12px;letter-spacing:.2px}
+tbody tr:hover td{background:#fbfdff}
 tr:last-child td{border-bottom:none}
-.pos{color:var(--red)}.neg{color:var(--green)}.warn{color:var(--amber)}
+.pos{color:var(--up);font-weight:600}
+.neg{color:var(--down);font-weight:600}
 .dim{color:var(--sub)}
-.pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;
-border:1px solid var(--line);background:#f7f7f7;white-space:nowrap}
-.pill.ok{background:#e8f5e9;border-color:#a5d6a7;color:#256029}
-.pill.no{background:#ffebee;border-color:#ef9a9a;color:#b71c1c}
-.pill.mid{background:#fff3e0;border-color:#ffcc80;color:#e65100}
-.note{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
-padding:9px 12px;font-size:12.5px;color:#6d4c00;margin:10px 0}
-.err{background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;
-padding:9px 12px;font-size:12.5px;color:#b71c1c;margin:10px 0}
-.bad{background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;
-padding:9px 12px;font-size:12.5px;color:#0d47a1;margin:10px 0}
+.pill{display:inline-block;padding:1.5px 8px;border-radius:20px;font-size:11px;
+border:1px solid var(--line);background:#f8fafc;white-space:nowrap;color:var(--ink2)}
+.pill.hot{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.pill.ok{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.pill.mid{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.pill.mute{background:#f1f5f9;border-color:#e2e8f0;color:#64748b}
+.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;
+padding:11px 14px;font-size:12.5px;color:#1e40af;margin:12px 0}
+.warn{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;
+padding:11px 14px;font-size:12.5px;color:#92400e;margin:12px 0}
+.err{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;
+padding:11px 14px;font-size:12.5px;color:#991b1b;margin:12px 0}
+.bar{display:flex;height:26px;border-radius:8px;overflow:hidden;border:1px solid var(--line);
+margin:8px 0;background:#fff}
+.bar span{display:flex;align-items:center;justify-content:center;font-size:10.5px;
+color:#fff;font-weight:600}
+.news{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:12px 14px;margin:9px 0;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.news .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.news .t{font-weight:600;font-size:13px;color:var(--ink)}
+.news .s{font-size:12.5px;color:var(--ink2);margin-top:5px}
+.news .r{font-size:12px;color:var(--sub);margin-top:5px;padding-left:10px;
+border-left:2px solid #e2e8f0}
 ul{margin:6px 0 6px 18px;padding:0}
-li{margin:3px 0;font-size:12.5px}
-.foot{margin-top:26px;color:var(--sub);font-size:11.5px;
-border-top:1px solid var(--line);padding-top:12px}
-code{background:#f2f2f2;padding:1px 5px;border-radius:4px;font-size:11.5px}
-details{margin:6px 0}
-summary{cursor:pointer;font-size:12.5px;color:var(--blue)}
+li{margin:4px 0;font-size:12.5px;color:var(--ink2)}
+.foot{margin-top:32px;color:var(--sub);font-size:11.5px;
+border-top:1px solid var(--line);padding-top:14px;line-height:1.9}
+code{background:#f1f5f9;padding:1px 6px;border-radius:5px;font-size:11.5px}
 """
 
 
@@ -84,7 +117,6 @@ def _n(v: Any, digits: int = 2, suffix: str = "") -> str:
 
 
 def _pct(v: Any, digits: int = 2) -> str:
-    """涨跌类数字：正红负绿，带符号。"""
     if v is None:
         return '<span class="dim">—</span>'
     try:
@@ -99,167 +131,290 @@ def _table(headers: list[str], rows: list[list[str]], *, empty: str = "（无）
     if not rows:
         return f'<p class="dim">{_e(empty)}</p>'
     head = "".join(f"<th>{_e(h)}</th>" for h in headers)
-    body = "".join(
-        "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
+    body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
 
+def _cards(items: list[tuple[str, str]]) -> str:
+    return '<div class="cards">' + "".join(
+        f'<div class="card"><div class="k">{_e(k)}</div><div class="v">{v}</div></div>'
+        for k, v in items) + "</div>"
+
+
 # ─────────────────────────────────────────────────────────────
-# 各区块
+# 顶部：决策摘要
 # ─────────────────────────────────────────────────────────────
-def _hero(proposal: dict) -> str:
+def _top(proposal: dict, payload: dict, market: dict) -> str:
     mv = proposal.get("market_view") or {}
     lo, hi = (mv.get("position_range_pct") or [None, None])
     trend = mv.get("trend") or "—"
-    conf = mv.get("confidence")
-    return f"""
-<div class="hero">
-  <div class="hero-grid">
-    <div><div class="k">趋势判断</div><div class="v">{_e(trend)}</div></div>
-    <div><div class="k">建议总仓位</div>
-         <div class="v">{("—" if lo is None else f"{lo:g}% ~ {hi:g}%")}</div></div>
-    <div><div class="k">置信度</div>
-         <div class="v">{("—" if conf is None else f"{conf:g}")}</div></div>
-  </div>
-</div>"""
+    cls = {"强势": "strong", "弱势": "weak"}.get(trend, "mid")
+    src = "LLM 分析" if (payload.get("proposal_source") or "llm") == "llm" else "规则兜底"
 
-
-def _market_view(proposal: dict) -> str:
-    mv = proposal.get("market_view") or {}
-    reasons = mv.get("reasons") or []
-    if not reasons:
-        return ""
-    return "<ul>" + "".join(f"<li>{_e(r)}</li>" for r in reasons) + "</ul>"
-
-
-def _indices(market: dict) -> str:
-    rows = []
-    for i in market.get("indices") or []:
-        trend = i.get("trend") or "—"
-        cls = "ok" if trend == "强势" else ("no" if trend == "走弱" else "mid")
-        rows.append([
-            f"{_e(i.get('name'))}",
-            _n(i.get("close")),
-            _pct(i.get("chg_pct")),
-            _n(i.get("amount_yi"), 0, "亿"),
-            _pct(i.get("chg_5d_pct")),
-            f'<span class="pill {cls}">{_e(trend)}</span>',
-            "是" if i.get("above_ma20") else "否",
-            _n(i.get("ma20")),
-        ])
-    return _table(["指数", "收盘", "涨跌", "成交额", "5日", "趋势", "站上MA20", "MA20"], rows)
-
-
-def _breadth(market: dict) -> str:
-    b = market.get("breadth") or {}
-    # ★ 这里**不能**对外层再做 _e()：_n/_pct 返回的已经是 HTML，
-    #   再转义一次就会把 <span> 原样打印到页面上（第一版就这么翻车的）。
-    cards = [
-        ("上涨/下跌", f"{_e(b.get('up', '—'))} / {_e(b.get('down', '—'))}"),
-        ("上涨占比", _n(b.get("up_ratio_pct"), 1, "%")),
-        ("涨停/跌停",
-         f"{_e(b.get('pool_zt', b.get('limit_up', '—')))} / "
-         f"{_e(b.get('pool_dt', b.get('limit_down', '—')))}"),
-        ("炸板率", _n(b.get("break_rate_pct"), 1, "%")),
-        ("最高连板", _e(b.get("max_boards", "—"))),
-        ("连板家数", _e(b.get("multi_board_n", "—"))),
-        ("封板资金", _n(b.get("seal_amount_yi"), 1, "亿")),
-        ("活跃度", _n(b.get("activity"), 1)),
+    chips = [
+        f'<div class="chip {cls}"><div class="k">趋势判断</div>'
+        f'<div class="v">{_e(trend)}</div></div>',
+        f'<div class="chip"><div class="k">建议总仓位</div>'
+        f'<div class="v">{("—" if lo is None else f"{lo:g}~{hi:g}%")}</div></div>',
+        f'<div class="chip"><div class="k">置信度</div>'
+        f'<div class="v">{_n(mv.get("confidence"), 0)}</div></div>',
+        f'<div class="chip"><div class="k">判断来源</div>'
+        f'<div class="v" style="font-size:15px">{_e(src)}</div></div>',
     ]
-    cells = "".join(
-        f'<div class="card"><div class="k">{_e(k)}</div><div class="v">{v}</div></div>'
-        for k, v in cards)
-    return f'<div class="cards">{cells}</div>'
+    reasons = mv.get("reasons") or []
+    blocks = "".join(
+        f'<li>{_e(r)}</li>' for r in reasons)
+    return f"""
+<div class="top"><div class="wrap">
+  <h1>盘前预案 · {_e(payload.get("plan_date_iso") or payload.get("plan_date"))}</h1>
+  <div class="meta">数据截至 {_e(market.get("date"))} 收盘 ｜
+    生成 {_e(payload.get("generated_at"))} ｜ 锚点
+    <code style="background:rgba(255,255,255,.14);color:#e0e7ff">
+    {_e((payload.get("anchor") or {}).get("sha256", "")[:16])}…</code></div>
+  <div class="chips">{''.join(chips)}</div>
+</div></div>
+""" + (f'<div class="wrap"><ul>{blocks}</ul></div>' if blocks else "")
 
 
-def _themes(market: dict, proposal: dict) -> str:
-    pri = {s["name"]: s for s in (proposal.get("sector_priority") or [])}
-    rows = []
-    for t in (market.get("themes") or [])[:12]:
-        p = pri.get(t["name"]) or {}
-        leaders = "、".join(l["name"] for l in (t.get("leaders") or [])[:3])
-        rows.append([
-            _e(t.get("name")),
-            _n(t.get("limit_up_n"), 0),
-            _n(t.get("max_boards"), 0),
-            _n(t.get("seal_yi"), 1, "亿"),
-            _e(leaders or "—"),
-            _n(p.get("strength"), 0) if p else '<span class="dim">—</span>',
-            _e(p.get("logic") or "") if p else "",
-        ])
-    body = _table(["题材/行业", "涨停数", "最高板", "封板资金", "龙头", "Agent强度", "Agent 逻辑"], rows)
-    if pri:
-        names = [s["name"] for s in proposal.get("sector_priority") or []]
-        body += f'<p class="dim">Agent 给出的题材优先级：{" → ".join(_e(n) for n in names)}</p>'
-    return body
-
-
-def _leaders(market: dict) -> str:
-    rows = [[_e(l.get("name")), _e(l.get("code")), _n(l.get("boards"), 0),
-             _pct(l.get("chg_pct")), _n(l.get("seal_yi"), 1, "亿"),
-             _e(l.get("industry")), _n(l.get("break_times"), 0)]
-            for l in (market.get("leaders") or [])[:12]]
-    return _table(["名称", "代码", "连板", "涨跌", "封板资金", "行业", "炸板次数"], rows,
-                  empty="（今日无 3 板以上个股）")
-
-
-def _funds(market: dict) -> str:
+# ─────────────────────────────────────────────────────────────
+# 二、大盘环境与资金
+# ─────────────────────────────────────────────────────────────
+def _market(market: dict) -> str:
     out = []
+
+    rows = []
+    for d in market.get("index_detail") or []:
+        ab = d.get("above") or {}
+        marks = "".join(
+            f'<span class="pill {"ok" if ab.get(k) else "mute"}">'
+            f'{"站上" if ab.get(k) else "跌破"}{k.upper()}</span>'
+            for k in ("ma5", "ma20", "ma60"))
+        rows.append([
+            _e(d.get("name")), _n(d.get("close")), _pct(d.get("chg_pct")),
+            _pct(d.get("vs_ma20_pct")), _pct(d.get("chg_5d_pct")),
+            _n(d.get("amplitude_pct"), 2, "%"),
+            _n(d.get("vol_vs_ma5"), 2),
+            f'{_e(d.get("streak_days"))}{_e(d.get("streak_dir"))}',
+            marks,
+        ])
+    out.append("<h3>指数 K 线</h3>" + _table(
+        ["指数", "收盘", "今日", "距MA20", "5日", "振幅", "量能倍数", "连续", "均线位置"],
+        rows, empty="（指数数据缺失）"))
+
+    ms = market.get("market_stats") or {}
+    vs5 = ms.get("amount_vs_ma5_pct")
+    tone = "warn" if (vs5 if vs5 is not None else 0) < -10 else "note"
+    word = ("明显缩量，承接力偏弱" if (vs5 or 0) < -10 else
+            "温和放量" if (vs5 or 0) > 10 else "量能平稳")
+    out.append(f"""<div class="{tone}"><b>量能</b>：两市成交额
+<b>{_n(ms.get("amount_yi"), 0, " 亿")}</b>（5 日均 {_n(ms.get("amount_ma5_yi"), 0, " 亿")}，
+20 日均 {_n(ms.get("amount_ma20_yi"), 0, " 亿")}）→ 相对 5 日均 <b>{_pct(vs5)}</b>，
+{_e(word)}。</div>""")
+
     nb = market.get("northbound") or []
     if nb:
-        rows = [[_e(x.get("board")), _n(x.get("net_buy_yi"), 1, "亿"),
-                 f"{x.get('up', '—')} / {x.get('down', '—')}",
+        rows = [[_e(x.get("board")), _n(x.get("net_buy_yi"), 1, " 亿"),
+                 f'{_e(x.get("up"))} / {_e(x.get("down"))}',
                  _pct(x.get("index_chg_pct"))] for x in nb]
         out.append("<h3>北向资金</h3>" +
                    _table(["板块", "成交净买额", "涨/跌家数", "指数涨跌"], rows))
+        if all(abs(x.get("net_buy_yi") or 0) < 1e-9 for x in nb):
+            out.append('<p class="dim" style="font-size:11.5px">'
+                       '注：沪深港通实时额度已停止披露，净买额恒为 0，仅涨跌家数可用。</p>')
+
     lhb = market.get("lhb_top") or []
     if lhb:
         rows = [[_e(x.get("name")), _e(x.get("code")), _pct(x.get("chg_pct")),
-                 _n(x.get("net_buy_wan"), 0, "万"), _e(x.get("note"))] for x in lhb[:8]]
+                 _n(x.get("net_buy_wan"), 0, " 万"), _e(x.get("note"))]
+                for x in lhb[:8]]
         out.append("<h3>龙虎榜（净买额前列）</h3>" +
-                   _table(["名称", "代码", "涨跌", "净买额", "解读"], rows))
+                   _table(["名称", "代码", "涨跌", "净买额", "席位解读"], rows))
     return "".join(out)
 
 
-def _news(market: dict) -> str:
-    items = market.get("news") or []
-    if not items:
-        return '<p class="dim">（未取到快讯）</p>'
+# ─────────────────────────────────────────────────────────────
+# 三、市场情绪与宽度
+# ─────────────────────────────────────────────────────────────
+def _sentiment(market: dict) -> str:
+    b = market.get("breadth") or {}
+    ms = market.get("market_stats") or {}
+    out = [_cards([
+        ("上涨 / 下跌", f'{_e(ms.get("n_up", b.get("up", "—")))} / '
+                        f'{_e(ms.get("n_down", b.get("down", "—")))}'),
+        ("上涨占比", _n(ms.get("up_ratio_pct"), 2, "%")),
+        ("涨停 / 跌停", f'{_e(b.get("pool_zt", "—"))} / {_e(b.get("pool_dt", "—"))}'),
+        ("炸板率", _n(b.get("break_rate_pct"), 2, "%")),
+        ("最高连板", f'{_e(b.get("max_boards", "—"))} 板'),
+        ("连板家数", _e(b.get("multi_board_n", "—"))),
+        ("封板资金", _n(b.get("seal_amount_yi"), 1, " 亿")),
+        ("活跃度", _n(b.get("activity"), 1)),
+    ])]
+
+    dist = ms.get("distribution") or {}
+    order = ["<-7%", "-7~-5%", "-5~-2%", "-2~0%", "0~2%", "2~5%", "5~7%", ">7%"]
+    colors = ["#047857", "#059669", "#34d399", "#a7f3d0",
+              "#fecdd3", "#fb7185", "#e11d48", "#9f1239"]
+    total = sum(dist.get(k, 0) for k in order) or 1
+    segs = "".join(
+        f'<span style="width:{dist.get(k, 0) / total * 100:.2f}%;background:{c}" '
+        f'title="{k}: {dist.get(k, 0)}">'
+        f'{(dist.get(k, 0) if dist.get(k, 0) / total > .06 else "")}</span>'
+        for k, c in zip(order, colors))
+    leg = "　".join(f'{k} <b>{dist.get(k, 0)}</b>' for k in order)
+    out.append("<h3>涨跌分布（全市场逐只统计）</h3>"
+               f'<div class="bar">{segs}</div>'
+               f'<p class="dim" style="font-size:11.5px">左绿右红：{leg}'
+               f'　样本 {_e(ms.get("n_total", "—"))} 只</p>')
+
+    up5 = dist.get("5~7%", 0) + dist.get(">7%", 0)
+    down5 = dist.get("-7~-5%", 0) + dist.get("<-7%", 0)
+    verdict = ("跌超 5% 的家数多于涨超 5%，叠加炸板率偏高，接力环境差。"
+               if down5 > up5 else "涨超 5% 的家数占优，但要看明日能否延续。")
+    out.append(f'<div class="note"><b>情绪读数</b>：涨超 5% <b>{up5}</b> 只，'
+               f'跌超 5% <b>{down5}</b> 只，炸板率 '
+               f'<b>{_n(b.get("break_rate_pct"), 1, "%")}</b>，最高板 '
+               f'<b>{_e(b.get("max_boards", "—"))}</b> 板。{_e(verdict)}</div>')
+    return "".join(out)
+
+
+# ─────────────────────────────────────────────────────────────
+# 四、题材优先级与龙头（连板梯队并入）
+# ─────────────────────────────────────────────────────────────
+def _themes(market: dict, proposal: dict) -> str:
+    pri = {s["name"]: s for s in (proposal.get("sector_priority") or [])}
+    trend = (market.get("theme_trend") or {})
+    series = trend.get("series") or {}
+    days = trend.get("days") or []
+    labels = " / ".join(str(d)[4:6] + "/" + str(d)[6:8] for d in days[-5:])
+
     rows = []
-    for n in items[:30]:
-        text = n.get("title") or n.get("content") or ""
-        rows.append([_e(str(n.get("time"))[:16]), _e(n.get("src")), _e(text[:100])])
-    return _table(["时间", "来源", "内容"], rows)
+    for i, t in enumerate((market.get("themes") or [])[:12], 1):
+        name = t["name"]
+        p = pri.get(name) or {}
+        s = series.get(name) or []
+        trend_txt = " → ".join(str(x) for x in s) if s else "—"
+        leaders = "、".join(l["name"] for l in (t.get("leaders") or [])[:2])
+        rows.append([
+            f'{i}. {_e(name)}', _n(t.get("limit_up_n"), 0),
+            _e(t.get("max_boards", "—")), _n(t.get("seal_yi"), 1, " 亿"),
+            _e(leaders or "—"),
+            f'<span class="dim">{_e(trend_txt)}</span>',
+            _n(p.get("strength"), 0) if p else '<span class="dim">—</span>',
+            _e(p.get("leader") or "—"), _e(p.get("leader_status") or "—"),
+        ])
+    out = ["<h3>题材强度（按当日涨停家数）</h3>" + _table(
+        ["题材", "涨停", "最高板", "封板资金", "日内龙头",
+         f"近几日涨停（{labels}）", "Agent强度", "Agent龙头", "龙头地位"],
+        rows, empty="（无题材数据）")]
+
+    for s in proposal.get("sector_priority") or []:
+        out.append(f"""
+<div class="news">
+  <div class="h"><span class="t">{_e(s.get("name"))}</span>
+    <span class="pill hot">强度 {_n(s.get("strength"), 0)}</span>
+    <span class="pill">龙头 {_e(s.get("leader") or "—")}</span>
+    <span class="pill mute">{_e(s.get("leader_status") or "")}</span></div>
+  <div class="s"><b>逻辑</b>：{_e(s.get("logic"))}</div>
+  <div class="s"><b>资金</b>：{_e(s.get("fund_flow") or "—")}</div>
+  <div class="s"><b>催化</b>：{_e(s.get("catalyst") or "—")}</div>
+  <div class="s"><b>持续性</b>：{_e(s.get("sustainability") or "—")}</div>
+  <div class="r"><b>证据</b>：{_e(s.get("evidence") or "—")}</div>
+</div>""")
+    return "".join(out)
 
 
-def _position_plan(planned: dict, account: dict) -> str:
+# ─────────────────────────────────────────────────────────────
+# 五、财经消息与影响（LLM 分析）
+# ─────────────────────────────────────────────────────────────
+def _news(proposal: dict) -> str:
+    items = proposal.get("news_analysis") or []
+    if not items:
+        return ('<p class="dim">本次未筛出对交易有实质影响的消息'
+                '（噪音已被丢弃，这本身是判断）。</p>')
+    out = []
+    for n in items:
+        imp = n.get("importance")
+        cls = {"高": "hot", "中": "mid"}.get(imp, "mute")
+        eff = n.get("impact")
+        eff_cls = "pos" if eff == "利好" else ("neg" if eff == "利空" else "dim")
+        themes = "、".join(n.get("affected_themes") or []) or "—"
+        stocks = "、".join(n.get("affected_stocks") or []) or "—"
+        out.append(f"""
+<div class="news">
+  <div class="h"><span class="t">{_e(n.get("title"))}</span>
+    <span class="pill {cls}">重要性 {_e(imp)}</span>
+    <span class="pill {eff_cls}">{_e(eff)}</span></div>
+  <div class="s">{_e(n.get("summary"))}</div>
+  <div class="s"><b>影响题材</b>：{_e(themes)}　<b>影响个股</b>：{_e(stocks)}</div>
+  <div class="r">{_e(n.get("reasoning"))}</div>
+</div>""")
+    return "".join(out)
+
+
+# ─────────────────────────────────────────────────────────────
+# 六、当日持仓与盈亏
+# ─────────────────────────────────────────────────────────────
+def _positions(review_ctx: dict, account: dict) -> str:
+    if not review_ctx:
+        return '<p class="dim">（无当日复盘素材）</p>'
+    a = review_ctx.get("account") or {}
+    out = [_cards([
+        ("总资产", _n(a.get("total_pct"))),
+        ("可用", _n(a.get("cash_pct"))),
+        ("持仓市值", _n(a.get("market_value_pct"))),
+        ("仓位", _n(a.get("position_ratio_pct"), 1, "%")),
+        ("当日盈亏", _pct(a.get("day_pnl_ratio_pct"))),
+        ("累计盈亏", _pct(a.get("cum_pnl_ratio_pct"))),
+    ])]
+    rows = [[_e(p.get("code")), _e(p.get("name")),
+             _n(p.get("entry_price")), _n(p.get("last_price")),
+             _pct(p.get("unrealized_pct")), _pct(p.get("today_chg_pct")),
+             _n(p.get("stop_loss")), _n(p.get("take_profit")),
+             _e(p.get("entry_logic") or "")]
+            for p in (review_ctx.get("positions") or [])]
+    out.append("<h3>持仓明细</h3>" + _table(
+        ["代码", "名称", "成本", "现价", "浮盈", "当日", "止损", "止盈", "买入逻辑"],
+        rows, empty="（今日空仓 —— 空仓也是一种决策，见第十节复盘）"))
+
+    ex = review_ctx.get("executed") or []
+    if ex:
+        rows = []
+        for t in ex:
+            act = {"buy": "买入", "sell": "卖出"}.get(t.get("action"), "调整")
+            val = (t.get("realized_pct") if t.get("realized_pct") is not None
+                   else t.get("alloc_pct"))
+            rows.append([_e(act), _e(t.get("code")), _e(t.get("name")),
+                         _n(t.get("price") or t.get("exit_price")),
+                         _pct(val),
+                         _e((t.get("reason") or "")[:60])])
+        out.append("<h3>今日按预案执行的成交</h3>" + _table(
+            ["操作", "代码", "名称", "成交价", "已实现/仓位", "依据"], rows))
+    else:
+        out.append('<p class="dim">今日无成交（预案未触发或空仓）。</p>')
+    return "".join(out)
+
+
+# ─────────────────────────────────────────────────────────────
+# 七、次日计划与调仓
+# ─────────────────────────────────────────────────────────────
+def _plan(planned: dict, account: dict) -> str:
     out = []
     buys = planned.get("buy") or []
     if buys:
-        def src(it) -> str:
-            s = it.get("price_source")
-            if s == "auto":
-                return '<span class="pill mid">内核补全</span>'
-            if s == "llm":
-                return '<span class="pill ok">模型给出</span>'
-            return '<span class="pill">—</span>'
-
         rows = [[_e(b.get("code")), _e(b.get("name")), _n(b.get("alloc_pct"), 1, "%"),
-                 _n(b.get("stop_loss")), _n(b.get("take_profit")), src(b),
+                 _n(b.get("stop_loss")), _n(b.get("take_profit")),
+                 _n(b.get("ref_close")),
                  _e(b.get("trigger") or ""), _e(b.get("logic") or "")] for b in buys]
-        out.append("<h3>计划买入</h3>" +
-                   _table(["代码", "名称", "仓位", "止损", "止盈", "价格来源",
-                           "触发条件", "逻辑"], rows))
+        out.append("<h3>计划买入</h3>" + _table(
+            ["代码", "名称", "仓位", "止损", "止盈", "参考收盘", "触发条件", "逻辑"], rows))
 
-    rows = []
-    for p in account.get("positions") or []:
-        rows.append([_e(p.get("code")), _e(p.get("name")), _n(p.get("weight_pct"), 1, "%"),
-                     _n(p.get("entry_price")), _n(p.get("last_price")),
-                     _pct(p.get("unrealized_pct")), _n(p.get("stop_loss")),
-                     _n(p.get("take_profit"))])
+    rows = [[_e(p.get("code")), _e(p.get("name")), _n(p.get("weight_pct"), 1, "%"),
+             _n(p.get("entry_price")), _n(p.get("last_price")),
+             _pct(p.get("unrealized_pct")), _n(p.get("stop_loss")),
+             _n(p.get("take_profit"))] for p in (account.get("positions") or [])]
     if rows:
-        out.append("<h3>当前持仓</h3>" +
-                   _table(["代码", "名称", "占比", "成本", "现价", "浮盈", "止损", "止盈"], rows))
+        out.append("<h3>当前持仓（明日管理对象）</h3>" + _table(
+            ["代码", "名称", "占比", "成本", "现价", "浮盈", "止损", "止盈"], rows))
 
     sells = planned.get("sell") or []
     if sells:
@@ -270,135 +425,131 @@ def _position_plan(planned: dict, account: dict) -> str:
 
     adj = planned.get("adjust") or []
     if adj:
-        rows = [[_e(a.get("code")), _n(a.get("stop_loss")), _n(a.get("take_profit")),
-                 _e(a.get("reason") or "")] for a in adj]
+        rows = [[_e(a.get("code")), _n(a.get("stop_loss")),
+                 _n(a.get("take_profit")), _e(a.get("reason") or "")] for a in adj]
         out.append("<h3>计划调整止损/止盈</h3>" +
                    _table(["代码", "新止损", "新止盈", "原因"], rows))
     return "".join(out) or '<p class="dim">（本日无买卖计划）</p>'
 
 
-def _account_summary(account: dict) -> str:
-    cards = [
-        ("总资产", _n(account.get("total_pct"), 2)),
-        ("可用资金", _n(account.get("cash_pct"), 2)),
-        ("持仓市值", _n(account.get("market_value_pct"), 2)),
-        ("仓位占比", _n(account.get("position_ratio_pct"), 1, "%")),
-        ("累计收益", _pct(account.get("cum_pnl_ratio_pct"))),
-        ("已实现", _n(account.get("realized_pct"), 2)),
-        ("持仓数", account.get("n_positions", 0)),
-    ]
-    cells = "".join(
-        f'<div class="card"><div class="k">{_e(k)}</div><div class="v">{v}</div></div>'
-        for k, v in cards)
-    note = ('<p class="dim">口径：总资产以 100 为基准（份额），全部数字为百分比；'
-            f'费用 {account.get("fee_model", {}).get("note", "")}</p>')
-    return f'<div class="cards">{cells}</div>{note}'
-
-
+# ─────────────────────────────────────────────────────────────
+# 八、四张表变动
+# ─────────────────────────────────────────────────────────────
 def _changes(applied: dict, rejected: list) -> str:
-    """四张表的变动 + 原因（用户要求：变动必须写明原因）。"""
     out = []
-    # 英文键 → 中文标题。**h3 也必须用映射后的标签**，
-    # 否则页面上会出现「pool_add」这种内部键名（第一版就是）。
     LABELS = {"pool_add": "观察表 · 新增", "pool_update": "观察表 · 更新",
               "pool_remove": "观察表 · 移除", "info_add": "重要信息 · 新增",
               "info_remove": "重要信息 · 移除", "lesson_add": "经验表 · 新增",
               "lesson_remove": "经验表 · 移除"}
 
-    def block(key: str, items: list, fmt) -> None:
+    def block(key: str, fmt) -> None:
+        items = applied.get(key) or []
         if not items:
             return
         label = LABELS.get(key, key)
         rows = [[label, fmt(it)] for it in items]
-        out.append(f"<h3>{_e(label)}</h3>" + _table(["项", "内容/原因"], rows))
+        out.append(f"<h3>{_e(label)}</h3>" + _table(["项", "内容 / 原因"], rows))
 
-    block("pool_add", applied.get("pool_add") or [],
-          lambda it: f"{_e(it.get('code'))} {_e(it.get('name'))} "
-                     f"[{_e(it.get('tier'))}] — {_e(it.get('reason'))}")
-    block("pool_update", applied.get("pool_update") or [],
-          lambda it: f"{_e(it.get('code'))} 改 {_e(', '.join(it.get('fields') or []))} "
-                     f"— {_e(it.get('reason'))}")
-    block("pool_remove", applied.get("pool_remove") or [],
-          lambda it: f"{_e(it.get('code'))} — {_e(it.get('reason'))}")
-    block("info_add", applied.get("info_add") or [],
-          lambda it: f"[{_e(it.get('level'))}] {_e(it.get('content'))}")
-    block("info_remove", applied.get("info_remove") or [],
-          lambda it: f"{_e(it.get('id'))} — {_e(it.get('reason'))}")
-    block("lesson_add", applied.get("lesson_add") or [],
-          lambda it: f"[{_e(it.get('result'))}] {_e(it.get('lesson'))}")
-    block("lesson_remove", applied.get("lesson_remove") or [],
-          lambda it: f"{_e(it.get('id'))} — {_e(it.get('reason'))}")
+    block("pool_add", lambda it: f"{_e(it.get('code'))} {_e(it.get('name'))} "
+                                 f"[{_e(it.get('tier'))}] — {_e(it.get('reason'))}")
+    block("pool_update", lambda it: f"{_e(it.get('code'))} 改 "
+                                    f"{_e(', '.join(it.get('fields') or []))} — "
+                                    f"{_e(it.get('reason'))}")
+    block("pool_remove", lambda it: f"{_e(it.get('code'))} — {_e(it.get('reason'))}")
+    block("info_add", lambda it: f"[{_e(it.get('level'))}] {_e(it.get('content'))}")
+    block("info_remove", lambda it: f"{_e(it.get('id'))} — {_e(it.get('reason'))}")
+    block("lesson_add", lambda it: f"[{_e(it.get('result'))}] {_e(it.get('lesson'))}")
+    block("lesson_remove", lambda it: f"{_e(it.get('id'))} — {_e(it.get('reason'))}")
 
     if rejected:
         rows = [[_e(r.get("kind")), _e(r.get("target")), _e(r.get("reason"))]
                 for r in rejected]
-        out.append('<div class="err"><b>被内核拒绝的提议</b>（没有静默丢弃，'
-                   '原因如下）</div>' +
+        out.append('<div class="err"><b>被内核拒绝的提议</b>'
+                   '（没有静默丢弃，原因如下）</div>' +
                    _table(["类型", "对象", "拒绝原因"], rows))
-
-    if not out:
-        # 不能因为"今天没改表"就把整节删掉：章节编号会断，而且用户会以为渲染出错。
-        return '<p class="dim">本日四张表无任何增删改。</p>'
-    return "".join(out)
+    return "".join(out) or '<p class="dim">本日四张表无任何增删改。</p>'
 
 
-def _tables_snapshot(snapshot: dict) -> str:
+# ─────────────────────────────────────────────────────────────
+# 九、四张表当前状态
+# ─────────────────────────────────────────────────────────────
+def _tables(snapshot: dict) -> str:
     out = []
     pool = [r for r in (snapshot.get("pool") or []) if r.get("status") != "removed"]
     if pool:
         rows = [[_e(r.get("code")), _e(r.get("name")),
-                 f'<span class="pill {"ok" if r.get("tier") == "core" else ""}">'
-                 f'{_e(r.get("tier"))}</span>',
-                 _e(r.get("logic")), _e(r.get("trigger")),
-                 _n(r.get("stop_loss")), _n(r.get("take_profit")),
-                 _e(r.get("added_date"))] for r in pool]
-        out.append("<h3>选股观察表</h3>" +
-                   _table(["代码", "名称", "等级", "入选逻辑", "触发条件",
-                           "止损", "止盈", "入选日期"], rows))
-
+                 f'<span class="pill {"hot" if r.get("tier") == "core" else "mute"}">'
+                 f'{_e("核心" if r.get("tier") == "core" else "普通")}</span>',
+                 _e(r.get("trigger")), _n(r.get("stop_loss")),
+                 _n(r.get("take_profit")), _e(r.get("added_date")),
+                 _e(r.get("logic"))] for r in pool]
+        out.append("<h3>选股观察表</h3>" + _table(
+            ["代码", "名称", "等级", "触发条件", "止损", "止盈", "入选日", "入选逻辑"],
+            rows))
     infos = snapshot.get("infos") or []
     if infos:
-        rows = [[_e(r.get("level")), _e(r.get("scope")),
-                 _e((r.get("scope_detail") or "")), _e(r.get("content")),
-                 _e(r.get("expires_on"))] for r in infos]
+        rows = [[f'<span class="pill {"hot" if r.get("level") == "高" else "mute"}">'
+                 f'{_e(r.get("level"))}</span>', _e(r.get("scope")),
+                 _e(r.get("content")), _e(r.get("expires_on"))] for r in infos]
         out.append("<h3>重要信息表</h3>" +
-                   _table(["等级", "范围", "标的", "内容", "有效期至"], rows))
-
+                   _table(["等级", "范围", "内容", "有效期至"], rows))
     lessons = snapshot.get("lessons") or []
     if lessons:
-        rows = [[_e(r.get("result")), _e(r.get("lesson")), _e(r.get("scenario")),
-                 _e(r.get("recorded_on"))] for r in lessons[:15]]
+        rows = [[f'<span class="pill {"ok" if r.get("result") == "成功经验" else "mid"}">'
+                 f'{_e(r.get("result"))}</span>', _e(r.get("lesson")),
+                 _e(r.get("scenario")), _e(r.get("recorded_on"))]
+                for r in lessons[:12]]
         out.append("<h3>交易经验表（最近）</h3>" +
-                   _table(["结果", "经验", "场景", "记录日期"], rows))
-    if not out:
-        return ('<p class="dim">四张表当前均为空。'
-                '生成第一份预案后，agent 的增删改会出现在统计里。</p>')
-    return "".join(out)
+                   _table(["结果", "经验", "场景", "记录日"], rows))
+    return "".join(out) or '<p class="dim">四张表当前均为空。</p>'
 
 
-def _source_banner(payload: dict) -> str:
-    """把「判断是谁做的」放在最显眼处 —— 规则兜底绝不能冒充 agent。"""
-    src = payload.get("proposal_source") or "llm"
-    if src == "llm":
-        return ""
-    reason = (payload.get("proposal") or {}).get("_fallback_reason") or ""
-    return (f'<div class="err"><b>本次为规则兜底，不是 agent 判断。</b><br>'
-            f'未接入 LLM（{_e(reason[:160])}）。本预案只做了「大盘趋势 → 仓位区间」'
-            f'的机械映射与题材排序，<b>没有生成个股计划、没有改动四张表</b>。'
-            f'配置 LLM 后重新生成才会得到 agent 版本。</div>')
+# ─────────────────────────────────────────────────────────────
+# 十、当日复盘
+# ─────────────────────────────────────────────────────────────
+def _review(proposal: dict, review_ctx: dict) -> str:
+    rv = proposal.get("review") or {}
+    out = []
+    worked = rv.get("what_worked") or []
+    failed = rv.get("what_failed") or []
+    if worked:
+        out.append("<h3>做对了什么</h3><ul>" +
+                   "".join(f"<li>{_e(x)}</li>" for x in worked) + "</ul>")
+    if failed:
+        out.append("<h3>做错了什么 / 没做到的</h3><ul>" +
+                   "".join(f"<li>{_e(x)}</li>" for x in failed) + "</ul>")
+    tv = rv.get("theme_verdict") or []
+    if tv:
+        rows = []
+        for v in tv:
+            vd = v.get("verdict")
+            cls = {"兑现": "ok", "证伪": "hot"}.get(vd, "mute")
+            rows.append([_e(v.get("theme")),
+                         f'<span class="pill {cls}">{_e(vd)}</span>',
+                         _e(v.get("note"))])
+        out.append("<h3>题材兑现情况</h3>" + _table(["题材", "结论", "依据"], rows))
+
+    ex = (review_ctx or {}).get("executed") or []
+    sk = (review_ctx or {}).get("skipped") or []
+    if ex:
+        rows = [[_e(t.get("code")), _e(t.get("name")),
+                 _pct(t.get("trade_return_pct")
+                      if t.get("trade_return_pct") is not None
+                      else t.get("realized_pct")),
+                 _e((t.get("reason") or "")[:60])] for t in ex]
+        out.append("<h3>成交与结果（程序结算）</h3>" +
+                   _table(["代码", "名称", "本笔收益", "依据"], rows))
+    if sk:
+        rows = [[_e(s.get("action")), _e(s.get("code")), _e(s.get("reason"))]
+                for s in sk]
+        out.append("<h3>未执行项</h3>" + _table(["动作", "代码", "原因"], rows))
+    return "".join(out) or '<p class="dim">（本次无复盘内容）</p>'
 
 
-def _anchor_line(payload: dict) -> str:
-    a = payload.get("anchor") or {}
-    if not a.get("sha256"):
-        return ""
-    prev = a.get("prev") or "（首个预案）"
-    return (f'<p class="dim">预案锚点 <code>{_e(str(a.get("sha256"))[:32])}…</code>'
-            f' ｜ 上一份 <code>{_e(str(prev)[:32])}</code>'
-            f'<br>锚点 = 预案内容的 sha256。事后任何改动都会让锚点对不上。</p>')
-
-
-def _lists(proposal: dict) -> str:
+# ─────────────────────────────────────────────────────────────
+# 十一、风险与执行
+# ─────────────────────────────────────────────────────────────
+def _risk(proposal: dict) -> str:
     out = []
     risk = proposal.get("risk_notes") or []
     if risk:
@@ -411,51 +562,22 @@ def _lists(proposal: dict) -> str:
     return "".join(out)
 
 
-def _provenance(market: dict) -> str:
-    """数据来源与缺口：不许假装数据齐全。"""
-    parts = []
-    errs = market.get("errors") or []
-    caves = market.get("caveats") or []
-    if caves:
-        parts.append('<div class="note"><b>口径与数据说明</b><br>' +
-                     "<br>".join(_e(c) for c in caves) + "</div>")
-    if errs:
-        rows = [[_e(e.get("source")), _e(e.get("error"))] for e in errs]
-        parts.append('<div class="err"><b>以下数据源本次不可用</b>'
-                     '（相关结论不要依赖）</div>' +
-                     _table(["数据源", "错误"], rows))
-    srcs = set()
-    if (market.get("indices") or []):
-        srcs.add("指数：stock_zh_index_spot_sina / stock_zh_index_daily")
-    if (market.get("breadth") or {}).get("pool_zt") is not None:
-        srcs.add("池子：stock_zt_pool_em / zbgc / dtgc")
-    if market.get("themes"):
-        srcs.add("题材：涨停池「所属行业」聚合（板块接口 push2 不可用）")
-    if market.get("lhb_top"):
-        srcs.add("龙虎榜：stock_lhb_detail_em")
-    if market.get("news"):
-        srcs.add("快讯：stock_info_global_cls / stock_info_global_em")
-    if market.get("db_latest_date"):
-        srcs.add(f"本地库：market.db（最新 {market.get('db_latest_date')}）")
-    if srcs:
-        parts.append('<p class="dim">数据来源：' + "；".join(_e(s) for s in sorted(srcs)) + "</p>")
-    return "".join(parts)
+def _source_banner(payload: dict) -> str:
+    if (payload.get("proposal_source") or "llm") == "llm":
+        return ""
+    reason = (payload.get("proposal") or {}).get("_fallback_reason") or ""
+    return (f'<div class="wrap"><div class="err" style="margin-top:14px">'
+            f'<b>本次为规则兜底，不是 agent 判断。</b><br>'
+            f'未接入 LLM（{_e(reason[:160])}）。本预案只做了「大盘趋势 → 仓位区间」的'
+            f'机械映射与题材排序，<b>没有生成个股计划、没有改动四张表</b>。'
+            f'配置 LLM 后重新生成才会得到 agent 版本。</div></div>')
 
 
 # ─────────────────────────────────────────────────────────────
 # 主入口
 # ─────────────────────────────────────────────────────────────
 def render_plan(payload: dict) -> str:
-    """生成盘前预案 HTML。
-
-    payload 需要：
-        plan_date / trade_date / generated_at
-        market      —— collect.collect() 的结果
-        proposal    —— agent.validate() 后的 JSON
-        applied / rejected / planned —— apply.apply_proposal() 的结果
-        snapshot    —— Tables.snapshot()
-        account     —— account.compute() 的结果
-    """
+    """生成「盘前预案 + 盘后复盘」合并报告。"""
     market = payload.get("market") or {}
     proposal = payload.get("proposal") or {}
     applied = payload.get("applied") or {}
@@ -463,51 +585,34 @@ def render_plan(payload: dict) -> str:
     planned = payload.get("planned") or {}
     snapshot = payload.get("snapshot") or {}
     account = payload.get("account") or {}
+    review_ctx = payload.get("review_context") or {}
 
-    # 标题用**预案日**（这份预案是哪天的），数据日期单独标注 ——
-    # 之前用 trade_date 做标题，会让人以为这是"回顾昨天"。
-    plan_date_iso = payload.get("plan_date") or ""
-    if len(str(plan_date_iso)) == 8:
-        plan_date_iso = f"{str(plan_date_iso)[:4]}-{str(plan_date_iso)[4:6]}-{str(plan_date_iso)[6:8]}"
-    title = f"盘前预案 · {plan_date_iso}"
-    meta = (f"生成时间 {_e(payload.get('generated_at'))} ｜ "
-            f"适用于 {_e(plan_date_iso)} 开盘 ｜ "
-            f"数据截至 {_e(market.get('date'))} ｜ "
-            f"判断来源 {'LLM' if (payload.get('proposal_source') or 'llm') == 'llm' else '规则兜底'}")
-
-    # 章节**恒定 12 节**：空也要渲染（带空态说明）。
-    # 否则某天少两节，编号就断，程序和人都对不上。
     sections = [
-        ("一、决策摘要", _hero(proposal) + _market_view(proposal)),
-        ("二、大盘环境", _indices(market)),
-        ("三、市场情绪与宽度", _breadth(market)),
-        ("四、题材优先级", _themes(market, proposal)),
-        ("五、连板梯队", _leaders(market)),
-        ("六、资金面", _funds(market)),
-        ("七、财经与消息", _news(market)),
-        ("八、账户与持仓计划",
-         _account_summary(account) + _position_plan(planned, account)),
-        ("九、四张表变动（含原因）", _changes(applied, rejected)),
-        ("十、四张表当前状态", _tables_snapshot(snapshot)),
-        ("十一、风险与执行", _lists(proposal)),
-        ("十二、数据来源与缺口", _provenance(market)),
+        ("二、大盘环境与资金", _market(market)),
+        ("三、市场情绪与宽度", _sentiment(market)),
+        ("四、题材优先级与龙头", _themes(market, proposal)),
+        ("五、财经消息与影响", _news(proposal)),
+        ("六、当日持仓与盈亏", _positions(review_ctx, account)),
+        ("七、次日计划与调仓", _plan(planned, account)),
+        ("八、四张表变动（含原因）", _changes(applied, rejected)),
+        ("九、四张表当前状态", _tables(snapshot)),
+        ("十、当日复盘与经验", _review(proposal, review_ctx)),
+        ("十一、风险与执行", _risk(proposal)),
     ]
-
-    body = [f"<h2>{_e(head)}</h2>{content}" for head, content in sections]
+    body = [f"<h2>{_e(h)}</h2>{c}" for h, c in sections]
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{_e(title)}</title><style>{_CSS}</style></head>
-<body><div class="wrap">
-<h1>{_e(title)}</h1>
-<div class="meta">{meta}</div>
+<title>盘前预案 · {_e(payload.get("plan_date_iso") or payload.get("plan_date"))}</title>
+<style>{_CSS}</style></head><body>
+{_top(proposal, payload, market)}
 {_source_banner(payload)}
-{''.join(body)}
-{_anchor_line(payload)}
+<div class="wrap">{"".join(body)}
 <div class="foot">
-本预案由 portal.premarket 生成：数字全部由程序计算，判断文字由 LLM 提供并逐条经内核校验。<br>
-这是**虚拟盘**的盘前预案，不含真实资金、不构成任何投资建议。市场有风险，决策需自负。
+本报告由 portal.premarket 生成：<b>所有数字由程序计算</b>（采集 + 本地 market.db +
+账户核算），判断文字由 LLM 提供并逐条经内核校验；HTML 由代码渲染，非模型拼接。<br>
+虚拟盘模拟，不含真实资金，<b>不构成投资建议</b>。市场有风险，决策需自负。
 </div>
 </div></body></html>"""
 

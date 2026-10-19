@@ -31,8 +31,22 @@ SCHEMA_HINT = """{
     "confidence": 0-100,                    // 你对这个判断的置信度
     "reasons": ["依据1", "依据2"]           // 必须引用给定数据里的具体数字
   },
+  "news_analysis": [                        // ★ 不是罗列新闻，而是筛选+判断影响
+    {"title":"消息一句话（≤30字）",
+     "importance":"高|中|低",               // 高=影响 3 天以上
+     "impact":"利好|利空|中性",
+     "summary":"这条消息的本质（不是复述标题）",
+     "affected_themes":["汽车零部"],
+     "affected_stocks":["603197"],
+     "reasoning":"为什么会传导到这些标的"}
+  ],
   "sector_priority": [
-    {"name":"题材名","logic":"为什么优先","strength":0-100,"evidence":"引用涨停家数/龙头"}
+    {"name":"题材名","logic":"为什么优先","strength":0-100,"evidence":"引用涨停家数/龙头",
+     "fund_flow":"近期资金流向（引用成交额变化/龙虎榜/封板资金）",
+     "catalyst":"发酵原因（政策/业绩/事件）",
+     "sustainability":"可持续性推断（引用给定 5 日涨停家数序列）",
+     "leader":"龙头股名称",
+     "leader_status":"龙头地位（几板/是否唯一/封单强度）"}
   ],
   "pool_actions": {
     "add":     [{"code":"600000","name":"某股","tier":"core|normal","logic":"入选逻辑",
@@ -47,6 +61,11 @@ SCHEMA_HINT = """{
                 "stop_loss":10.5,"take_profit":13.0,"logic":"买入逻辑"}],
     "sell":   [{"code":"600000","reason":"卖出原因","all":true}],
     "adjust": [{"code":"600000","reason":"调整原因","stop_loss":10.8,"take_profit":13.5}]
+  },
+  "review": {                               // ★ 当日复盘（对已发生的事下判断）
+    "what_worked": ["哪些判断被验证了，引用价格/数据"],
+    "what_failed": ["哪些判断错了或没执行，引用价格/数据"],
+    "theme_verdict": [{"theme":"题材名","verdict":"兑现|证伪|待观察","note":"依据"}]
   },
   "info_actions": {
     "add":    [{"content":"不超过50字","scope":"大盘|行业|个股","scope_detail":"具体",
@@ -234,6 +253,8 @@ def validate(payload: dict) -> dict:
             "reasons": [str(r).strip()[:120] for r in reasons][:6],
         },
         "sector_priority": [],
+        "news_analysis": [],
+        "review": {"what_worked": [], "what_failed": [], "theme_verdict": []},
         "pool_actions": {"add": [], "update": [], "remove": []},
         "position_plan": {"buy": [], "sell": [], "adjust": []},
         "info_actions": {"add": [], "remove": []},
@@ -243,6 +264,7 @@ def validate(payload: dict) -> dict:
                                 for x in _list(payload, "execution_checklist", "顶层")][:10],
     }
 
+    # ── 题材：除了强度，还要资金、催化、可持续性、龙头地位 ──
     for s in _list(payload, "sector_priority", "顶层")[:8]:
         if not isinstance(s, dict):
             continue
@@ -255,10 +277,58 @@ def validate(payload: dict) -> dict:
             strength = 50.0
         out["sector_priority"].append({
             "name": name[:20],
-            "logic": str(s.get("logic", "")).strip()[:160],
+            "logic": str(s.get("logic", "")).strip()[:200],
             "strength": round(strength, 1),
-            "evidence": str(s.get("evidence", "")).strip()[:160],
+            "evidence": str(s.get("evidence", "")).strip()[:200],
+            "fund_flow": str(s.get("fund_flow", "")).strip()[:200],
+            "catalyst": str(s.get("catalyst", "")).strip()[:160],
+            "sustainability": str(s.get("sustainability", "")).strip()[:220],
+            "leader": str(s.get("leader", "")).strip()[:20],
+            "leader_status": str(s.get("leader_status", "")).strip()[:160],
         })
+
+    # ── 消息分析：筛掉噪音，只留对交易有实质影响的 ──
+    IMP = ("高", "中", "低")
+    IMPACT = ("利好", "利空", "中性")
+    for n in _list(payload, "news_analysis", "顶层")[:8]:
+        if not isinstance(n, dict):
+            continue
+        title = str(n.get("title", "")).strip()
+        if not title:
+            continue
+        imp = str(n.get("importance", "")).strip()
+        imp = imp if imp in IMP else "低"
+        eff = str(n.get("impact", "")).strip()
+        eff = eff if eff in IMPACT else "中性"
+        out["news_analysis"].append({
+            "title": title[:40],
+            "importance": imp,
+            "impact": eff,
+            "summary": str(n.get("summary", "")).strip()[:200],
+            "affected_themes": [str(x).strip()[:20] for x in
+                                (n.get("affected_themes") or [])][:5],
+            "affected_stocks": [str(x).strip() for x in
+                                (n.get("affected_stocks") or [])][:5],
+            "reasoning": str(n.get("reasoning", "")).strip()[:220],
+        })
+    # 高优先级排前面，方便报告直接按顺序展示
+    out["news_analysis"].sort(key=lambda x: ("高", "中", "低").index(x["importance"]))
+
+    # ── 当日复盘 ──
+    rv = payload.get("review") or {}
+    if isinstance(rv, dict):
+        out["review"] = {
+            "what_worked": [str(x).strip()[:200]
+                            for x in (rv.get("what_worked") or [])][:6],
+            "what_failed": [str(x).strip()[:200]
+                            for x in (rv.get("what_failed") or [])][:6],
+            "theme_verdict": [
+                {"theme": str(v.get("theme", "")).strip()[:20],
+                 "verdict": str(v.get("verdict", "")).strip()[:6],
+                 "note": str(v.get("note", "")).strip()[:160]}
+                for v in (rv.get("theme_verdict") or []) if isinstance(v, dict)
+            ][:8],
+        }
 
     pa = payload.get("pool_actions") or {}
     for key in ("add", "update", "remove"):
@@ -286,8 +356,9 @@ def validate(payload: dict) -> dict:
 # Prompt 构建
 # ─────────────────────────────────────────────────────────────
 def build_prompt(*, snapshot: dict, market: dict, account: dict,
-                 plan_date: str, trade_date: str) -> str:
-    """把四张表 + 采集摘要 + 账户，拼成给 LLM 的完整 prompt。
+                 plan_date: str, trade_date: str,
+                 review_context: dict | None = None) -> str:
+    """把四张表 + 采集摘要 + 账户 + 当日复盘素材，拼成给 LLM 的完整 prompt。
 
     刻意**不**把原始新闻正文全塞进去：只给标题与时间，避免模型被长文带跑。
     """
@@ -341,16 +412,19 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 【三、当前账户（程序计算，初始 100%）】
 {dump(acct_view)}
 
-【四、模拟持仓表（{len(pos_view)} 只）】
+【四、当日复盘素材（已发生的事实，只许基于这些做复盘，不许编造）】
+{dump(review_context) if review_context else "（今日无持仓、无成交）"}
+
+【五、模拟持仓表（{len(pos_view)} 只）】
 {dump(pos_view) if pos_view else "（空仓）"}
 
-【五、选股观察表（{len(pool_view)} 只）】
+【六、选股观察表（{len(pool_view)} 只）】
 {dump(pool_view) if pool_view else "（空表）"}
 
-【六、重要信息表（{len(info_view)} 条，盘前必须先通读）】
+【七、重要信息表（{len(info_view)} 条，盘前必须先通读）】
 {dump(info_view) if info_view else "（空表）"}
 
-【七、交易经验表（最近 {len(lesson_view)} 条，历史教训必须遵守）】
+【八、交易经验表（最近 {len(lesson_view)} 条，历史教训必须遵守）】
 {dump(lesson_view) if lesson_view else "（空表）"}
 
 ──────────────────────────────
@@ -370,9 +444,28 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 
 【决策框架（按顺序推导，不许跳步）】
 1. 大盘环境定总仓位：趋势/流动性/情绪 → position_range_pct
+   （结合 index_detail 的均线位置、量能倍数、连续涨跌；market_stats 的涨跌分布与
+   成交额相对 5/20 日均量；北向与龙虎榜资金）
 2. 题材方向定优先级：政策催化强 + 资金认可 + 有龙头效应 → sector_priority
+   **每个题材必须给全五项**：fund_flow（近期资金）、catalyst（发酵原因）、
+   sustainability（引用主题 5 日涨停家数序列判断升温/降温）、leader、leader_status。
+   theme_trend 给了各行业近 5 日涨停家数，用它是判断持续性的唯一硬证据。
 3. 个股选择定标的：**从候选池里**挑题材龙头 + 量价健康 + 有席位验证的
 4. 操作执行定时机：明确触发条件与止损止盈，不追高不抄底 → execution_checklist
+
+【关于 news_analysis（用户明确要求）】
+**不要把新闻罗列一遍。** 从给定 news 里挑出**真正影响交易**的（最多 6 条，
+宁缺勿滥），对每条给出：重要程度（高/中/低）、利好/利空、本质总结、
+影响的题材与个股、以及传导逻辑。纯噪音（例如与你关注的题材无关的海外琐事）
+直接丢弃 —— 丢弃本身就是判断力。
+
+【关于 review（当日复盘）】
+只针对「四、当日复盘素材」里给出的已发生事实下判断：
+- what_worked：哪些判断被价格验证了，引用具体数字
+- what_failed：哪些错了、或计划了但没执行，同样引用数字
+- theme_verdict：昨日/今日题材的兑现情况（兑现/证伪/待观察）
+若今日空仓且无成交，把空仓这个**决策本身**作为复盘对象
+（是因为规则不满足而空仓，还是因为犹豫而错过？两者要区分开）。
 
 【输出要求】
 只输出一个 JSON 对象，结构如下（不要 Markdown 代码块以外的任何文字）：
@@ -391,6 +484,7 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 # ─────────────────────────────────────────────────────────────
 def propose(*, snapshot: dict, market: dict, account: dict,
             plan_date: str, trade_date: str,
+            review_context: dict | None = None,
             llm_call: Callable[[str], str] | None = None,
             log: Callable[[str], None] = print,
             raw_sink: list[str] | None = None) -> dict:
@@ -402,7 +496,8 @@ def propose(*, snapshot: dict, market: dict, account: dict,
             "LITELLM_MODEL，或在设置页填好模型后再生成。")
 
     prompt = build_prompt(snapshot=snapshot, market=market, account=account,
-                          plan_date=plan_date, trade_date=trade_date)
+                          plan_date=plan_date, trade_date=trade_date,
+                          review_context=review_context)
     log(f"🤖 调用 LLM（prompt {len(prompt)} 字符）…")
     text = call(prompt)
     if raw_sink is not None:
@@ -413,7 +508,9 @@ def propose(*, snapshot: dict, market: dict, account: dict,
     clean = validate(payload)
     log(f"   校验通过：趋势={clean['market_view']['trend']} "
         f"仓位区间={clean['market_view']['position_range_pct']} "
-        f"题材={len(clean['sector_priority'])} 个股计划={len(clean['position_plan']['buy'])}")
+        f"题材={len(clean['sector_priority'])} "
+        f"消息={len(clean['news_analysis'])} "
+        f"个股计划={len(clean['position_plan']['buy'])}")
     return clean
 
 

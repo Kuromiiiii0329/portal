@@ -45,7 +45,7 @@ INDICES = [
 #: 实测加了候选池之后，因为缓存命中，模型收到的候选池是空的，于是它严格遵守
 #: 「无候选池就不要选股」，整份预案一个个股计划都没有 —— 而且日志里只有一行
 #: 「复用缓存」，看不出问题。缓存必须能自证新鲜。
-CACHE_SCHEMA = 2
+CACHE_SCHEMA = 3
 
 #: 新闻保留窗口（小时）与条数上限
 NEWS_HOURS = 36
@@ -496,6 +496,183 @@ def candidates(out: dict, date8: str) -> None:
                               "模型选股必须来自这里")
 
 
+def market_stats(out: dict, date8: str) -> None:
+    """用本地 market.db 算「涨跌分布 + 量能变化」—— 官方接口没有这两块。
+
+    为什么自己做：用户要的「涨跌情况、量能变化」，`stock_market_activity_legu`
+    只给上涨/下跌总数，没有分布，也没有「今日成交额 vs 5 日/20 日均量」的对比。
+    market.db 里有全市场逐日行情，这两样都能精确算出来，且不依赖网络。
+    """
+    try:
+        from portal.virtual import marketdb as M
+        conn = M.connect()
+    except Exception as exc:
+        _err(out, "market_stats_import", exc)
+        return
+    if conn is None:
+        out.setdefault("caveats", []).append("本地 market.db 不可用，涨跌分布与量能对比缺失。")
+        return
+
+    iso = f"{date8[:4]}-{date8[4:6]}-{date8[6:8]}"
+    try:
+        rows = conn.execute(
+            """WITH w AS (
+                   SELECT code, date, close, amount,
+                          LAG(close) OVER (PARTITION BY code ORDER BY date) AS prev
+                   FROM day
+                   WHERE date <= ? AND date >= date(?, '-60 day')
+               )
+               SELECT code, date, close, prev, amount FROM w
+               WHERE date <= ? ORDER BY date""", (iso, iso, iso)).fetchall()
+    except Exception as exc:
+        _err(out, "market_stats_query", exc)
+        conn.close()
+        return
+    finally:
+        pass
+
+    amt_by_date: dict[str, float] = {}
+    dist: dict[str, int] = {}
+    n_up = n_down = n_flat = 0
+    buckets = [(">7%", 7, 999), ("5~7%", 5, 7), ("2~5%", 2, 5), ("0~2%", 0, 2),
+               ("-2~0%", -2, 0), ("-5~-2%", -5, -2), ("-7~-5%", -7, -5), ("<-7%", -999, -7)]
+    for r in rows:
+        amt_by_date[r["date"]] = amt_by_date.get(r["date"], 0.0) + (r["amount"] or 0)
+        if r["date"] != iso or not r["prev"]:
+            continue
+        pct = (r["close"] / r["prev"] - 1) * 100
+        if pct > 0:
+            n_up += 1
+        elif pct < 0:
+            n_down += 1
+        else:
+            n_flat += 1
+        for label, lo, hi in buckets:
+            if lo <= pct < hi:
+                dist[label] = dist.get(label, 0) + 1
+                break
+
+    dates = sorted(amt_by_date)
+    today_amt = amt_by_date.get(iso, 0.0)
+    prev5 = [amt_by_date[d] for d in dates if d < iso][-5:]
+    prev20 = [amt_by_date[d] for d in dates if d < iso][-20:]
+    tot = n_up + n_down + n_flat
+    out["market_stats"] = {
+        "date": iso, "n_total": tot,
+        "n_up": n_up, "n_down": n_down, "n_flat": n_flat,
+        "up_ratio_pct": round(n_up / tot * 100, 2) if tot else None,
+        "distribution": dist,
+        "amount_yi": round(today_amt / 1e8, 1),
+        "amount_ma5_yi": round(sum(prev5) / len(prev5) / 1e8, 1) if prev5 else None,
+        "amount_ma20_yi": round(sum(prev20) / len(prev20) / 1e8, 1) if prev20 else None,
+        "amount_vs_ma5_pct": round((today_amt / (sum(prev5) / len(prev5)) - 1) * 100, 2)
+        if prev5 and sum(prev5) else None,
+        "source": "market.db 全市场逐日行情（本地计算）",
+    }
+    conn.close()
+
+
+def index_detail(out: dict) -> None:
+    """主板/创业板的 K 线细节：均线位置、量能倍数、振幅、连续涨跌。
+
+    用户要「主板 K 线、创业板 K 线」。这里给判断趋势的最小集合：
+    收盘相对 MA5/10/20/60、5/20 日涨幅、今日振幅、量能相对 5 日均量的倍数、
+    连续涨跌天数。这些比一句「走弱」有信息量得多。
+    """
+    import akshare as ak
+
+    detail = []
+    for code, name in (("sh000001", "上证指数（主板）"),
+                       ("sz399001", "深证成指"),
+                       ("sz399006", "创业板指")):
+        try:
+            rows = _rows(ak.stock_zh_index_daily(symbol=code))
+        except Exception as exc:
+            _err(out, f"index_detail:{code}", exc)
+            continue
+        closes = [_f(r.get("close")) for r in rows if _f(r.get("close"))]
+        vols = [_f(r.get("volume")) or 0 for r in rows]
+        if len(closes) < 25:
+            continue
+        last = closes[-1]
+
+        def ma(n: int) -> float | None:
+            return round(sum(closes[-n:]) / n, 2) if len(closes) >= n else None
+
+        ma5, ma10, ma20, ma60 = ma(5), ma(10), ma(20), ma(60)
+        streak, direction = 0, 0
+        for i in range(len(closes) - 1, 0, -1):
+            d = 1 if closes[i] > closes[i - 1] else (-1 if closes[i] < closes[i - 1] else 0)
+            if d == 0:
+                break
+            if direction == 0:
+                direction, streak = d, 1
+            elif d == direction:
+                streak += 1
+            else:
+                break
+        vol5 = sum(vols[-6:-1]) / 5 if len(vols) >= 6 and sum(vols[-6:-1]) else None
+        detail.append({
+            "code": code, "name": name, "close": round(last, 2),
+            "chg_pct": round((last / closes[-2] - 1) * 100, 3) if len(closes) > 1 else None,
+            "ma5": ma5, "ma10": ma10, "ma20": ma20, "ma60": ma60,
+            "vs_ma5_pct": round((last / ma5 - 1) * 100, 2) if ma5 else None,
+            "vs_ma20_pct": round((last / ma20 - 1) * 100, 2) if ma20 else None,
+            "vs_ma60_pct": round((last / ma60 - 1) * 100, 2) if ma60 else None,
+            "chg_5d_pct": round((last / closes[-6] - 1) * 100, 2) if len(closes) >= 6 else None,
+            "chg_20d_pct": round((last / closes[-21] - 1) * 100, 2) if len(closes) >= 21 else None,
+            "amplitude_pct": round(((_f(rows[-1].get("high")) - _f(rows[-1].get("low")))
+                                    / closes[-2]) * 100, 2) if len(closes) > 1 else None,
+            "vol_vs_ma5": round(vols[-1] / vol5, 2) if vol5 else None,
+            "streak_days": streak,
+            "streak_dir": ("涨" if direction > 0 else "跌" if direction < 0 else "平"),
+            "above": {"ma5": last > (ma5 or last), "ma10": last > (ma10 or last),
+                      "ma20": last > (ma20 or last), "ma60": last > (ma60 or last)},
+        })
+    out["index_detail"] = detail
+
+
+def theme_trend(out: dict, date8: str) -> None:
+    """题材多日趋势：近 5 个交易日各行业涨停家数序列。
+
+    只看单日涨停家数，分不清「正在发酵」和「已经兑现」。给 5 日序列后，
+    升温 / 降温 / 持续 一目了然 —— 这是判断可持续性最硬的证据。
+    """
+    import akshare as ak
+
+    d = datetime.datetime.strptime(date8, "%Y%m%d").date()
+    days: list[str] = []
+    guard = 0
+    while len(days) < 5 and guard < 20:
+        if d.weekday() < 5:
+            days.append(d.strftime("%Y%m%d"))
+        d -= datetime.timedelta(days=1)
+        guard += 1
+    days.reverse()
+
+    series: dict[str, list[int]] = {}
+    ok_days: list[str] = []
+    for dd in days:
+        try:
+            rows = _rows(ak.stock_zt_pool_em(date=dd))
+        except Exception:
+            continue
+        if not rows:
+            continue
+        ok_days.append(dd)
+        for r in rows:
+            ind = str(r.get("所属行业") or "未分类").strip()
+            s = series.setdefault(ind, [0] * len(days))
+            s[days.index(dd)] += 1
+
+    out["theme_trend"] = {
+        "days": ok_days or days,
+        "series": {k: v[-len(ok_days):] if ok_days else v
+                   for k, v in series.items() if sum(v) >= 2},
+        "note": "各行业近几日涨停家数；连续多日上榜 = 题材仍在发酵",
+    }
+
+
 def market_db_context(out: dict) -> None:
     """用本地 market.db 补充：最新交易日、当日涨停重建对照、成交额合计。
 
@@ -545,6 +722,9 @@ BLOCKS: list[tuple[str, Callable[..., None]]] = [
     ("northbound", northbound),
     ("lhb", lhb),
     ("candidates", candidates),
+    ("index_detail", index_detail),
+    ("market_stats", market_stats),
+    ("theme_trend", theme_trend),
     ("news", news),
 ]
 
@@ -581,7 +761,8 @@ def collect(date8: str | None = None, *, use_cache: bool = True,
         if progress:
             progress(f"  采集 {name}…")
         try:
-            if name in ("breadth", "themes", "leaders", "lhb", "candidates"):
+            if name in ("breadth", "themes", "leaders", "lhb", "candidates",
+                         "market_stats", "theme_trend"):
                 fn(out, d8)
             else:
                 fn(out)
@@ -633,6 +814,15 @@ def summarize(collect_data: dict) -> dict[str, Any]:
         ],
         "northbound": collect_data.get("northbound") or [],
         "lhb_top": (collect_data.get("lhb_top") or [])[:6],
+        "index_detail": [
+            {k: d.get(k) for k in
+             ("name", "close", "chg_pct", "ma5", "ma20", "ma60", "vs_ma20_pct",
+              "chg_5d_pct", "chg_20d_pct", "amplitude_pct", "vol_vs_ma5",
+              "streak_days", "streak_dir", "above")}
+            for d in (collect_data.get("index_detail") or [])
+        ],
+        "market_stats": collect_data.get("market_stats") or {},
+        "theme_trend": collect_data.get("theme_trend") or {},
         "candidates": [
             {"code": c["code"], "name": c["name"], "close": c["close"],
              "prev_close": c.get("prev_close"), "limit_up": c.get("limit_up"),

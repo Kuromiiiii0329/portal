@@ -34,19 +34,30 @@ def _err(msg: str, hint: str = "") -> dict[str, Any]:
     return out
 
 
-def start_generate(*, plan_date: str | None = None,
-                   trade_date: str | None = None,
-                   use_cache: bool = True) -> dict[str, Any]:
-    args = ["-m", "portal.premarket", "generate"]
+def start_daily(*, date8: str | None = None, plan_date: str | None = None,
+                use_cache: bool = True) -> dict[str, Any]:
+    """一条龙：结算昨日计划 → 采集 → 次日计划 → 复盘 → 一份报告。
+
+    用户要求：盘后复盘与盘前预案本质上都在收盘后做，合并成一条流程。
+    """
+    args = ["-m", "portal.premarket", "daily"]
+    if date8:
+        args += ["--date", str(date8).replace("-", "")[:8]]
     if plan_date:
         args += ["--plan-date", str(plan_date).replace("-", "")[:8]]
-    if trade_date:
-        args += ["--trade-date", str(trade_date).replace("-", "")[:8]]
     if not use_cache:
         args.append("--no-cache")
     args.append("--json")
-    return JOB.start("generate", args,
-                     note="LLM 通常 30–120 秒；未配置 LLM 时会降级为规则兜底并在报告顶部标注。")
+    return JOB.start("daily", args,
+                     note="含当日结算 + 次日计划 + 复盘；LLM 通常 40–150 秒。"
+                          "未配置 LLM 时降级为规则兜底，报告顶部会标注。")
+
+
+def start_generate(*, plan_date: str | None = None,
+                   trade_date: str | None = None,
+                   use_cache: bool = True) -> dict[str, Any]:
+    """兼容旧路由：等同 start_daily。"""
+    return start_daily(date8=trade_date, plan_date=plan_date, use_cache=use_cache)
 
 
 def start_review(*, date8: str | None = None) -> dict[str, Any]:
@@ -110,5 +121,5 @@ def tables() -> dict[str, Any]:
         return _err(f"{type(exc).__name__}: {exc}")
 
 
-__all__ = ["JOB", "start_generate", "start_review", "job_status", "status",
+__all__ = ["JOB", "start_daily", "start_generate", "start_review", "job_status", "status",
            "latest_report", "open_report", "tables"]

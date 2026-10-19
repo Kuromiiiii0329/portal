@@ -46,7 +46,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m portal.premarket")
     sub = ap.add_subparsers(dest="cmd")
 
-    g = sub.add_parser("generate", help="生成盘前预案")
+    d = sub.add_parser("daily", help="盘后一条龙：结算+预案+复盘（推荐）")
+    d.add_argument("--date", default=None, help="数据日 YYYYMMDD（默认最新交易日）")
+    d.add_argument("--plan-date", default=None)
+    d.add_argument("--no-cache", action="store_true")
+    d.add_argument("--json", action="store_true")
+
+    g = sub.add_parser("generate", help="只生成预案（不结算昨日计划）")
     g.add_argument("--plan-date", default=None)
     g.add_argument("--trade-date", default=None)
     g.add_argument("--no-cache", action="store_true", help="不读采集缓存")
@@ -67,16 +73,29 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "tables":
         return _print_tables()
 
-    if args.cmd == "generate":
-        try:
-            out = pipeline.generate(
-                plan_date=args.plan_date, trade_date=args.trade_date,
-                use_cache=not args.no_cache,
-                allow_fallback=not args.no_fallback, write=True)
-        except Exception as exc:
-            print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"},
-                             ensure_ascii=False))
-            return 1
+    if args.cmd in ("daily", "generate"):
+        if args.cmd == "daily":
+            try:
+                out = pipeline.daily(
+                    date8=args.date, plan_date=args.plan_date,
+                    use_cache=not args.no_cache, write=True)
+            except Exception as exc:
+                print(json.dumps({"ok": False,
+                                  "error": f"{type(exc).__name__}: {exc}"},
+                                 ensure_ascii=False))
+                return 1
+        else:
+            try:
+                out = pipeline.generate(
+                    plan_date=args.plan_date, trade_date=args.trade_date,
+                    settle=False,
+                    use_cache=not args.no_cache,
+                    allow_fallback=not args.no_fallback, write=True)
+            except Exception as exc:
+                print(json.dumps({"ok": False,
+                                  "error": f"{type(exc).__name__}: {exc}"},
+                                 ensure_ascii=False))
+                return 1
         if args.json:
             print(json.dumps({
                 "ok": out["ok"], "plan_path": out.get("plan_path"),
