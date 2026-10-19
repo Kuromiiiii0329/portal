@@ -1,0 +1,53 @@
+{
+  "trade_date": "2026-08-27",
+  "notes": {
+    "ma_system": {
+      "score": 28,
+      "signal": "sell",
+      "reason": "空头排列，价13.55仅站MA5，低于MA10/20",
+      "impact": "上方13.93-15.24压力，反弹偏弱"
+    },
+    "macd": {
+      "score": 22,
+      "signal": "sell",
+      "reason": "DIF=-0.1146低于DEA=0.1207，柱=-0.4706",
+      "impact": "零轴下空头占优，短线仍承压"
+    },
+    "rsi": {
+      "score": 52,
+      "signal": "watch",
+      "reason": "RSI6=43.4中性，RSI12=27.2超卖",
+      "impact": "短线有修复可能，但整体仍震荡"
+    },
+    "kdj": {
+      "score": 38,
+      "signal": "watch",
+      "reason": "K14.8<D15.4，J13.6，低位超卖但未金叉",
+      "impact": "短线偏弱，超卖区或有反弹观察"
+    },
+    "bollinger": {
+      "score": 42,
+      "signal": "watch",
+      "reason": "价格位于22%，处下半区，未破下轨12.64",
+      "impact": "短线偏弱震荡，需观察能否回到中轨14.71"
+    },
+    "overbought": {
+      "score": 48,
+      "signal": "watch",
+      "reason": "RSI43中性，WR-84单项超卖，布林22%",
+      "impact": "整体中性偏弱，需观察是否企稳反弹"
+    },
+    "divergence": {
+      "score": 50,
+      "signal": "watch",
+      "reason": "背离signals为空，未见顶/底背离",
+      "impact": "缺少反转信号，后市偏震荡观察"
+    },
+    "volume": {
+      "score": 62,
+      "signal": "watch",
+      "reason": "量比1.27属正常，股价涨3.12%偏强",
+      "impact": "温和偏多，需放量确认持续性"
+    }
+  }
+}

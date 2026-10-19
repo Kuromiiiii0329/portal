@@ -1,0 +1,45 @@
+{
+  "trade_date": "2026-08-18",
+  "notes": {
+    "ma_system": {
+      "stance": "neutral",
+      "reason": "价14.81夹于MA60 14.30与MA120 15.47间",
+      "impact": "均线缠绕，短线或维持震荡"
+    },
+    "macd": {
+      "stance": "bullish",
+      "reason": "DIF0.546>DEA0.459且在零轴上方",
+      "impact": "多头仍占优，但柱线收缩动能减弱"
+    },
+    "rsi": {
+      "stance": "bullish",
+      "reason": "RSI6=24.1低于30超卖，短线有修复需求",
+      "impact": "或支撑股价短线反弹，但需量能确认"
+    },
+    "kdj": {
+      "stance": "neutral",
+      "reason": "J=-5.0超卖，但K34.3<D53.9未金叉",
+      "impact": "短线或有反弹，趋势确认不足"
+    },
+    "bollinger": {
+      "stance": "neutral",
+      "reason": "价格位于布林带中部，位置约60%",
+      "impact": "短线偏震荡，方向需待突破确认"
+    },
+    "overbought": {
+      "stance": "bullish",
+      "reason": "RSI6=24、KDJ_J=-5超卖，2/4偏超卖",
+      "impact": "有技术反弹可能，但共振不足偏弱"
+    },
+    "divergence": {
+      "stance": "bullish",
+      "reason": "MACD底背离初现，0.4511升至0.5460",
+      "impact": "短线有企稳反弹预期，但强度偏弱"
+    },
+    "volume": {
+      "stance": "bearish",
+      "reason": "量比0.63未明显缩量，股价跌3.83%",
+      "impact": "短线承压，若量能放大或延续下跌需谨慎"
+    }
+  }
+}

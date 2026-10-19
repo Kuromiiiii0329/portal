@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets / env files
+.env
+.env.*
+*.env
+*.env.local
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local runtime cache (regenerated when the app runs).
+# Kept in the v1.0 snapshot on purpose; uncomment to ignore it going forward.
+# data/

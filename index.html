@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股票分析 · Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --brand:    #2563eb;
+      --brand-lt: #eff6ff;
+      --green:    #16a34a;
+      --red:      #dc2626;
+      --amber:    #d97706;
+      --gray-50:  #f9fafb;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* Tab panel visibility */
+    .tab-panel          { display: none; }
+    .tab-panel.active   { display: block; }
+
+    /* Nav tab button states */
+    .nav-tab            { transition: all .15s; }
+    .nav-tab.active     { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); color: #1e40af; }
+
+    /* Form controls */
+    .form-input, .form-select {
+      width: 100%; padding: .5rem .75rem;
+      border: 1.5px solid #e5e7eb; border-radius: .5rem;
+      font-size: .875rem; background: #fff; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+
+    /* Signal badges */
+    .badge-buy   { background:#dcfce7; color:#15803d; }
+    .badge-watch { background:#dbeafe; color:#1d4ed8; }
+    .badge-hold  { background:#f3f4f6; color:#4b5563; }
+    .badge-sell  { background:#fee2e2; color:#b91c1c; }
+
+    /* Score ring animation */
+    @keyframes ring-in { from { stroke-dashoffset: 251; } }
+    .score-ring { animation: ring-in .6s ease-out forwards; }
+
+    /* Log terminal */
+    #log-box {
+      font-family: 'Menlo','Monaco','Consolas',monospace;
+      font-size: .7rem; line-height: 1.6;
+    }
+
+    /* Report section accordion */
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] > summary .chevron { transform: rotate(90deg); }
+    .chevron { transition: transform .2s; display: inline-block; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9px; }
+
+    /* Chip */
+    .chip { cursor: pointer; transition: all .12s; user-select: none; }
+    .chip:hover { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+    .chip.selected { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; font-weight: 600; }
+
+    /* Server status dot */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-dot.online  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.2); }
+    .status-dot.offline { background: #d1d5db; }
+    .status-dot.checking{ background: #fbbf24; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Skeleton loader */
+    .skeleton { background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
+                background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius:.375rem; }
+    @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+
+    /* Toast */
+    #toast { transition: opacity .25s, transform .25s; }
+    #toast.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+  <div class="max-w-4xl mx-auto px-4 h-14 flex items-center gap-4">
+
+    <!-- Brand -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <span class="text-xl">📈</span>
+      <span class="font-bold text-gray-900 text-sm tracking-tight">股票分析 Portal</span>
+    </div>
+
+    <!-- Nav tabs -->
+    <nav class="flex-1 flex bg-gray-100 rounded-xl p-1 gap-1 max-w-xs" id="tab-nav" role="tablist">
+      <!-- filled by JS -->
+    </nav>
+
+    <!-- Server status -->
+    <div class="ml-auto flex items-center gap-2 flex-shrink-0">
+      <span class="status-dot checking" id="status-dot"></span>
+      <span class="text-xs text-gray-500" id="status-label">检测中</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="max-w-4xl mx-auto px-4 py-6">
+  <div id="tab-content"><!-- panels injected by JS --></div>
+</main>
+
+<!-- ══════════════ STICKY FOOTER ══════════════ -->
+<footer class="bg-white border-t border-gray-200 sticky bottom-0 z-30">
+  <div class="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
+    <p id="footer-time" class="text-xs text-gray-400"></p>
+    <button id="btn-save"
+      class="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700
+             text-white text-xs font-semibold rounded-lg transition-colors">
+      <span>💾</span><span>保存配置</span>
+    </button>
+  </div>
+</footer>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div id="modal" class="fixed inset-0 z-50 hidden">
+  <div id="modal-bg" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+  <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b">
+        <h2 class="font-semibold text-gray-800">保存配置</h2>
+        <button id="modal-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+      </div>
+      <div class="px-5 py-4 space-y-4">
+
+        <!-- Direct save (needs server) -->
+        <div id="modal-direct" class="rounded-xl border-2 border-green-200 bg-green-50 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-green-800">🚀 直接保存到文件</p>
+              <p class="text-xs text-green-700 mt-0.5">自动写入 <code class="bg-green-100 px-1 rounded">config/watchlist.json</code></p>
+            </div>
+            <button id="modal-btn-save" disabled
+              class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                     bg-gray-200 text-gray-400 cursor-not-allowed">
+              保存
+            </button>
+          </div>
+          <div id="modal-save-msg" class="mt-2 text-xs hidden"></div>
+          <p id="modal-server-hint" class="mt-2 text-xs text-green-700">
+            需要先运行：<code class="bg-green-100 px-1 rounded">python portal/server.py</code>
+          </p>
+        </div>
+
+        <!-- Copy -->
+        <div class="rounded-xl border border-gray-200 p-4">
+          <p class="text-sm font-semibold text-gray-700 mb-2">📋 复制 JSON</p>
+          <div class="relative">
+            <textarea id="modal-json" readonly rows="7"
+              class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-2.5 resize-none focus:outline-none"></textarea>
+            <button id="modal-copy"
+              class="absolute top-2 right-2 px-2.5 py-1 bg-blue-600 hover:bg-blue-700
+                     text-white text-xs rounded-md transition-colors">复制</button>
+          </div>
+          <p class="mt-2 text-xs text-gray-400">复制后粘贴保存为仓库中的 config/watchlist.json 并提交</p>
+        </div>
+
+      </div>
+      <div class="px-5 py-3 border-t flex justify-end">
+        <button id="modal-close2" class="px-4 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST ══════════════ -->
+<div id="toast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 hidden
+                       px-4 py-2 rounded-xl text-white text-xs font-medium shadow-lg">
+</div>
+
+<!-- ══════════════ JS ══════════════ -->
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

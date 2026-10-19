@@ -1,0 +1,502 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>蓝色光标 300058 分析报告 20261016</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;background:#f8fafc;color:#1f2937;line-height:1.6;padding:20px}
+.wrap{max-width:1080px;margin:0 auto}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.hd{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.title{font-size:22px;font-weight:700}.code{font-family:monospace;color:#6b7280;font-size:14px;margin-left:8px}
+.date{color:#9ca3af;font-size:13px;margin-top:4px}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.ring{font-size:26px;font-weight:800}
+.concl{background:linear-gradient(to right,#f8fafc,#eff6ff);border:1px solid #dbeafe;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.chart{height:300px;width:100%}
+.dim-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9fafb;border-bottom:1px solid #eee;border-radius:12px 12px 0 0;font-weight:600}
+.sec{border-bottom:1px solid #f1f5f9;padding:10px 14px}
+.sec:last-child{border-bottom:none}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:14px;margin-bottom:4px}
+.sec-bd{font-size:13px;color:#4b5563}.sec-bd p{margin:2px 0}.sec-bd .b{font-weight:600;color:#374151;margin-top:4px}
+.sec-bd .li{padding-left:8px}.sec-bd code{background:#eef2ff;color:#4338ca;padding:0 4px;border-radius:4px;font-size:12px}
+.note{margin-top:8px;padding:8px 10px;border-radius:8px;font-size:13px;border-left:3px solid}
+.note b{font-weight:700}
+.forecast-meta{display:flex;gap:20px;flex-wrap:wrap;padding:10px 14px 0}
+.forecast-meta-item{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:8px 14px;font-size:13px;flex:1;min-width:160px}
+.forecast-meta-item .fm-label{color:#6b7280;font-size:11px;margin-bottom:2px}
+.forecast-meta-item .fm-value{font-weight:700;font-size:15px}
+.forecast-note{padding:6px 14px 10px;font-size:11px;color:#9ca3af}
+.foot{text-align:center;color:#9ca3af;font-size:12px;margin-top:20px;padding:12px}
+.small{font-size:12px;color:#6b7280}
+</style></head>
+<body>
+    <div class="wrap">
+      <div class="card hd">
+        <div><span class="title">蓝色光标</span><span class="code">300058</span>
+          <div class="date">📅 报告日期：2026-10-16 22:59（最新交易日数据）</div></div>
+        <div style="text-align:right">
+          <div class="ring" style="color:#6b7280">41<span style="font-size:14px;color:#9ca3af">/100</span></div>
+          <span class="badge" style="background:#f3f4f6;color:#4b5563">持有</span>
+        </div>
+      </div>
+      <div class="concl">🎯 <b>综合结论</b>：**核心判断：偏空**。均线呈**MA5&lt;MA10&lt;MA20空头排列**，MACD的**DIF=-0.3329、DEA=-0.2788、柱=-0.1083**持续走弱，KDJ**K=25.9、D=31.2、J=15.4死叉**，短期动能明显不足。
+
+看多理由：RSI(12)=28.9已入超卖区，且**RSI常规底背离已确认**（强度53/中），布林下轨11.89附近存在技术性反抽需求。看空理由：量比仅0.89x、当日跌3.97%，量价配合差，中长期均线MA30&lt;MA60&lt;MA120压制明显，反弹缺乏资金承接。
+
+操作上建议**以观望为主**，不追跌不抄底。若参与，需等待价格回踩**11.89（布林下轨）**附近且出现放量止跌信号，或MACD柱缩窄转正后再轻仓试探，仓位控制在**两成以内**，止损参考**11.50下方**。当前最需警惕的是空头排列下超卖钝化、底背离失效带来的二次杀跌风险。</div>
+      <div class="concl" style="border-left-color:#3b82f6;background:#eff6ff">🤖 <b>Agent 综合研判</b><div style="margin-top:6px"><p><strong>核心判断：偏空震荡，弱势修复。</strong> 均线系统呈空头排列（MA5&lt;MA10&lt;MA20），且中长期MA30&lt;MA60&lt;MA120全面压制；MACD DIF=-0.3329低于DEA=-0.2788，柱线-0.1083仍在零轴下方；但RSI12=28.9已入超卖、KDJ_J=15.4极度超卖，叠加RSI常规底背离已确认，短线存反抽需求。</p>
+<p><strong>看多理由：</strong> RSI底背离已确认（价格创新低7.9%而RSI由22.10升至50.86），下跌动能衰竭；WR(14)=-98.3深度超卖、价格触布林下轨（位置-1%），超卖修复窗口开启。<strong>看空理由：</strong> 均线空头排列且KDJ低位死叉（K25.9&lt;D31.2），趋势未反转；量比0.89x下当日跌3.97%，近10日量能放大而价格走弱，量价配合偏空，缺乏止跌确认。</p>
+<p><strong>操作建议：</strong> 观望为主，不追空亦不抢反弹。若价格站稳<strong>12.86（布林中轨）</strong>且KDJ金叉、MACD柱收缩转正，可轻仓试探；下方关注<strong>11.89（布林下轨）</strong>支撑，跌破则止损离场。仓位建议<strong>轻仓（≤2成）</strong>，等待均线走平或量能止跌信号再加。</p>
+<p><strong>风险提示：</strong> 底背离强度仅53属中等，RSI已回中轴弹性有限，若量能持续放大而价格破位下行，超卖可能演变为趋势性下跌。</p></div></div>
+      
+    <div class="card" style="padding:0">
+      <div class="dim-hd">
+        <span>📈 走势预测</span>
+        <span style="font-size:11px;color:#9ca3af;font-weight:400">LLM 情景模拟，仅供参考</span>
+      </div>
+      
+    <div class="forecast-meta">
+      <div class="forecast-meta-item">
+        <div class="fm-label">次日预测高点</div>
+        <div class="fm-value" style="color:#dc2626">12.18</div>
+      </div>
+      <div class="forecast-meta-item">
+        <div class="fm-label">次日预测低点</div>
+        <div class="fm-value" style="color:#16a34a">11.62</div>
+      </div>
+      <div class="forecast-meta-item">
+        <div class="fm-label">次日走势判断</div>
+        <div class="fm-value" style="color:#6b7280">震荡</div>
+      </div>
+    </div>
+    <div style="padding:6px 14px 2px;font-size:12px;color:#6b7280">💬 价格跌破布林下轨且RSI底背离确认，短线超卖修复概率较高，但均线空头排列压制反弹空间，预计低位震荡。</div>
+    
+      
+    <div style="padding:8px 14px 4px">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">📊 形态回测统计</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;color:#9ca3af">
+              <th style="text-align:left;padding:4px 8px;font-weight:500">形态</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:500">触发次数</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:500">最近日期</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:500" colspan="2">5日</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:500" colspan="2">10日</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:500" colspan="2">20日</th>
+            </tr>
+            <tr style="border-bottom:1px solid #f3f4f6;color:#d1d5db;font-size:10px">
+              <th></th><th></th><th></th>
+              <th style="text-align:center">胜率</th><th style="text-align:center">均收益</th>
+              <th style="text-align:center">胜率</th><th style="text-align:center">均收益</th>
+              <th style="text-align:center">胜率</th><th style="text-align:center">均收益</th>
+            </tr>
+          </thead>
+          <tbody><tr style="background:#fffbeb"><td style="padding:5px 8px;white-space:nowrap"><span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">⚡今日</span> 价格跌破布林下轨</td><td style="text-align:center;color:#6b7280">34次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-07-24 00:00:00</td><td style="text-align:center;color:#16a34a;font-weight:600">67.6%</td><td style="text-align:center;color:#16a34a">+5.45%</td><td style="text-align:center;color:#16a34a;font-weight:600">61.8%</td><td style="text-align:center;color:#16a34a">+6.19%</td><td style="text-align:center;color:#16a34a;font-weight:600">64.7%</td><td style="text-align:center;color:#16a34a">+8.85%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> 均线多头排列</td><td style="text-align:center;color:#6b7280">313次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-08-14 00:00:00</td><td style="text-align:center;color:#6b7280;font-weight:400">45.4%</td><td style="text-align:center;color:#16a34a">+1.16%</td><td style="text-align:center;color:#6b7280;font-weight:400">47.0%</td><td style="text-align:center;color:#16a34a">+1.04%</td><td style="text-align:center;color:#6b7280;font-weight:400">49.3%</td><td style="text-align:center;color:#16a34a">+2.35%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> RSI超卖(&lt;30)</td><td style="text-align:center;color:#6b7280">164次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-08-26 00:00:00</td><td style="text-align:center;color:#6b7280;font-weight:400">48.2%</td><td style="text-align:center;color:#16a34a">+1.29%</td><td style="text-align:center;color:#6b7280;font-weight:400">48.1%</td><td style="text-align:center;color:#16a34a">+1.49%</td><td style="text-align:center;color:#6b7280;font-weight:400">45.0%</td><td style="text-align:center;color:#16a34a">+5.59%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> RSI超买(&gt;70)</td><td style="text-align:center;color:#6b7280">143次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-08-12 00:00:00</td><td style="text-align:center;color:#6b7280;font-weight:400">45.5%</td><td style="text-align:center;color:#16a34a">+2.51%</td><td style="text-align:center;color:#6b7280;font-weight:400">49.7%</td><td style="text-align:center;color:#16a34a">+2.55%</td><td style="text-align:center;color:#6b7280;font-weight:400">47.5%</td><td style="text-align:center;color:#16a34a">+5.24%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> MACD死叉</td><td style="text-align:center;color:#6b7280">42次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-08-19 00:00:00</td><td style="text-align:center;color:#6b7280;font-weight:400">52.4%</td><td style="text-align:center;color:#16a34a">+1.71%</td><td style="text-align:center;color:#6b7280;font-weight:400">45.2%</td><td style="text-align:center;color:#16a34a">+2.24%</td><td style="text-align:center;color:#6b7280;font-weight:400">48.8%</td><td style="text-align:center;color:#16a34a">+4.28%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> MACD金叉</td><td style="text-align:center;color:#6b7280">41次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-07-28 00:00:00</td><td style="text-align:center;color:#6b7280;font-weight:400">51.2%</td><td style="text-align:center;color:#16a34a">+4.59%</td><td style="text-align:center;color:#6b7280;font-weight:400">46.3%</td><td style="text-align:center;color:#16a34a">+3.65%</td><td style="text-align:center;color:#6b7280;font-weight:400">53.7%</td><td style="text-align:center;color:#16a34a">+7.79%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> 放量上涨</td><td style="text-align:center;color:#6b7280">15次</td><td style="text-align:center;color:#9ca3af;font-size:10px">2026-04-09 00:00:00</td><td style="text-align:center;color:#16a34a;font-weight:600">60.0%</td><td style="text-align:center;color:#16a34a">+2.49%</td><td style="text-align:center;color:#16a34a;font-weight:600">66.7%</td><td style="text-align:center;color:#16a34a">+4.52%</td><td style="text-align:center;color:#16a34a;font-weight:600">60.0%</td><td style="text-align:center;color:#16a34a">+9.39%</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> KDJ金叉</td><td style="text-align:center;color:#6b7280">0次</td><td style="text-align:center;color:#9ca3af;font-size:10px">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td></tr><tr style=""><td style="padding:5px 8px;white-space:nowrap"> 放量下跌</td><td style="text-align:center;color:#6b7280">0次</td><td style="text-align:center;color:#9ca3af;font-size:10px">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td><td style="color:#d1d5db;text-align:center">—</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+      <div style="padding:8px 14px 4px">
+        <div id="forecast_chart" style="height:280px;width:100%"></div>
+      </div>
+      <div class="forecast-note">📝 <span style="margin-right:12px">D+1：超卖修复，布林下轨支撑反弹</span><span style="margin-right:12px">D+2：延续反弹，测试MA5压力</span><span style="margin-right:12px">D+3：反弹遇阻回落，量能不足</span><span style="margin-right:12px">D+4：空头排列压制，回踩确认支撑</span><span style="margin-right:12px">D+5：底背离支撑，再度尝试反弹</span><span style="margin-right:12px">D+6：KDJ低位金叉预期，短线走强</span><span style="margin-right:12px">D+7：反弹至MA20附近承压，震荡整理</span></div>
+    </div>
+    
+      <div class="grid2">
+        <div class="card"><div class="small" style="margin-bottom:6px">📡 维度评分雷达</div><div id="radar" class="chart" style="height:260px"></div></div>
+        <div class="card"><div class="small" style="margin-bottom:6px">📈 K线走势（近90日）</div><div id="kline" class="chart" style="height:260px"></div></div>
+      </div>
+      <div><div class="card" style="padding:0"><div class="dim-hd"><span>📊 技术面</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 41</span></div><div class="sec small">**空头排列（MA5&lt;MA10&lt;MA20）**  中长期空头（MA30&lt;MA60&lt;MA120）</div><div class="sec"><div class="sec-hd"><span>均线系统</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 28</span></div><div class="sec-bd"><p><strong>空头排列（MA5&lt;MA10&lt;MA20）</strong>  中长期空头（MA30&lt;MA60&lt;MA120）</p>
+<p class="li">• 当前价: 11.86</p>
+<p class="li">• MA5=12.54  MA10=12.56  MA20=12.86  MA30=13.16  MA60=13.47  MA120=14.68  MA250=13.79</p>
+<p class="li">• 乖离率 MA5:-5.4%  MA20:-7.8%  MA30:-9.9%</p>
+<p class="li">• MA30=13.16（月线，下方（压力））</p>
+<p class="li">• MA60=13.47（季线，下方（压力））</p>
+<p class="li">• MA120=14.68（半年线，下方（压力））</p>
+<p class="li">• MA250=13.79（年线，下方（年线压制，偏弱））</p>
+<p class="b">📊 LLM 分析</p>
+<p>从均线系统看，蓝色光标当前处于非常典型的弱势空头结构，且短、中、长期均线形成一致向下压制，属于趋势偏空、反弹承压的形态。</p>
+<p>1. <strong>空头排列完整，均线层层压制</strong>  </p>
+<p>   当前价 11.86 明显低于 MA5=12.54、MA10=12.56、MA20=12.86、MA30=13.16、MA60=13.47、MA120=14.68、MA250=13.79，且 MA5&lt;MA10&lt;MA20，说明短期均线已经形成标准空头排列。同时 MA30&lt;MA60&lt;MA120，表明中长期趋势也处于空头主导。这意味着股价上方从 12.54 到 14.68 区间存在多层均线压力，任何反弹首先需要挑战 MA5/MA10，其次才是 MA20 和 MA30，反弹阻力较密集。</p>
+<p>2. <strong>乖离率偏大，短线有超跌反抽可能，但并非反转信号</strong>  </p>
+<p>   当前价相对 MA5 乖离率为 -5.4%，相对 MA20 为 -7.8%，相对 MA30 为 -9.9%，说明股价短期偏离均线较远，尤其是对 MA30 的负乖离接近 -10%，技术上存在短线超跌修复或反抽均线的需求。但需要注意的是，这种负乖离在空头趋势中只能说明“可能反弹”，不能直接说明“趋势反转”。若反弹不能重新站上 MA5、MA10，并进一步收复 MA20，则仍应视为下跌中继或弱反弹。</p>
+<p>3. <strong>MA250 与 MA120 位置偏高，长期压力仍重</strong>  </p>
+<p>   MA120=14.68，MA250=13.79，均明显高于当前价 11.86，且 MA120 高于 MA250，说明长期均线也未能形成支撑，反而构成上方重要压力区。尤其是 MA250 在 13.79 附近，意味着即使股价出现中级反弹，13.5—14.7 区域也会面临较强解套盘和趋势压制。当前价距离 MA60=13.47 仍有约 13.6% 的空间，说明中期修复难度不小。</p>
+<p>4. <strong>关键观察信号：止跌、收复短均线、量能配合</strong>  </p>
+<p>   后续需要重点观察三点：一是股价能否先止跌并站回 MA5=12.54 与 MA10=12.56；二是能否进一步突破 MA20=12.86 并使其走平；三是反弹过程中是否放量。如果只是缩量反抽，通常难以扭转空头排列。若股价继续跌破 11.86 附近并创出新低，则空头趋势可能进一步强化，下一阶段将更多依赖超跌反弹而非趋势性做多。</p>
+<p>综合来看，该股均线系统全面偏空，短线因乖离率较大存在技术性反抽可能，但中期和长期趋势尚未出现转强证据，操作上更适合观望或等待明确止跌信号，不宜在空头排列中盲目抄底。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 28</b> — 均线空头排列且中长期均线全面压制，当前价低于MA5至MA250，虽负乖离较大存在反抽需求，但趋势未反转（影响：短线可能有超跌反弹，但上方12.54至14.68压力密集，若不能放量收复MA20，后市仍以弱势震荡或继续下行为主）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>MACD指标</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 32</span></div><div class="sec-bd"><p class="b">DIF=-0.3329  DEA=-0.2788  MACD柱=-0.1083</p>
+<p class="li">• 位置：零轴下方（空头区域） </p>
+<p class="li">• 柱线趋势：↓ 柱线收缩</p>
+<p class="li">• 近10日DIF趋势：↘ 下降（斜率-0.69130），柱线近3日：连续收缩，零轴穿越0次</p>
+<p class="b">📊 LLM 分析</p>
+<p>从你给出的真实数值看，蓝色光标当前MACD处于典型的<strong>零轴下方空头区域</strong>，且短线动能仍在走弱，尚未出现明确的止跌反转信号。具体分析如下：</p>
+<p>1. <strong>DIF与DEA均为负值，且DIF低于DEA，空头结构未改</strong>  </p>
+<p>   DIF=-0.3329，DEA=-0.2788，DIF在DEA下方，说明快线仍弱于慢线，属于标准空头排列。两者都位于零轴下方，意味着中期趋势仍由空方主导，当前不是多头回踩，而是空头趋势中的弱势阶段。只要DIF不能重新上穿DEA并站回零轴附近，反弹都更容易被定性为弱反弹。</p>
+<p>2. <strong>MACD柱为-0.1083且连续收缩，说明空头动能边际减弱，但尚未转多</strong>  </p>
+<p>   柱线为负，代表仍处空头动能区间；但“连续收缩”说明下跌动能没有继续加速，短线存在技术性修复或横盘整理的可能。不过要注意，柱线收缩只代表空头力量减弱，不等于多头接管。若后续柱线由负转正，并伴随DIF上穿DEA，才是更可靠的转强信号；当前仍只能视为空头趋势中的减速阶段。</p>
+<p>3. <strong>近10日DIF趋势下降，斜率-0.6913，短线仍偏弱</strong>  </p>
+<p>   DIF趋势为“↘ 下降”，且斜率达到-0.6913，说明快线仍在向下运行，短期空头压力没有解除。零轴穿越0次，也说明近期没有出现有效的多空转换。这种情况下，即使出现反弹，也更可能先表现为超跌修复，而不是趋势反转。需要重点观察DIF能否走平并拐头向上，以及DEA是否同步走平，否则指标仍偏向继续震荡探底。</p>
+<p>4. <strong>综合信号：偏空但动能减速，属于“弱势观察”阶段</strong>  </p>
+<p>   当前没有金叉、没有零轴突破，DIF和DEA均为负，MACD柱虽收缩但仍为负，因此整体信号偏空。短线若继续缩柱，可能进入弱势整理；若柱线重新放大向下，则要警惕新一轮下探。操作上更适合等待明确的金叉或零轴修复信号，而不是在空头排列中盲目抄底。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 32</b> — DIF与DEA均在零轴下方且DIF低于DEA，MACD柱为负，近10日DIF下降斜率-0.6913，空头结构未改；但柱线连续收缩，空头动能边际减弱，暂未出现金叉或零轴突破。（影响：短线仍偏弱，可能维持震荡探底或弱势修复；需等待DIF上穿DEA且柱线转正后，才可能确认阶段性转强。）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>RSI超买超卖</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 52</span></div><div class="sec-bd"><p class="b">RSI(6)=46.5  RSI(12)=28.9  RSI(24)=37.2</p>
+<p class="li">• 区间：中性区间</p>
+<p class="li">• 近10日RSI(6)趋势：↗ 上升（斜率+1.443）</p>
+<p class="li">• 参考：超买&gt;70，超卖&lt;30</p>
+<p class="b">📊 LLM 分析</p>
+<p>从你给的RSI结构看，蓝色光标当前并不是一个“单边超卖后强反转”的典型形态，而是<strong>短周期修复、中周期仍偏弱、长周期未完全走坏</strong>的混合状态。下面结合具体数值展开：</p>
+<p>1. <strong>RSI(6)=46.5，处于中性区间，但短线动能正在修复。</strong>  </p>
+<p>   RSI6 从前期更低位置回升到 46.5，且近10日趋势为“↗ 上升”，斜率 +1.443，说明短线卖压有所缓和，资金情绪从偏弱转向修复。不过 46.5 仍未站上 50 中轴，意味着多头尚未真正掌握短线主动权，当前更像“弱修复”而非“强反转”。若后续 RSI6 能继续上行并站稳 50 以上，短线反弹信号才会更可靠。</p>
+<p>2. <strong>RSI(12)=28.9，已进入超卖区，是当前最关键的偏多线索。</strong>  </p>
+<p>   RSI12 低于 30，说明中期动量已经压到超卖阈值附近，空头力量在中期维度上释放得较为充分。这个数值本身不保证立刻上涨，但它意味着继续大幅杀跌的性价比在下降，容易出现技术性反抽或止跌企稳。需要关注的是：如果 RSI12 在 30 下方钝化，而价格继续创新低，则说明是“弱势超卖”，不能简单抄底；反之，若 RSI12 开始拐头向上并回到 35 以上，超卖修复信号会明显增强。</p>
+<p>3. <strong>RSI(24)=37.2，长周期仍偏弱，但未到极端超卖。</strong>  </p>
+<p>   RSI24 在 37 附近，说明更长周期的动量仍处于偏空区域，但距离 30 以下的极端超卖还有空间。这表示中期趋势尚未完全转多，当前反弹更可能先定义为“超卖修复”而非“趋势反转”。如果 RSI24 继续下行，则短线反弹可能只是下跌中继；如果 RSI24 同步走平并回升，才能确认多周期共振改善。</p>
+<p>4. <strong>多周期结构：短周期修复、中周期超卖、长周期偏弱，属于“弱市中的技术修复窗口”。</strong>  </p>
+<p>   当前 RSI6 &gt; RSI24 &gt; RSI12，短周期已经领先回升，但 RSI12 仍最低，说明中期压力尚未完全解除。这种结构下，比较合理的判断是：<strong>短线有反弹修复需求，但趋势性做多证据不足</strong>。关键观察点是 RSI6 能否上穿 50、RSI12 能否脱离 30 下方、以及 RSI24 能否止跌回升。若三者同步改善，可转向偏多；若 RSI6 再度回落且 RSI12 继续钝化，则要防范反弹失败后的二次探底。</p>
+<p>综合来看，当前指标给出的是<strong>中性偏修复、超卖反弹可期但趋势未确认</strong>的信号。操作上更适合观察确认，而不是直接重仓追多；已有仓位可等待反弹，空仓者宜等 RSI6 站稳 50 或 RSI12 明确拐头后再考虑介入。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 52</b> — RSI6=46.5中性且短线回升，RSI12=28.9进入超卖，RSI24=37.2仍偏弱，多周期未共振，属于弱修复窗口（影响：短线有技术性反弹需求，但趋势反转未确认，需观察RSI6能否站上50及RSI12能否脱离超卖区）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>KDJ随机指标</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 42</span></div><div class="sec-bd"><p><strong>K=25.9  D=31.2  J=15.4</strong> <span style="color:#dc2626">🔴</span> 死叉</p>
+<p class="li">• K&gt;D（多头信号） ✗</p>
+<p class="li">• 近10日J值趋势：↗ 上升（斜率+3.913）</p>
+<p class="b">📊 LLM 分析</p>
+<p>当前KDJ结构呈现“低位死叉 + J值回升”的矛盾组合，需拆开看：</p>
+<p>1. <strong>K/D死叉但已处低位，空头动能边际减弱</strong>  </p>
+<p>K=25.9、D=31.2，K已下穿D形成死叉，且系统标注 death=True、golden=False，说明短线仍由空方主导。但两者均已落入30以下的偏低位区，K仅25.9、D仅31.2，意味着这轮下杀已释放了相当一部分抛压，继续大幅向下的空间相对有限。此时死叉的“杀伤力”通常弱于高位死叉，更偏向于弱势整理而非加速下跌。</p>
+<p>2. <strong>J=15.4 极度超卖，且近10日J值斜率为+3.913，出现底部回升迹象</strong>  </p>
+<p>J值仅15.4，明显低于0—20的超卖阈值，是三者中最敏感的拐点信号。同时近10日J值趋势为↗上升，斜率+3.913，说明J已从更低位开始抬头，空头动能正在衰减。这种“J先于K/D回升”的形态，往往是KDJ低位钝化后酝酿反弹的早期特征，但尚未得到K上穿D的金叉确认。</p>
+<p>3. <strong>关键矛盾：J回升 vs K/D死叉，需等待金叉确认</strong>  </p>
+<p>目前是典型的“J领先、K/D滞后”状态：J已转向，但K仍低于D，指标内部未形成共振。若后续K能上穿D形成金叉，则低位反弹信号成立，力度取决于J能否持续上行并带动K脱离25附近；反之若J回升只是短暂反抽、K继续下行，则可能演变为低位钝化后的二次探底。当前最需关注的是K与D的差值（约-5.3）能否收敛。</p>
+<p>4. <strong>风险与操作含义</strong>  </p>
+<p>在死叉未修复前，指标仍偏空，不宜视为买入确认；但J超卖+回升的组合提示下行风险已部分释放，属于“偏空但接近观察窗口”。稳健做法是等待K上穿D的金叉信号出现后再评估，激进者可将J持续回升作为左侧观察依据，但需配合量价与股价是否止跌。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 42</b> — KDJ低位死叉(K25.9&lt;D31.2)仍偏空，但J=15.4极度超卖且近10日斜率+3.913回升，空头动能边际减弱，处于等待金叉确认的观察窗口（影响：若K上穿D形成低位金叉，短线有望反弹修复；若J回升夭折、K继续下行，则可能低位钝化二次探底，短期以震荡偏弱为主）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>布林带</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 32</span></div><div class="sec-bd"><p class="b">上轨=13.83  中轨=12.86  下轨=11.89</p>
+<p class="li">• 带宽：15.1%  价格位置：-1%</p>
+<p class="li">• 状态：价格跌破下轨</p>
+<p class="li">• 近10日带宽趋势：↘ 收敛（蓄势待发）（斜率-0.102）</p>
+<p class="b">📊 LLM 分析</p>
+<p>从布林带数值看，当前蓝色光标处于一个“价格跌破下轨、但带宽收敛”的组合状态，属于短线偏弱、但中期波动正在压缩的格局。</p>
+<p>1. <strong>价格跌破下轨，短线超卖与破位风险并存</strong>  </p>
+<p>   当前价格位置为 <strong>-1%</strong>，即价格已跌破下轨 <strong>11.89</strong>，收在下轨下方。布林带下轨通常被视为短期动态支撑，跌破下轨说明短线抛压较强，价格偏离中轨 <strong>12.86</strong> 较远，存在一定的超卖修复需求。但需要注意的是，跌破下轨并不等于立刻反弹，若放量下行，可能演变为沿下轨下跌的弱势趋势。因此当前首先反映的是空头短线占优，而不是立即买入信号。</p>
+<p>2. <strong>带宽15.1%，且近10日带宽收敛，波动压缩后可能酝酿方向选择</strong>  </p>
+<p>   当前带宽为 <strong>15.1%</strong>，近10日带宽趋势为 <strong>↘ 收敛（蓄势待发）</strong>，斜率 <strong>-0.102</strong>。这说明布林带上下轨正在靠近，市场波动率下降，通常意味着后续可能出现变盘。问题在于，价格是在带宽收敛过程中跌破下轨，这属于“收敛末端向下试探”的形态，若后续不能快速收回下轨上方，则向下选择方向的概率会增加；反之，若快速收复下轨并回到中轨附近，则可能是假破位。</p>
+<p>3. <strong>中轨12.86成为短期多空分水岭，反弹力度需观察能否修复</strong>  </p>
+<p>   中轨 <strong>12.86</strong> 是当前布林带的核心中枢，也是短线多空强弱的分界线。价格目前低于下轨，距离中轨约有 <strong>7%—8%</strong> 的修复空间。若后续反弹只能触及下轨附近而无法站上中轨，则仍属于弱反弹；只有重新站上中轨，才能说明短线空头动能衰竭，布林带结构才会从“跌破下轨”转向“回归震荡”。因此，当前关键不是看下轨支撑，而是看能否收复中轨。</p>
+<p>4. <strong>操作含义：偏空但不宜追空，等待止跌或收复信号</strong>  </p>
+<p>   综合来看，价格跌破下轨 + 带宽收敛，说明短线偏空，但波动压缩也意味着追空性价比下降。若继续放量下跌，则可能打开新一轮下行空间；若出现缩量止跌并快速收回下轨上方，则可能形成短线反抽。当前更适合观察，而不是盲目抄底或追空。需要重点关注：是否放量、能否收复 <strong>11.89</strong> 下轨、以及能否进一步挑战 <strong>12.86</strong> 中轨。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 32</b> — 价格跌破布林下轨且位置-1%，短线偏空；但带宽15.1%且近10日收敛，波动压缩后方向未完全确认，追空风险较高。（影响：若无法快速收复下轨11.89，后市可能延续弱势并向下选择方向；若缩量止跌并收复中轨12.86，则可能转为震荡修复。）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>超买超卖综合</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 58</span></div><div class="sec-bd"><p class="b">🔵 偏超卖（2/4）</p>
+<p class="li">• RSI(6)=47 中性</p>
+<p class="li">• KDJ_J=15 中性</p>
+<p class="li">• WR(14)=-98 超卖</p>
+<p class="li">• 布林位置=-1% 触下轨</p>
+<p class="li">• 近10日综合热度：🔺 多项指标同步升温（热度增加）</p>
+<p class="li">• 判据：多指标共振时信号更可靠（≥3 项同向为强信号）</p>
+<p class="b">📊 LLM 分析</p>
+<p>从超买超卖综合看，当前并非典型“全面超卖”，而是<strong>偏超卖但内部结构分化</strong>：4 项指标中 2 项投超卖票，RSI 与 KDJ_J 仍处中性区，说明空头动能没有形成全周期共振，短线更像“下探后的边际修复”而非单边杀跌延续。</p>
+<p>1. <strong>RSI(6)=46.5，中性偏弱，但斜率+1.44，短线动能正在修复。</strong> RSI6 未跌破 30 的超卖阈值，说明此前下跌并未把 6 日级别情绪压到极端；但斜率转正，表明最近 1-2 日买盘开始回补。多空含义上，这是“空头衰竭、多头试探”的信号，力度偏温和，尚不足以确认趋势反转。需要关注的是：若 RSI6 继续上行并站上 50-55，才可能从修复转为进攻；若再度拐头向下，则说明反弹只是弱反抽。</p>
+<p>2. <strong>KDJ_J=15.4，处于低位但未极端钝化，存在金叉预期。</strong> J 值 15 附近属于偏低区域，通常对应短线超卖或接近超卖，但并未到 0 以下的极端钝化区，说明还有向下空间，也意味着一旦 K、D 形成金叉，弹性会较好。当前 J 值低而 RSI 未极端，二者组合更像“低位震荡筑底”而非“主跌浪中继”。风险在于：若 J 值在 15 附近横盘或继续下探，而价格不能同步收复短期均线，则可能演变为低位钝化后的再下一台阶。</p>
+<p>3. <strong>WR(14)=-98.3，深度超卖，是当前最强烈的偏多信号。</strong> 威廉指标接近 -100，说明 14 日周期内收盘价几乎处于区间最低端，短线卖压释放较为充分。历史上 WR 到 -98 以下往往对应短期反弹窗口，但要注意：WR 是敏感型摆动指标，超卖只代表“容易反弹”，不代表“必然反转”。若后续价格不能快速收复 -80 以上，WR 可能继续在超卖区钝化，形成“超卖再超卖”的弱势格局。</p>
+<p>4. <strong>布林位置=-1.4%，价格触及并略低于下轨，叠加“多项指标同步升温”，短线修复概率上升。</strong> 布林位置为负，说明股价已跌破下轨或贴近下轨运行，属于统计上的极端偏离。同时系统提示“近10日综合热度：多项指标同步升温（热度增加）”，这意味着虽然价格弱，但指标层面已出现共振回暖迹象。判据强调“多指标共振时信号更可靠（≥3 项同向为强信号）”，当前只有 2 项超卖票，尚未达到强信号标准，因此更合理的定性是：<strong>偏超卖、有反弹需求，但共振强度不足，需等待第 3 项指标转向确认。</strong></p>
+<p>综合来看，当前状态是：<strong>短线超卖修复窗口开启，但中期趋势未确认反转。</strong> 操作上，已持仓者可观察反弹力度，不宜在深度超卖区盲目杀跌；空仓者更适合等待 RSI6 上穿 50、KDJ 金叉、WR 回升至 -80 上方等确认信号后再考虑介入。若价格继续沿布林下轨下行且指标无法共振转强，则需防范弱势钝化风险。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 58</b> — WR(14)=-98.3深度超卖、布林位置-1.4%触下轨，RSI6斜率转正且热度升温，偏超卖修复；但RSI6=46.5、KDJ_J=15.4仅中性，超卖票仅2/4未达强共振，反弹确认不足。（影响：短线存在超卖反弹窗口，但力度取决于RSI6能否上穿50及KDJ金叉；若无法共振转强，可能低位钝化后再探底，暂以观察等待确认为主。）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>背离检测</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 58</span></div><div class="sec-bd"><p class="b">🟢 常规底背离·已确认  ✅ 参考级（RSI，强度 53/中）</p>
+<p class="b">K线区间：2026-08-25 低点 12.92 → 2026-10-09 低点 11.9</p>
+<p>  价格：2026-08-25低(12.92) &gt; 2026-10-09低(11.9)  ↓ 价格创新低 7.9%</p>
+<p>  RSI：第一低点 22.1007 → 第二低点 50.8621  ↑ 指标抬升（背离确立）</p>
+<p><strong>含义</strong>：常规底背离 = 价格创新低但动能反弹，是下跌趋势潜在反转的预警信号。</p>
+<p><strong>后市如何确认</strong>：</p>
+<p>  1. 价格收复 MA5（当前 12.54）并站稳，底背离开始兑现</p>
+<p>  2. RSI 出现金叉，柱线翻红并扩大，动能反转确认</p>
+<p>  3. 成交量在价格反弹时放大，价涨量增配合</p>
+<p>  4. <span style="color:#dc2626">⚠️</span> 若后续价格跌破 2026-10-09 低点 11.9，底背离信号失效</p>
+<p><strong>关键点位</strong>：</p>
+<p>  - 下方支撑：11.9（2026-10-09 低点，即背离右侧底点）</p>
+<p>  - 止损参考：11.66（若持多，跌破此价止损）</p>
+<p>  - 上方目标：初步 12.5，若放量突破 MA20=12.86 则看 13.09</p>
+<p>  - 压力参考：MA10=12.56，MA20=12.86</p>
+<p><strong>操作建议</strong>：</p>
+<p>  - 已确认，可在价格收复 MA5（12.54）后分批轻仓试多</p>
+<p>  - 严格止损：跌破 11.66 立即止损，仓位不超过 3 成</p>
+<p class="b">🔴 常规顶背离·迹象浮现  ⚠️ 预警级（MACD，强度 30/弱）</p>
+<p class="b">K线区间：2026-10-13 高点 13.32 → 2026-10-14 高点 13.25</p>
+<p>  价格：2026-10-13高(13.32) &gt; 2026-10-14高(13.25)  ↓ 价格走低</p>
+<p>  MACD：第一高点 -0.2724 → 第二高点 -0.2552  ↑ 指标同升（尚未背离）</p>
+<p><strong>当前状态</strong>：价格逼近前高但动能衰减，顶背离迹象浮现</p>
+<p><strong>含义</strong>：常规顶背离 = 价格创新高但动能衰减，是上涨趋势潜在反转的预警信号。</p>
+<p><strong>后市如何确认</strong>：</p>
+<p>  1. 价格跌破 MA5（当前 12.54）或 MA10（12.56）<strong>收盘确认</strong>，顶背离大概率开始兑现</p>
+<p>  2. MACD 出现死叉，且零轴向下运行，趋势转空确认</p>
+<p>  3. 成交量若再次放量上冲但价格无法超越 2026-10-14 高点 13.25，形态固化</p>
+<p>  4. <span style="color:#dc2626">⚠️</span> 若后续价格突破 13.25 并站稳，顶背离信号失效</p>
+<p><strong>关键点位</strong>：</p>
+<p>  - 上方阻力：13.25（2026-10-14 高点，即背离右侧顶点）</p>
+<p>  - 止损参考：13.52（若持空，跌破此价止损）</p>
+<p>  - 下方目标：初步 12.59，若有效跌破 MA20 则看 11.93</p>
+<p>  - 支撑参考：MA20=12.86，若跌破将加速确认背离</p>
+<p><strong>操作建议</strong>：</p>
+<p>  - 迹象浮现（早期预警），建议观望为主，不追高，重点关注量能变化</p>
+<p>---</p>
+<p><strong>成熟度说明</strong>：迹象浮现(预警) → 进行中(未确认) → 已确认(可参考)</p>
+<p><strong>背离类型</strong>：常规背离=反转信号；隐藏背离=趋势延续信号</p>
+<p><strong>重要提示</strong>：背离是预警信号而非充分条件，早期信号尤其须结合均线/成交量二次确认后操作</p>
+<p class="b">📊 LLM 分析</p>
+<p>从背离检测系统给出的客观数据看，蓝色光标当前出现的是一个<strong>已确认的常规底背离</strong>，且由 RSI 触发，强度评分 53，属于中等偏弱的多头信号。以下分点展开：</p>
+<p class="b">1. 价格与指标的方向性背离已经成立，属于有效的底部反转预警。</p>
+<p>2026-08-25 低点 12.92 到 2026-10-09 低点 11.90，价格在约六周内又下探了 7.9%，创出更低的低点；但同期 RSI 从 22.10 大幅抬升到 50.86，指标不仅没有同步走低，反而回升了近 29 个点。这种&quot;价格新低、指标不新低&quot;的结构，是教科书式的常规底背离，说明在第二个低点处，抛压的动能已经明显衰减，空头力量在边际上被削弱，多头开始有承接。系统标记为 CONFIRMED（已确认），意味着第二个低点已经走完并得到验证，不是盘中未完成的形态。</p>
+<p class="b">2. 强度 53 属于中等，信号可信但不足以单独作为重仓依据。</p>
+<p>评分 53 落在中性区间上沿，说明这个背离的&quot;质量&quot;是合格的，但并非强信号。原因在于：RSI 第二低点 50.86 已经回到中轴附近，距离超卖区（30 以下）较远，这意味着背离的起点不是从极度超卖中修复，弹性空间相对有限；同时第一低点 RSI 仅 22.10，属于深度超卖，两者落差大，虽然背离幅度显著，但也反映出第一个低点处的恐慌程度远高于第二个低点，市场情绪是&quot;钝化式修复&quot;而非&quot;V 型反转&quot;。因此这个信号更适合作为&quot;止跌企稳&quot;的参考，而非&quot;趋势反转&quot;的确认。</p>
+<p class="b">3. 需要关注的关键验证信号与风险。</p>
+<p>向上验证：后续需要看到价格站稳 11.90 上方并有效突破 12.92（第一低点）这一颈线位，若放量突破，则背离的看多含义会被强化，目标可看向前期震荡区间上沿。向下风险：如果价格再度跌破 11.90，则本次背离结构被破坏，RSI 若同步创出新低，说明空头动能重新占据主导，届时应果断否定该信号。此外，RSI 已回升至 50.86，若继续上行至 60-70 区间而价格未能同步走强，反而可能演变为顶背离的隐患，需要动态跟踪。</p>
+<p class="b">4. 综合定位：偏多的观察性信号，而非追涨信号。</p>
+<p>该背离反映的是&quot;下跌动能衰竭&quot;，属于左侧偏右的企稳信号，配合 53 的中等强度，当前更适合定位为&quot;观察 + 轻仓试探&quot;的窗口，而非确认趋势反转后的加仓时机。真正的多头确认还需价格行为（突破颈线、量能配合）来补足。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 58</b> — RSI常规底背离已确认，价格创新低7.9%而RSI由22.10升至50.86，下跌动能衰竭，但强度仅53属中等，RSI已回中轴弹性有限（影响：短期止跌企稳概率上升，需站稳11.90并突破12.92颈线才能确认反转，跌破11.90则信号失效）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>量价关系</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 38</span></div><div class="sec-bd"><p class="b">量比=0.89x  当日涨跌=-3.97%</p>
+<p class="li">• 状态：量能正常</p>
+<p class="li">• 近10日量能趋势：↗ 量能放大（斜率+0.042）</p>
+<p class="li">• 量比&gt;2为放量，&lt;0.5为缩量</p>
+<p class="b">📊 LLM 分析</p>
+<p>从量价关系看，当前蓝色光标呈现“价跌量平、趋势量能温和放大”的组合，属于偏弱但尚未出现恐慌性抛售的状态，具体分析如下：</p>
+<p>1. <strong>量比0.89x，属于正常量能区间，下跌未伴随明显放量</strong>  </p>
+<p>   量比0.89x低于1，说明当日成交活跃度略低于近期平均水平，处于“量能正常”范畴（&gt;2为放量，&lt;0.5为缩量）。结合当日涨跌-3.97%的中阴线来看，这是一次“缩量/平量下跌”，而非放量杀跌。含义上，空方虽占据主动，但抛压并未出现集中宣泄，多方也未大规模承接，属于弱势阴跌格局。需要关注的是：若后续继续下跌且量比跌破0.5，则可能进入缩量阴跌的钝化阶段；若量比快速放大到1.5以上而价格仍不涨，则要警惕主力借反弹出货。</p>
+<p>2. <strong>近10日量能趋势↗放大（斜率+0.042），量能温和回升</strong>  </p>
+<p>   量能斜率+0.042为正，说明近10日整体成交量呈温和放大态势。这与当日量比0.89x形成对比——即单日量能不算大，但中期量能重心在抬升。这种组合的解读有两种可能：一是下跌过程中有资金在低位逐步吸筹，量能温和堆积；二是多空分歧加大，换手增加但价格未能走强。结合-3.97%的跌幅，目前更偏向后者，即放量趋势尚未转化为价格支撑，属于“量增价跌”的偏空信号，需观察量能放大能否在后续转化为止跌企稳。</p>
+<p>3. <strong>量价配合偏空，但缺乏放量确认，属于弱势观察阶段</strong>  </p>
+<p>   理想的多头量价关系是“价涨量增”，而当前是“价跌量平/温和放量”，量价配合方向偏空。不过由于量比仅0.89x，空头力度尚未达到“放量破位”的级别，因此不能直接判定为趋势性下跌启动。关键观察点：一是次日能否出现缩量止跌（量比&lt;0.7且跌幅收窄），这是短线企稳信号；二是若继续放量下跌（量比&gt;1.2且跌幅扩大），则需警惕加速下行风险。当前状态下，指标更支持“观望等待确认”，而非盲目抄底或追空。</p>
+<p>4. <strong>综合评分逻辑</strong>  </p>
+<p>   量比正常偏缩、价格中阴下跌、量能趋势温和放大但未形成价格支撑，整体多空力量偏空但不极端。给予偏空震荡评分，信号定为watch，等待量价关系出现明确的方向性确认（缩量止跌或放量反包）后再做决策。</p><div class="note" style="border-color:#2563eb;background:#dbeafe">🤖 <b style="color:#1d4ed8">关注 · 38</b> — 量比0.89x属正常量能，-3.97%下跌未放量，但近10日量能趋势放大而价格走弱，量价配合偏空且缺乏止跌确认（影响：短期偏弱震荡，若后续放量下跌则下行风险加大，若缩量止跌则可能进入企稳观察期）</div></div></div>
+<div class="sec"><div class="sec-hd"><span>K线形态</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 38</span></div><div class="sec-bd"><p class="b">蓝色光标（近20日K线）技术形态深度分析</p>
+<p class="b">1. 识别的形态</p>
+<p class="b">形态名称：下降楔形（Falling Wedge）末端 + 潜在双底试探</p>
+<p class="b">关键价格点引用：</p>
+<p class="li">• **楔形上轨（下降压力线）**：9月22日高点 **14.22** → 9月23日高点 13.99 → 10月13日反弹高点 **13.32**，高点逐级下移，形成清晰下降压力线。</p>
+<p class="li">• **楔形下轨（下降支撑线）**：9月29日低点 12.59 → 10月8日低点 **11.98** → 10月16日低点 **11.82**，低点亦逐级下移但斜率放缓，两轨呈现收敛。</p>
+<p class="li">• **潜在双底结构**：10月8日低点 **11.98** 与 10月16日低点 **11.82** 构成疑似双底的两只&quot;脚&quot;，中间10月13日反弹至 13.32 为颈线高点。</p>
+<p class="li">• **破位确认点**：10月15日（12.35）与10月16日（11.86）连续两根阴线，**10月16日收盘11.86跌破10月8日低点11.98**，楔形下轨被向下击穿。</p>
+<p class="b">可靠性：中偏低</p>
+<p>理由：</p>
+<p class="li">• **成交量不配合**：10月16日破位当日成交量仅 1.837亿股，量比0.89x，属于**缩量破位**，而非放量恐慌杀跌，说明抛压并非集中释放，存在假破位可能。</p>
+<p class="li">• **对称性一般**：9月22日放量长阳（成交量5.02亿，为20日最大量）后连续回落，多头未能守住，形态由强转弱，楔形收敛时间约15个交易日，时间周期偏短。</p>
+<p class="li">• **双底尚未确认**：10月16日收盘11.86已低于10月8日低点11.98，严格意义上双底结构已被破坏，需警惕演变为下降通道延续。</p>
+<p class="b">2. 形态暗示走势</p>
+<p class="b">突破方向：向下破位已初步发生，但需确认</p>
+<p class="li">• 10月16日收盘 **11.86** 已跌破10月8日低点11.98及楔形下轨，**理论目标位下看 11.30–11.50**（以楔形高度14.22-11.82≈2.40，从破位点11.98量度下移，约9.58过于极端，故采用前低延伸与整数关口测算，保守看11.30–11.50）。</p>
+<p class="li">• 若**假破位反转**：需快速收复 **12.35（10月15日收盘）** 并站上 **12.59（9月29日低点）**，则双底成立，目标看 **13.32（10月13日高点）→ 13.99（9月23日高点）**。</p>
+<p class="b">突破确认条件：</p>
+<p class="li">• **向下确认**：次日（10月17日）收盘价 **低于11.82**，且成交量放大至 **2.2亿股以上**（量比&gt;1.2），则下降趋势确认。</p>
+<p class="li">• **向上反转确认**：收盘价 **站上12.59**，且成交量放大至 **2.5亿股以上**，方可视为假破位反转。</p>
+<p class="b">3. 关键支撑与阻力</p>
+<p class="b">近期支撑位：</p>
+<p class="li">• **第一支撑：11.82**（10月16日低点，当前最近低点）</p>
+<p class="li">• **第二支撑：11.50**（心理整数关口 + 楔形量度延伸位）</p>
+<p class="li">• **第三支撑：11.00**（若破位加速，看至该区域）</p>
+<p class="b">近期阻力位：</p>
+<p class="li">• **第一阻力：12.35**（10月15日收盘 + 10月16日开盘12.61下方缺口）</p>
+<p class="li">• **第二阻力：12.54–12.56**（MA5=12.54，MA10=12.56，均线密集压制）</p>
+<p class="li">• **第三阻力：12.86**（MA20）+ **13.32**（10月13日高点，双底颈线）</p>
+<p class="li">• **强阻力：13.47**（MA60，中期趋势线）</p>
+<p class="b">4. 操作建议</p>
+<p class="b">当前位置建议：观望（Watch）</p>
+<p>当前价格11.86处于破位边缘，MACD DIF=-0.3329、DEA=-0.2788仍处零轴下方且DIF&lt;DEA（空头排列），RSI(6)=46.5中性偏弱，均线空头排列（MA5&lt;MA10&lt;MA20&lt;MA60），<strong>趋势偏空但缩量破位存在变数</strong>，不宜盲目追空或抄底。</p>
+<p class="b">入场条件：</p>
+<p class="li">• **做多信号**：若次日收盘 **站上12.59** 且成交量 **&gt;2.5亿股**，可轻仓试多，目标13.32。</p>
+<p class="li">• **做空/减仓信号**：若次日收盘 **跌破11.82** 且成交量 **&gt;2.2亿股**，确认下降趋势，反弹至12.20–12.35可减仓。</p>
+<p class="b">止损设置：</p>
+<p class="li">• 若做多：**11.70以下止损**（跌破10月16日低点11.82并留缓冲，形态失效）。</p>
+<p class="li">• 若持空：**12.60以上止损**（收复9月29日低点，空头逻辑破坏）。</p>
+<p>---</p>
+<p><code>`</code>json</p>
+<p><code>`</code></p></div></div>
+<div class="sec"><div class="sec-hd"><span>波浪理论</span><span class="badge" style="background:#dbeafe;color:#1d4ed8">关注 · 35</span></div><div class="sec-bd"><p class="b">蓝色光标（300058）波浪理论专业分析</p>
+<p class="b">一、波浪计数</p>
+<p class="b">1. 大级别趋势背景</p>
+<p class="b">判断：中期下降趋势中的反弹结束，当前处于新一轮下跌推动浪中。</p>
+<p>依据：</p>
+<p class="li">• 价格自近60日高点 **16.98** 持续回落至当前 **11.86**，累计跌幅约 **30%**；</p>
+<p class="li">• 均线系统全面空头排列：MA20(12.86) &lt; MA60(13.47) &lt; MA250(13.79) &lt; MA120(14.68)，价格位于所有均线下方；</p>
+<p class="li">• 近60日低点 **11.08** 已被反复测试，当前价格 11.86 逼近该低点，弱势特征明显。</p>
+<p class="b">2. 当前浪级定位</p>
+<p class="b">主计数：当前处于大级别调整浪（C浪）的第5子浪末端，或新一轮下跌推动浪的第3浪中。</p>
+<p>具体划分（以近60日数据为观察窗口）：</p>
+<p>| 浪级 | 起止价格 | 说明 |</p>
+<p>|------|----------|------|</p>
+<p>| <strong>第①浪（上升）</strong> | 11.08 → 16.98 | 自7月27日低点启动，快速拉升至8月13日高点，涨幅约53%，为典型的推动浪 |</p>
+<p>| <strong>第②浪（调整）</strong> | 16.98 → 13.14 | 回调至9月中旬，回撤幅度约62%，接近0.618黄金分割位 |</p>
+<p>| <strong>第③浪（反弹）</strong> | 13.14 → 14.24 | 反弹至9月底，幅度有限，未能突破前高 |</p>
+<p>| <strong>第④浪（下跌）</strong> | 14.24 → 12.05 | 10月中旬快速下杀 |</p>
+<p>| <strong>第⑤浪（当前）</strong> | 12.05 → 11.86（进行中） | 当前处于末端下跌，逼近前低11.08 |</p>
+<p><strong>替代计数（更偏空）：</strong> 若将 16.98→13.14 视为A浪，13.14→14.24 为B浪，14.24→当前 为C浪，则当前处于 <strong>C浪的第3子浪（C-3）</strong> 中，下跌动能尚未完全释放。</p>
+<p class="b">3. 关键价格点引用</p>
+<p class="li">• **第①浪启动点：11.08**（2026-07-27低点）</p>
+<p class="li">• **第①浪终点：16.98**（2026-08-13高点）</p>
+<p class="li">• **第②浪终点：13.14**（9月中旬低点）</p>
+<p class="li">• **第③浪终点：14.24**（9月底反弹高点）</p>
+<p class="li">• **当前浪起点：14.24**，运行至当前 **11.86**</p>
+<p>---</p>
+<p class="b">二、当前浪的状态</p>
+<p class="b">1. 完成度判断</p>
+<p class="b">当前浪（第⑤浪或C-3浪）仍在进行中，尚未确认完成。</p>
+<p>理由：</p>
+<p class="li">• 价格从 14.24 下跌至 11.86，跌幅约 16.7%，时间跨度约 20 个交易日；</p>
+<p class="li">• 下跌过程中成交量未出现明显放大后的衰竭信号；</p>
+<p class="li">• 当前价格 11.86 距离前低 11.08 仅约 7% 空间，存在最后一跌的可能。</p>
+<p class="b">2. 内部结构</p>
+<p>当前浪内部可细分为：</p>
+<p class="li">• **子浪 i**：14.24 → 13.15（快速下杀）</p>
+<p class="li">• **子浪 ii**：13.15 → 13.16（弱势反弹）</p>
+<p class="li">• **子浪 iii**：13.16 → 12.05（主跌段）</p>
+<p class="li">• **子浪 iv**：12.05 → 13.04（反弹）</p>
+<p class="li">• **子浪 v**：13.04 → 11.86（当前，末端下跌）</p>
+<p class="b">结论：当前处于第⑤浪中的v子浪末端，或C-3浪的iii子浪中。</p>
+<p>---</p>
+<p class="b">三、下一步预判</p>
+<p class="b">1. 主情景（概率60%）</p>
+<p class="b">当前浪尚未完成，价格将首先测试前低 11.08，若跌破则下探 10.50-10.80 区间。</p>
+<p class="li">• 第一目标：**11.08**（前低）</p>
+<p class="li">• 第二目标：**10.50-10.80**（斐波那契1.272扩展位）</p>
+<p class="li">• 极端目标：**9.80-10.20**（1.618扩展位）</p>
+<p>完成上述目标后，若出现底部放量+MACD底背离，则可能启动新一轮反弹浪。</p>
+<p class="b">2. 次要情景（概率40%）</p>
+<p class="b">当前浪已在 11.86 附近完成，价格将展开反弹。</p>
+<p class="li">• 反弹第一目标：**12.86**（MA20）</p>
+<p class="li">• 反弹第二目标：**13.47**（MA60）</p>
+<p class="li">• 强阻力：**14.24**（前反弹高点）</p>
+<p>若价格站稳 13.47 以上，则波浪计数需修正为新一轮上升浪启动。</p>
+<p class="b">3. 关键变盘时间窗口</p>
+<p class="li">• **时间周期**：自 16.98 高点以来已运行约 40 个交易日，接近 55 日斐波那契时间窗口（约在 11 月初）；</p>
+<p class="li">• **短期窗口**：未来 3-5 个交易日内若出现放量长下影或阳包阴，可能确认短期底部。</p>
+<p>---</p>
+<p class="b">四、关键点位</p>
+<p>| 类型 | 价格 | 说明 |</p>
+<p>|------|------|------|</p>
+<p>| <strong>主要支撑</strong> | <strong>11.08</strong> | 前低，若跌破则确认C浪延伸，下看10.50 |</p>
+<p>| <strong>次要支撑</strong> | <strong>10.50-10.80</strong> | 斐波那契扩展位 |</p>
+<p>| <strong>主要阻力</strong> | <strong>12.86</strong> | MA20，突破后下一目标13.47 |</p>
+<p>| <strong>强阻力</strong> | <strong>13.47-14.24</strong> | MA60及前反弹高点，突破则计数修正 |</p>
+<p>| <strong>浪的失效位</strong> | <strong>14.24</strong> | 若价格突破此位，则当前下跌计数作废，转为看多 |</p>
+<p>| <strong>下行确认位</strong> | <strong>11.08</strong> | 跌破则确认第⑤浪延伸，目标10.50 |</p>
+<p>---</p>
+<p class="b">五、操作建议</p>
+<p class="b">当前策略：**观望为主，等待底部确认信号。**</p>
+<p class="li">• **不建议当前抄底**：价格逼近前低但未确认支撑，下跌动能未衰竭；</p>
+<p class="li">• **持仓者**：若成本较高，建议在反弹至 12.86-13.15 区间减仓；</p>
+<p class="li">• **空仓者**：等待以下信号出现后再考虑入场：</p>
+<p>  1. 价格在 11.08-11.50 区间出现放量止跌；</p>
+<p>  2. MACD出现底背离；</p>
+<p>  3. 日线收出阳包阴或长下影线。</p>
+<p class="b">具体操作计划（若触发买入条件）：</p>
+<p class="li">• **入场价位**：**11.20-11.50** 附近（分批）</p>
+<p class="li">• **止损**：**10.80**（跌破前低且无反弹）</p>
+<p class="li">• **第一目标**：**12.86**（MA20）</p>
+<p class="li">• **第二目标**：**13.47**（MA60）</p>
+<p class="li">• **风险收益比**：约 1:2.5（以11.35入场，止损10.80，目标12.86计算）</p>
+<p>---</p>
+<p class="b">综合评分与信号</p>
+<p class="b">评分逻辑：</p>
+<p class="li">• 趋势偏空（均线空头排列、价格创新低）：-30分</p>
+<p class="li">• 波浪结构处于下跌末端但未完成：-10分</p>
+<p class="li">• 接近前低支撑，存在反弹可能：+15分</p>
+<p class="li">• 无明确底部信号：-10分</p>
+<p class="li">• 综合得分：**35分**</p>
+<p><code>`</code>json</p>
+<p><code>`</code></p></div></div></div></div>
+      <div class="foot">本报告由本地量化系统自动生成，仅供研究参考，不构成投资建议。生成时间 2026-10-16 22:59</div>
+    </div>
+    <script>
+    (function(){
+      if(typeof echarts==='undefined')return;
+      var kl=[{"date": "2025-09-29", "open": 6.52, "high": 6.6, "low": 6.43, "close": 6.56, "ma5": 6.56, "ma10": 6.67, "ma20": 6.68, "ma30": 6.87, "ma60": 6.82, "ma120": 6.5, "ma250": 6.52}, {"date": "2025-09-30", "open": 6.68, "high": 6.85, "low": 6.62, "close": 6.8, "ma5": 6.63, "ma10": 6.65, "ma20": 6.68, "ma30": 6.85, "ma60": 6.82, "ma120": 6.51, "ma250": 6.53}, {"date": "2025-10-09", "open": 6.81, "high": 6.86, "low": 6.72, "close": 6.82, "ma5": 6.69, "ma10": 6.64, "ma20": 6.69, "ma30": 6.84, "ma60": 6.83, "ma120": 6.51, "ma250": 6.54}, {"date": "2025-10-10", "open": 6.76, "high": 6.77, "low": 6.61, "close": 6.63, "ma5": 6.68, "ma10": 6.64, "ma20": 6.69, "ma30": 6.82, "ma60": 6.83, "ma120": 6.52, "ma250": 6.55}, {"date": "2025-10-13", "open": 6.27, "high": 6.46, "low": 6.21, "close": 6.43, "ma5": 6.65, "ma10": 6.61, "ma20": 6.68, "ma30": 6.79, "ma60": 6.83, "ma120": 6.53, "ma250": 6.56}, {"date": "2025-10-14", "open": 6.44, "high": 6.49, "low": 6.27, "close": 6.3, "ma5": 6.6, "ma10": 6.58, "ma20": 6.66, "ma30": 6.75, "ma60": 6.83, "ma120": 6.53, "ma250": 6.57}, {"date": "2025-10-15", "open": 6.3, "high": 6.35, "low": 6.26, "close": 6.34, "ma5": 6.5, "ma10": 6.57, "ma20": 6.65, "ma30": 6.72, "ma60": 6.82, "ma120": 6.53, "ma250": 6.58}, {"date": "2025-10-16", "open": 6.31, "high": 6.32, "low": 6.19, "close": 6.2, "ma5": 6.38, "ma10": 6.54, "ma20": 6.62, "ma30": 6.68, "ma60": 6.82, "ma120": 6.54, "ma250": 6.58}, {"date": "2025-10-17", "open": 6.2, "high": 6.26, "low": 6.08, "close": 6.09, "ma5": 6.27, "ma10": 6.48, "ma20": 6.59, "ma30": 6.65, "ma60": 6.81, "ma120": 6.54, "ma250": 6.58}, {"date": "2025-10-20", "open": 6.16, "high": 6.19, "low": 6.1, "close": 6.14, "ma5": 6.21, "ma10": 6.43, "ma20": 6.56, "ma30": 6.62, "ma60": 6.8, "ma120": 6.54, "ma250": 6.59}, {"date": "2025-10-21", "open": 6.15, "high": 6.2, "low": 6.12, "close": 6.19, "ma5": 6.19, "ma10": 6.39, "ma20": 6.53, "ma30": 6.59, "ma60": 6.79, "ma120": 6.54, "ma250": 6.59}, {"date": "2025-10-22", "open": 6.16, "high": 6.25, "low": 6.14, "close": 6.19, "ma5": 6.16, "ma10": 6.33, "ma20": 6.49, "ma30": 6.56, "ma60": 6.79, "ma120": 6.55, "ma250": 6.6}, {"date": "2025-10-23", "open": 6.17, "high": 6.22, "low": 6.11, "close": 6.21, "ma5": 6.16, "ma10": 6.27, "ma20": 6.46, "ma30": 6.55, "ma60": 6.78, "ma120": 6.55, "ma250": 6.61}, {"date": "2025-10-24", "open": 6.22, "high": 6.24, "low": 6.18, "close": 6.21, "ma5": 6.19, "ma10": 6.23, "ma20": 6.43, "ma30": 6.54, "ma60": 6.78, "ma120": 6.55, "ma250": 6.61}, {"date": "2025-10-27", "open": 6.24, "high": 6.3, "low": 6.2, "close": 6.24, "ma5": 6.21, "ma10": 6.21, "ma20": 6.41, "ma30": 6.52, "ma60": 6.77, "ma120": 6.56, "ma250": 6.62}, {"date": "2025-10-28", "open": 6.24, "high": 6.37, "low": 6.22, "close": 6.31, "ma5": 6.23, "ma10": 6.21, "ma20": 6.4, "ma30": 6.51, "ma60": 6.76, "ma120": 6.56, "ma250": 6.62}, {"date": "2025-10-29", "open": 6.28, "high": 6.29, "low": 6.18, "close": 6.22, "ma5": 6.24, "ma10": 6.2, "ma20": 6.38, "ma30": 6.5, "ma60": 6.75, "ma120": 6.56, "ma250": 6.63}, {"date": "2025-10-30", "open": 6.52, "high": 7.14, "low": 6.45, "close": 6.76, "ma5": 6.35, "ma10": 6.26, "ma20": 6.4, "ma30": 6.5, "ma60": 6.75, "ma120": 6.57, "ma250": 6.63}, {"date": "2025-10-31", "open": 6.66, "high": 7.77, "low": 6.66, "close": 7.34, "ma5": 6.57, "ma10": 6.38, "ma20": 6.43, "ma30": 6.52, "ma60": 6.76, "ma120": 6.57, "ma250": 6.64}, {"date": "2025-11-03", "open": 7.5, "high": 7.95, "low": 7.44, "close": 7.57, "ma5": 6.84, "ma10": 6.52, "ma20": 6.48, "ma30": 6.55, "ma60": 6.77, "ma120": 6.59, "ma250": 6.65}, {"date": "2025-11-04", "open": 7.4, "high": 7.87, "low": 7.35, "close": 7.85, "ma5": 7.15, "ma10": 6.69, "ma20": 6.54, "ma30": 6.58, "ma60": 6.78, "ma120": 6.6, "ma250": 6.66}, {"date": "2025-11-05", "open": 7.6, "high": 8.15, "low": 7.53, "close": 8.03, "ma5": 7.51, "ma10": 6.87, "ma20": 6.6, "ma30": 6.62, "ma60": 6.8, "ma120": 6.61, "ma250": 6.67}, {"date": "2025-11-06", "open": 8.03, "high": 8.04, "low": 7.64, "close": 7.79, "ma5": 7.72, "ma10": 7.03, "ma20": 6.65, "ma30": 6.65, "ma60": 6.81, "ma120": 6.63, "ma250": 6.68}, {"date": "2025-11-07", "open": 7.69, "high": 7.87, "low": 7.53, "close": 7.65, "ma5": 7.78, "ma10": 7.18, "ma20": 6.7, "ma30": 6.68, "ma60": 6.82, "ma120": 6.64, "ma250": 6.69}, {"date": "2025-11-10", "open": 7.79, "high": 8.29, "low": 7.7, "close": 7.97, "ma5": 7.86, "ma10": 7.35, "ma20": 6.78, "ma30": 6.72, "ma60": 6.84, "ma120": 6.65, "ma250": 6.7}, {"date": "2025-11-11", "open": 7.79, "high": 8.03, "low": 7.6, "close": 7.81, "ma5": 7.85, "ma10": 7.5, "ma20": 6.86, "ma30": 6.76, "ma60": 6.85, "ma120": 6.67, "ma250": 6.71}, {"date": "2025-11-12", "open": 7.84, "high": 8.02, "low": 7.67, "close": 7.92, "ma5": 7.83, "ma10": 7.67, "ma20": 6.93, "ma30": 6.81, "ma60": 6.87, "ma120": 6.68, "ma250": 6.72}, {"date": "2025-11-13", "open": 7.96, "high": 8.28, "low": 7.8, "close": 8.28, "ma5": 7.93, "ma10": 7.82, "ma20": 7.04, "ma30": 6.87, "ma60": 6.89, "ma120": 6.7, "ma250": 6.73}, {"date": "2025-11-14", "open": 8.01, "high": 8.16, "low": 7.72, "close": 7.72, "ma5": 7.94, "ma10": 7.86, "ma20": 7.12, "ma30": 6.9, "ma60": 6.9, "ma120": 6.72, "ma250": 6.74}, {"date": "2025-11-17", "open": 7.9, "high": 9.07, "low": 7.84, "close": 8.68, "ma5": 8.08, "ma10": 7.97, "ma20": 7.25, "ma30": 6.97, "ma60": 6.93, "ma120": 6.74, "ma250": 6.75}, {"date": "2025-11-18", "open": 8.61, "high": 10.15, "low": 8.52, "close": 9.68, "ma5": 8.46, "ma10": 8.15, "ma20": 7.42, "ma30": 7.08, "ma60": 6.97, "ma120": 6.77, "ma250": 6.77}, {"date": "2025-11-19", "open": 9.5, "high": 9.84, "low": 9.23, "close": 9.49, "ma5": 8.77, "ma10": 8.3, "ma20": 7.59, "ma30": 7.17, "ma60": 7.01, "ma120": 6.8, "ma250": 6.78}, {"date": "2025-11-20", "open": 9.66, "high": 9.66, "low": 9.07, "close": 9.09, "ma5": 8.93, "ma10": 8.43, "ma20": 7.73, "ma30": 7.24, "ma60": 7.04, "ma120": 6.82, "ma250": 6.79}, {"date": "2025-11-21", "open": 9.01, "high": 9.73, "low": 8.69, "close": 9.28, "ma5": 9.24, "ma10": 8.59, "ma20": 7.88, "ma30": 7.33, "ma60": 7.08, "ma120": 6.85, "ma250": 6.8}, {"date": "2025-11-24", "open": 9.39, "high": 11.14, "low": 9.07, "close": 10.74, "ma5": 9.66, "ma10": 8.87, "ma20": 8.11, "ma30": 7.48, "ma60": 7.13, "ma120": 6.89, "ma250": 6.82}, {"date": "2025-11-25", "open": 10.81, "high": 11.43, "low": 10.68, "close": 10.89, "ma5": 9.9, "ma10": 9.18, "ma20": 8.34, "ma30": 7.63, "ma60": 7.19, "ma120": 6.93, "ma250": 6.83}, {"date": "2025-11-26", "open": 10.95, "high": 11.44, "low": 10.79, "close": 10.92, "ma5": 10.18, "ma10": 9.48, "ma20": 8.57, "ma30": 7.78, "ma60": 7.25, "ma120": 6.97, "ma250": 6.85}, {"date": "2025-11-27", "open": 10.78, "high": 11.14, "low": 10.47, "close": 10.58, "ma5": 10.48, "ma10": 9.71, "ma20": 8.76, "ma30": 7.93, "ma60": 7.31, "ma120": 7.01, "ma250": 6.87}, {"date": "2025-11-28", "open": 10.76, "high": 11.19, "low": 10.44, "close": 10.72, "ma5": 10.77, "ma10": 10.01, "ma20": 8.93, "ma30": 8.08, "ma60": 7.36, "ma120": 7.04, "ma250": 6.88}, {"date": "2025-12-01", "open": 10.5, "high": 10.71, "low": 10.16, "close": 10.28, "ma5": 10.68, "ma10": 10.17, "ma20": 9.07, "ma30": 8.22, "ma60": 7.42, "ma120": 7.08, "ma250": 6.89}, {"date": "2025-12-02", "open": 10.39, "high": 10.41, "low": 9.76, "close": 9.99, "ma5": 10.5, "ma10": 10.2, "ma20": 9.18, "ma30": 8.35, "ma60": 7.47, "ma120": 7.1, "ma250": 6.9}, {"date": "2025-12-03", "open": 9.89, "high": 9.97, "low": 9.45, "close": 9.51, "ma5": 10.22, "ma10": 10.2, "ma20": 9.25, "ma30": 8.46, "ma60": 7.51, "ma120": 7.13, "ma250": 6.91}, {"date": "2025-12-04", "open": 9.46, "high": 9.59, "low": 9.14, "close": 9.18, "ma5": 9.94, "ma10": 10.21, "ma20": 9.32, "ma30": 8.56, "ma60": 7.55, "ma120": 7.15, "ma250": 6.92}, {"date": "2025-12-05", "open": 9.19, "high": 9.39, "low": 8.97, "close": 9.22, "ma5": 9.64, "ma10": 10.2, "ma20": 9.4, "ma30": 8.66, "ma60": 7.6, "ma120": 7.17, "ma250": 6.92}, {"date": "2025-12-08", "open": 9.09, "high": 9.65, "low": 9.08, "close": 9.56, "ma5": 9.49, "ma10": 10.09, "ma20": 9.48, "ma30": 8.77, "ma60": 7.65, "ma120": 7.2, "ma250": 6.93}, {"date": "2025-12-09", "open": 9.41, "high": 9.51, "low": 9.15, "close": 9.21, "ma5": 9.34, "ma10": 9.92, "ma20": 9.55, "ma30": 8.86, "ma60": 7.69, "ma120": 7.22, "ma250": 6.94}, {"date": "2025-12-10", "open": 9.11, "high": 9.36, "low": 9.09, "close": 9.18, "ma5": 9.27, "ma10": 9.74, "ma20": 9.61, "ma30": 8.96, "ma60": 7.73, "ma120": 7.24, "ma250": 6.94}, {"date": "2025-12-11", "open": 9.14, "high": 9.2, "low": 8.72, "close": 8.73, "ma5": 9.18, "ma10": 9.56, "ma20": 9.63, "ma30": 9.03, "ma60": 7.77, "ma120": 7.26, "ma250": 6.95}, {"date": "2025-12-12", "open": 8.81, "high": 8.98, "low": 8.75, "close": 8.86, "ma5": 9.11, "ma10": 9.37, "ma20": 9.69, "ma30": 9.08, "ma60": 7.8, "ma120": 7.28, "ma250": 6.95}, {"date": "2025-12-15", "open": 8.69, "high": 8.81, "low": 8.55, "close": 8.59, "ma5": 8.91, "ma10": 9.2, "ma20": 9.68, "ma30": 9.11, "ma60": 7.83, "ma120": 7.3, "ma250": 6.96}, {"date": "2025-12-16", "open": 8.52, "high": 8.58, "low": 8.2, "close": 8.3, "ma5": 8.73, "ma10": 9.03, "ma20": 9.62, "ma30": 9.13, "ma60": 7.86, "ma120": 7.32, "ma250": 6.96}, {"date": "2025-12-17", "open": 8.35, "high": 8.55, "low": 8.26, "close": 8.52, "ma5": 8.6, "ma10": 8.94, "ma20": 9.57, "ma30": 9.14, "ma60": 7.88, "ma120": 7.33, "ma250": 6.96}, {"date": "2025-12-18", "open": 8.41, "high": 8.68, "low": 8.39, "close": 8.45, "ma5": 8.54, "ma10": 8.86, "ma20": 9.54, "ma30": 9.17, "ma60": 7.91, "ma120": 7.35, "ma250": 6.96}, {"date": "2025-12-19", "open": 8.64, "high": 8.73, "low": 8.4, "close": 8.53, "ma5": 8.48, "ma10": 8.79, "ma20": 9.5, "ma30": 9.2, "ma60": 7.94, "ma120": 7.37, "ma250": 6.96}, {"date": "2025-12-22", "open": 8.52, "high": 8.71, "low": 8.47, "close": 8.57, "ma5": 8.47, "ma10": 8.69, "ma20": 9.39, "ma30": 9.22, "ma60": 7.97, "ma120": 7.39, "ma250": 6.96}, {"date": "2025-12-23", "open": 8.52, "high": 8.56, "low": 8.38, "close": 8.43, "ma5": 8.5, "ma10": 8.62, "ma20": 9.27, "ma30": 9.24, "ma60": 8.0, "ma120": 7.4, "ma250": 6.96}, {"date": "2025-12-24", "open": 8.39, "high": 8.71, "low": 8.36, "close": 8.64, "ma5": 8.52, "ma10": 8.56, "ma20": 9.15, "ma30": 9.26, "ma60": 8.04, "ma120": 7.42, "ma250": 6.96}, {"date": "2025-12-25", "open": 8.65, "high": 9.02, "low": 8.6, "close": 8.87, "ma5": 8.61, "ma10": 8.58, "ma20": 9.07, "ma30": 9.28, "ma60": 8.08, "ma120": 7.44, "ma250": 6.96}, {"date": "2025-12-26", "open": 8.78, "high": 9.03, "low": 8.7, "close": 8.85, "ma5": 8.67, "ma10": 8.57, "ma20": 8.97, "ma30": 9.32, "ma60": 8.11, "ma120": 7.46, "ma250": 6.97}, {"date": "2025-12-29", "open": 8.87, "high": 9.15, "low": 8.79, "close": 8.96, "ma5": 8.75, "ma10": 8.61, "ma20": 8.91, "ma30": 9.33, "ma60": 8.15, "ma120": 7.48, "ma250": 6.98}, {"date": "2025-12-30", "open": 9.35, "high": 10.19, "low": 9.35, "close": 9.59, "ma5": 8.98, "ma10": 8.74, "ma20": 8.89, "ma30": 9.32, "ma60": 8.2, "ma120": 7.51, "ma250": 6.98}, {"date": "2025-12-31", "open": 9.75, "high": 11.51, "low": 9.67, "close": 11.51, "ma5": 9.56, "ma10": 9.04, "ma20": 8.99, "ma30": 9.39, "ma60": 8.28, "ma120": 7.55, "ma250": 7.0}, {"date": "2026-01-05", "open": 11.69, "high": 13.81, "low": 11.51, "close": 13.81, "ma5": 10.54, "ma10": 9.58, "ma20": 9.22, "ma30": 9.55, "ma60": 8.4, "ma120": 7.61, "ma250": 7.03}, {"date": "2026-01-06", "open": 13.59, "high": 13.97, "low": 13.12, "close": 13.65, "ma5": 11.5, "ma10": 10.09, "ma20": 9.44, "ma30": 9.69, "ma60": 8.51, "ma120": 7.67, "ma250": 7.06}, {"date": "2026-01-07", "open": 13.66, "high": 14.92, "low": 13.66, "close": 14.29, "ma5": 12.57, "ma10": 10.66, "ma20": 9.68, "ma30": 9.81, "ma60": 8.64, "ma120": 7.74, "ma250": 7.09}, {"date": "2026-01-08", "open": 14.25, "high": 15.75, "low": 13.86, "close": 15.05, "ma5": 13.66, "ma10": 11.32, "ma20": 9.97, "ma30": 9.95, "ma60": 8.79, "ma120": 7.81, "ma250": 7.12}, {"date": "2026-01-09", "open": 14.78, "high": 17.43, "low": 14.77, "close": 17.17, "ma5": 14.79, "ma10": 12.18, "ma20": 10.37, "ma30": 10.16, "ma60": 8.97, "ma120": 7.9, "ma250": 7.16}, {"date": "2026-01-12", "open": 17.97, "high": 20.61, "low": 17.7, "close": 20.61, "ma5": 16.15, "ma10": 13.35, "ma20": 10.96, "ma30": 10.49, "ma60": 9.21, "ma120": 8.01, "ma250": 7.22}, {"date": "2026-01-13", "open": 22.48, "high": 23.85, "low": 18.65, "close": 20.84, "ma5": 17.59, "ma10": 14.55, "ma20": 11.56, "ma30": 10.83, "ma60": 9.46, "ma120": 8.13, "ma250": 7.27}, {"date": "2026-01-14", "open": 20.11, "high": 22.97, "low": 20.11, "close": 21.61, "ma5": 19.06, "ma10": 15.81, "ma20": 12.21, "ma30": 11.21, "ma60": 9.71, "ma120": 8.26, "ma250": 7.33}, {"date": "2026-01-15", "open": 20.39, "high": 20.89, "low": 17.55, "close": 18.4, "ma5": 19.73, "ma10": 16.69, "ma20": 12.72, "ma30": 11.49, "ma60": 9.92, "ma120": 8.36, "ma250": 7.38}, {"date": "2026-01-16", "open": 17.49, "high": 18.29, "low": 16.04, "close": 16.28, "ma5": 19.55, "ma10": 17.17, "ma20": 13.11, "ma30": 11.72, "ma60": 10.09, "ma120": 8.44, "ma250": 7.43}, {"date": "2026-01-19", "open": 15.99, "high": 17.34, "low": 15.99, "close": 16.9, "ma5": 18.81, "ma10": 17.48, "ma20": 13.53, "ma30": 11.97, "ma60": 10.26, "ma120": 8.52, "ma250": 7.47}, {"date": "2026-01-20", "open": 17.59, "high": 18.29, "low": 17.22, "close": 17.77, "ma5": 18.19, "ma10": 17.89, "ma20": 13.99, "ma30": 12.26, "ma60": 10.46, "ma120": 8.62, "ma250": 7.52}, {"date": "2026-01-21", "open": 17.57, "high": 18.96, "low": 16.99, "close": 18.63, "ma5": 17.6, "ma10": 18.33, "ma20": 14.49, "ma30": 12.56, "ma60": 10.66, "ma120": 8.72, "ma250": 7.57}, {"date": "2026-01-22", "open": 18.22, "high": 19.85, "low": 18.22, "close": 19.07, "ma5": 17.73, "ma10": 18.73, "ma20": 15.02, "ma30": 12.89, "ma60": 10.88, "ma120": 8.82, "ma250": 7.62}, {"date": "2026-01-23", "open": 19.56, "high": 20.98, "low": 18.66, "close": 20.54, "ma5": 18.58, "ma10": 19.07, "ma20": 15.62, "ma30": 13.27, "ma60": 11.12, "ma120": 8.93, "ma250": 7.68}, {"date": "2026-01-26", "open": 20.62, "high": 21.18, "low": 18.49, "close": 20.73, "ma5": 19.35, "ma10": 19.08, "ma20": 16.21, "ma30": 13.67, "ma60": 11.35, "ma120": 9.05, "ma250": 7.74}, {"date": "2026-01-27", "open": 20.73, "high": 22.78, "low": 20.49, "close": 22.18, "ma5": 20.23, "ma10": 19.21, "ma20": 16.88, "ma30": 14.11, "ma60": 11.6, "ma120": 9.18, "ma250": 7.8}, {"date": "2026-01-28", "open": 21.98, "high": 22.57, "low": 20.34, "close": 20.35, "ma5": 20.57, "ma10": 19.08, "ma20": 17.45, "ma30": 14.5, "ma60": 11.81, "ma120": 9.29, "ma250": 7.85}, {"date": "2026-01-29", "open": 19.6, "high": 24.41, "low": 19.6, "close": 23.38, "ma5": 21.44, "ma10": 19.58, "ma20": 18.14, "ma30": 15.01, "ma60": 12.07, "ma120": 9.42, "ma250": 7.92}, {"date": "2026-01-30", "open": 22.78, "high": 23.75, "low": 21.86, "close": 23.31, "ma5": 21.99, "ma10": 20.29, "ma20": 18.73, "ma30": 15.5, "ma60": 12.32, "ma120": 9.56, "ma250": 7.98}, {"date": "2026-02-02", "open": 22.58, "high": 23.16, "low": 21.28, "close": 21.35, "ma5": 22.11, "ma10": 20.73, "ma20": 19.11, "ma30": 15.93, "ma60": 12.55, "ma120": 9.68, "ma250": 8.04}, {"date": "2026-02-03", "open": 22.23, "high": 22.87, "low": 20.73, "close": 22.04, "ma5": 22.09, "ma10": 21.16, "ma20": 19.52, "ma30": 16.38, "ma60": 12.79, "ma120": 9.8, "ma250": 8.1}, {"date": "2026-02-04", "open": 21.48, "high": 21.94, "low": 19.89, "close": 20.29, "ma5": 22.07, "ma10": 21.32, "ma20": 19.82, "ma30": 16.77, "ma60": 12.99, "ma120": 9.91, "ma250": 8.16}, {"date": "2026-02-05", "open": 19.67, "high": 20.64, "low": 19.06, "close": 19.12, "ma5": 21.22, "ma10": 21.33, "ma20": 20.03, "ma30": 17.13, "ma60": 13.18, "ma120": 10.02, "ma250": 8.21}, {"date": "2026-02-06", "open": 19.0, "high": 19.78, "low": 18.51, "close": 18.96, "ma5": 20.35, "ma10": 21.17, "ma20": 20.12, "ma30": 17.47, "ma60": 13.37, "ma120": 10.12, "ma250": 8.26}, {"date": "2026-02-09", "open": 19.69, "high": 20.19, "low": 18.9, "close": 19.91, "ma5": 20.06, "ma10": 21.09, "ma20": 20.08, "ma30": 17.84, "ma60": 13.56, "ma120": 10.22, "ma250": 8.31}, {"date": "2026-02-10", "open": 20.02, "high": 20.65, "low": 19.57, "close": 19.61, "ma5": 19.58, "ma10": 20.83, "ma20": 20.02, "ma30": 18.2, "ma60": 13.76, "ma120": 10.33, "ma250": 8.36}, {"date": "2026-02-11", "open": 19.29, "high": 19.72, "low": 18.7, "close": 18.91, "ma5": 19.3, "ma10": 20.69, "ma20": 19.89, "ma30": 18.53, "ma60": 13.93, "ma120": 10.43, "ma250": 8.4}, {"date": "2026-02-12", "open": 18.61, "high": 20.55, "low": 18.61, "close": 20.15, "ma5": 19.51, "ma10": 20.37, "ma20": 19.97, "ma30": 18.88, "ma60": 14.1, "ma120": 10.54, "ma250": 8.45}, {"date": "2026-02-13", "open": 19.89, "high": 20.35, "low": 18.99, "close": 18.99, "ma5": 19.51, "ma10": 19.93, "ma20": 20.11, "ma30": 19.13, "ma60": 14.26, "ma120": 10.64, "ma250": 8.5}, {"date": "2026-02-24", "open": 19.38, "high": 19.45, "low": 18.17, "close": 18.52, "ma5": 19.24, "ma10": 19.65, "ma20": 20.19, "ma30": 19.29, "ma60": 14.42, "ma120": 10.73, "ma250": 8.55}, {"date": "2026-02-25", "open": 18.34, "high": 18.37, "low": 17.69, "close": 17.99, "ma5": 18.91, "ma10": 19.24, "ma20": 20.2, "ma30": 19.43, "ma60": 14.56, "ma120": 10.82, "ma250": 8.59}, {"date": "2026-02-26", "open": 18.13, "high": 18.29, "low": 17.79, "close": 17.96, "ma5": 18.72, "ma10": 19.01, "ma20": 20.17, "ma30": 19.55, "ma60": 14.68, "ma120": 10.91, "ma250": 8.63}, {"date": "2026-02-27", "open": 17.79, "high": 18.69, "low": 17.65, "close": 18.49, "ma5": 18.39, "ma10": 18.95, "ma20": 20.14, "ma30": 19.67, "ma60": 14.81, "ma120": 11.0, "ma250": 8.68}, {"date": "2026-03-02", "open": 17.59, "high": 18.05, "low": 17.12, "close": 17.39, "ma5": 18.07, "ma10": 18.79, "ma20": 19.98, "ma30": 19.68, "ma60": 14.92, "ma120": 11.08, "ma250": 8.72}, {"date": "2026-03-03", "open": 17.39, "high": 17.54, "low": 16.3, "close": 16.38, "ma5": 17.64, "ma10": 18.44, "ma20": 19.76, "ma30": 19.54, "ma60": 15.01, "ma120": 11.16, "ma250": 8.76}, {"date": "2026-03-04", "open": 16.1, "high": 16.65, "low": 16.1, "close": 16.32, "ma5": 17.31, "ma10": 18.11, "ma20": 19.47, "ma30": 19.38, "ma60": 15.11, "ma120": 11.24, "ma250": 8.79}, {"date": "2026-03-05", "open": 16.77, "high": 16.84, "low": 16.38, "close": 16.63, "ma5": 17.04, "ma10": 17.88, "ma20": 19.28, "ma30": 19.22, "ma60": 15.21, "ma120": 11.32, "ma250": 8.83}, {"date": "2026-03-06", "open": 16.5, "high": 16.69, "low": 16.38, "close": 16.5, "ma5": 16.64, "ma10": 17.52, "ma20": 18.94, "ma30": 19.15, "ma60": 15.32, "ma120": 11.39, "ma250": 8.87}, {"date": "2026-03-09", "open": 15.99, "high": 16.81, "low": 15.88, "close": 16.76, "ma5": 16.52, "ma10": 17.29, "ma20": 18.61, "ma30": 19.17, "ma60": 15.44, "ma120": 11.48, "ma250": 8.91}, {"date": "2026-03-10", "open": 16.99, "high": 17.72, "low": 16.66, "close": 16.89, "ma5": 16.62, "ma10": 17.13, "ma20": 18.39, "ma30": 19.17, "ma60": 15.57, "ma120": 11.56, "ma250": 8.95}, {"date": "2026-03-11", "open": 16.84, "high": 16.91, "low": 16.18, "close": 16.2, "ma5": 16.6, "ma10": 16.95, "ma20": 18.1, "ma30": 19.12, "ma60": 15.69, "ma120": 11.64, "ma250": 8.99}, {"date": "2026-03-12", "open": 16.19, "high": 16.29, "low": 15.56, "close": 15.65, "ma5": 16.4, "ma10": 16.72, "ma20": 17.87, "ma30": 19.02, "ma60": 15.79, "ma120": 11.72, "ma250": 9.03}, {"date": "2026-03-13", "open": 15.65, "high": 15.7, "low": 14.92, "close": 14.97, "ma5": 16.09, "ma10": 16.37, "ma20": 17.66, "ma30": 18.88, "ma60": 15.89, "ma120": 11.79, "ma250": 9.06}, {"date": "2026-03-16", "open": 14.95, "high": 15.47, "low": 14.78, "close": 15.39, "ma5": 15.82, "ma10": 16.17, "ma20": 17.48, "ma30": 18.71, "ma60": 15.99, "ma120": 11.86, "ma250": 9.1}, {"date": "2026-03-17", "open": 15.47, "high": 15.97, "low": 15.16, "close": 15.17, "ma5": 15.48, "ma10": 16.05, "ma20": 17.24, "ma30": 18.53, "ma60": 16.1, "ma120": 11.93, "ma250": 9.13}, {"date": "2026-03-18", "open": 15.47, "high": 15.56, "low": 15.13, "close": 15.47, "ma5": 15.33, "ma10": 15.96, "ma20": 17.04, "ma30": 18.3, "ma60": 16.21, "ma120": 12.0, "ma250": 9.17}, {"date": "2026-03-19", "open": 15.13, "high": 15.21, "low": 14.89, "close": 14.96, "ma5": 15.19, "ma10": 15.8, "ma20": 16.84, "ma30": 18.12, "ma60": 16.31, "ma120": 12.07, "ma250": 9.19}, {"date": "2026-03-20", "open": 15.08, "high": 15.14, "low": 14.49, "close": 14.5, "ma5": 15.1, "ma10": 15.6, "ma20": 16.56, "ma30": 17.83, "ma60": 16.42, "ma120": 12.14, "ma250": 9.22}, {"date": "2026-03-23", "open": 14.28, "high": 14.39, "low": 13.49, "close": 13.61, "ma5": 14.74, "ma10": 15.28, "ma20": 16.29, "ma30": 17.5, "ma60": 16.5, "ma120": 12.19, "ma250": 9.25}, {"date": "2026-03-24", "open": 13.95, "high": 14.02, "low": 13.49, "close": 13.91, "ma5": 14.49, "ma10": 14.98, "ma20": 16.06, "ma30": 17.25, "ma60": 16.59, "ma120": 12.25, "ma250": 9.28}, {"date": "2026-03-25", "open": 13.97, "high": 14.61, "low": 13.97, "close": 14.4, "ma5": 14.28, "ma10": 14.8, "ma20": 15.88, "ma30": 17.0, "ma60": 16.69, "ma120": 12.31, "ma250": 9.3}, {"date": "2026-03-26", "open": 14.33, "high": 14.62, "low": 13.94, "close": 14.05, "ma5": 14.09, "ma10": 14.64, "ma20": 15.68, "ma30": 16.79, "ma60": 16.78, "ma120": 12.38, "ma250": 9.33}, {"date": "2026-03-27", "open": 13.84, "high": 14.48, "low": 13.84, "close": 14.25, "ma5": 14.04, "ma10": 14.57, "ma20": 15.47, "ma30": 16.63, "ma60": 16.88, "ma120": 12.44, "ma250": 9.36}, {"date": "2026-03-30", "open": 14.03, "high": 14.39, "low": 13.91, "close": 14.39, "ma5": 14.2, "ma10": 14.47, "ma20": 15.32, "ma30": 16.48, "ma60": 16.97, "ma120": 12.51, "ma250": 9.38}, {"date": "2026-03-31", "open": 14.33, "high": 15.25, "low": 14.32, "close": 14.79, "ma5": 14.38, "ma10": 14.43, "ma20": 15.24, "ma30": 16.31, "ma60": 17.07, "ma120": 12.57, "ma250": 9.41}, {"date": "2026-04-01", "open": 15.14, "high": 15.22, "low": 14.32, "close": 14.58, "ma5": 14.41, "ma10": 14.34, "ma20": 15.15, "ma30": 16.14, "ma60": 17.17, "ma120": 12.64, "ma250": 9.44}, {"date": "2026-04-02", "open": 14.39, "high": 14.39, "low": 13.76, "close": 13.85, "ma5": 14.37, "ma10": 14.23, "ma20": 15.01, "ma30": 15.97, "ma60": 17.25, "ma120": 12.7, "ma250": 9.47}, {"date": "2026-04-03", "open": 13.96, "high": 14.01, "low": 13.3, "close": 13.36, "ma5": 14.19, "ma10": 14.12, "ma20": 14.86, "ma30": 15.74, "ma60": 17.31, "ma120": 12.76, "ma250": 9.5}, {"date": "2026-04-07", "open": 13.57, "high": 13.84, "low": 13.33, "close": 13.58, "ma5": 14.03, "ma10": 14.12, "ma20": 14.7, "ma30": 15.56, "ma60": 17.35, "ma120": 12.81, "ma250": 9.53}, {"date": "2026-04-08", "open": 14.15, "high": 16.3, "low": 14.15, "close": 16.3, "ma5": 14.33, "ma10": 14.36, "ma20": 14.67, "ma30": 15.49, "ma60": 17.39, "ma120": 12.89, "ma250": 9.56}, {"date": "2026-04-09", "open": 16.39, "high": 16.94, "low": 16.13, "close": 16.65, "ma5": 14.75, "ma10": 14.58, "ma20": 14.69, "ma30": 15.44, "ma60": 17.44, "ma120": 12.98, "ma250": 9.6}, {"date": "2026-04-10", "open": 16.66, "high": 17.08, "low": 16.43, "close": 16.48, "ma5": 15.27, "ma10": 14.82, "ma20": 14.73, "ma30": 15.4, "ma60": 17.47, "ma120": 13.06, "ma250": 9.64}, {"date": "2026-04-13", "open": 16.15, "high": 16.96, "low": 15.99, "close": 16.53, "ma5": 15.91, "ma10": 15.05, "ma20": 14.81, "ma30": 15.33, "ma60": 17.5, "ma120": 13.15, "ma250": 9.68}, {"date": "2026-04-14", "open": 16.92, "high": 17.47, "low": 16.79, "close": 17.26, "ma5": 16.64, "ma10": 15.34, "ma20": 14.9, "ma30": 15.33, "ma60": 17.5, "ma120": 13.24, "ma250": 9.72}, {"date": "2026-04-15", "open": 17.12, "high": 17.39, "low": 16.3, "close": 16.42, "ma5": 16.67, "ma10": 15.5, "ma20": 14.97, "ma30": 15.33, "ma60": 17.43, "ma120": 13.32, "ma250": 9.76}, {"date": "2026-04-16", "open": 16.84, "high": 17.72, "low": 16.81, "close": 17.19, "ma5": 16.78, "ma10": 15.76, "ma20": 15.05, "ma30": 15.36, "ma60": 17.37, "ma120": 13.41, "ma250": 9.8}, {"date": "2026-04-17", "open": 16.95, "high": 18.21, "low": 16.73, "close": 17.99, "ma5": 17.08, "ma10": 16.18, "ma20": 15.2, "ma30": 15.4, "ma60": 17.31, "ma120": 13.51, "ma250": 9.86}, {"date": "2026-04-20", "open": 17.92, "high": 20.68, "low": 17.64, "close": 19.52, "ma5": 17.68, "ma10": 16.79, "ma20": 15.46, "ma30": 15.5, "ma60": 17.33, "ma120": 13.62, "ma250": 9.91}, {"date": "2026-04-21", "open": 19.11, "high": 19.64, "low": 18.61, "close": 18.78, "ma5": 17.98, "ma10": 17.31, "ma20": 15.71, "ma30": 15.57, "ma60": 17.37, "ma120": 13.73, "ma250": 9.97}, {"date": "2026-04-22", "open": 18.69, "high": 19.55, "low": 18.45, "close": 19.23, "ma5": 18.54, "ma10": 17.6, "ma20": 15.98, "ma30": 15.65, "ma60": 17.41, "ma120": 13.84, "ma250": 10.02}, {"date": "2026-04-23", "open": 19.39, "high": 20.4, "low": 18.85, "close": 18.99, "ma5": 18.9, "ma10": 17.84, "ma20": 16.21, "ma30": 15.74, "ma60": 17.43, "ma120": 13.94, "ma250": 10.07}, {"date": "2026-04-24", "open": 18.07, "high": 18.36, "low": 17.24, "close": 17.39, "ma5": 18.78, "ma10": 17.93, "ma20": 16.38, "ma30": 15.8, "ma60": 17.41, "ma120": 14.04, "ma250": 10.12}, {"date": "2026-04-27", "open": 17.4, "high": 17.66, "low": 17.17, "close": 17.26, "ma5": 18.33, "ma10": 18.0, "ma20": 16.53, "ma30": 15.88, "ma60": 17.38, "ma120": 14.13, "ma250": 10.16}, {"date": "2026-04-28", "open": 17.01, "high": 17.23, "low": 16.55, "close": 16.68, "ma5": 17.91, "ma10": 17.94, "ma20": 16.64, "ma30": 15.92, "ma60": 17.31, "ma120": 14.21, "ma250": 10.21}, {"date": "2026-04-29", "open": 16.87, "high": 17.7, "low": 16.79, "close": 17.38, "ma5": 17.54, "ma10": 18.04, "ma20": 16.77, "ma30": 15.99, "ma60": 17.26, "ma120": 14.3, "ma250": 10.25}, {"date": "2026-04-30", "open": 17.21, "high": 17.57, "low": 17.01, "close": 17.11, "ma5": 17.16, "ma10": 18.03, "ma20": 16.9, "ma30": 16.05, "ma60": 17.17, "ma120": 14.38, "ma250": 10.3}, {"date": "2026-05-06", "open": 17.69, "high": 18.3, "low": 17.69, "close": 18.04, "ma5": 17.29, "ma10": 18.04, "ma20": 17.11, "ma30": 16.15, "ma60": 17.14, "ma120": 14.47, "ma250": 10.35}, {"date": "2026-05-07", "open": 18.12, "high": 19.84, "low": 17.91, "close": 19.29, "ma5": 17.7, "ma10": 18.02, "ma20": 17.4, "ma30": 16.31, "ma60": 17.07, "ma120": 14.57, "ma250": 10.4}, {"date": "2026-05-08", "open": 19.69, "high": 19.87, "low": 18.56, "close": 18.68, "ma5": 18.1, "ma10": 18.0, "ma20": 17.66, "ma30": 16.48, "ma60": 16.99, "ma120": 14.66, "ma250": 10.45}, {"date": "2026-05-11", "open": 18.87, "high": 19.64, "low": 18.58, "close": 18.92, "ma5": 18.41, "ma10": 17.97, "ma20": 17.79, "ma30": 16.64, "ma60": 16.95, "ma120": 14.75, "ma250": 10.51}, {"date": "2026-05-12", "open": 18.61, "high": 18.87, "low": 18.0, "close": 18.2, "ma5": 18.63, "ma10": 17.9, "ma20": 17.87, "ma30": 16.77, "ma60": 16.89, "ma120": 14.84, "ma250": 10.55}, {"date": "2026-05-13", "open": 18.0, "high": 18.97, "low": 17.6, "close": 18.83, "ma5": 18.78, "ma10": 18.04, "ma20": 17.98, "ma30": 16.93, "ma60": 16.86, "ma120": 14.93, "ma250": 10.61}, {"date": "2026-05-14", "open": 19.24, "high": 19.38, "low": 17.3, "close": 17.34, "ma5": 18.39, "ma10": 18.05, "ma20": 18.02, "ma30": 17.03, "ma60": 16.83, "ma120": 15.01, "ma250": 10.65}, {"date": "2026-05-15", "open": 17.49, "high": 18.48, "low": 17.49, "close": 17.65, "ma5": 18.19, "ma10": 18.14, "ma20": 18.04, "ma30": 17.14, "ma60": 16.81, "ma120": 15.09, "ma250": 10.7}, {"date": "2026-05-18", "open": 17.18, "high": 18.38, "low": 17.08, "close": 17.89, "ma5": 17.98, "ma10": 18.2, "ma20": 18.12, "ma30": 17.25, "ma60": 16.78, "ma120": 15.17, "ma250": 10.74}, {"date": "2026-05-19", "open": 17.72, "high": 18.99, "low": 17.52, "close": 18.59, "ma5": 18.06, "ma10": 18.34, "ma20": 18.19, "ma30": 17.38, "ma60": 16.76, "ma120": 15.26, "ma250": 10.79}, {"date": "2026-05-20", "open": 18.24, "high": 18.43, "low": 17.49, "close": 17.68, "ma5": 17.83, "ma10": 18.31, "ma20": 18.17, "ma30": 17.51, "ma60": 16.74, "ma120": 15.33, "ma250": 10.84}, {"date": "2026-05-21", "open": 17.79, "high": 18.54, "low": 17.33, "close": 17.62, "ma5": 17.89, "ma10": 18.14, "ma20": 18.08, "ma30": 17.65, "ma60": 16.7, "ma120": 15.4, "ma250": 10.89}, {"date": "2026-05-22", "open": 17.19, "high": 17.49, "low": 16.75, "close": 17.1, "ma5": 17.78, "ma10": 17.98, "ma20": 17.99, "ma30": 17.77, "ma60": 16.66, "ma120": 15.46, "ma250": 10.93}, {"date": "2026-05-25", "open": 17.45, "high": 17.65, "low": 16.65, "close": 16.77, "ma5": 17.55, "ma10": 17.77, "ma20": 17.87, "ma30": 17.78, "ma60": 16.64, "ma120": 15.53, "ma250": 10.97}, {"date": "2026-05-26", "open": 16.42, "high": 16.44, "low": 15.75, "close": 16.24, "ma5": 17.08, "ma10": 17.57, "ma20": 17.73, "ma30": 17.77, "ma60": 16.61, "ma120": 15.58, "ma250": 11.01}, {"date": "2026-05-27", "open": 16.34, "high": 16.64, "low": 15.73, "close": 15.76, "ma5": 16.7, "ma10": 17.26, "ma20": 17.65, "ma30": 17.74, "ma60": 16.57, "ma120": 15.63, "ma250": 11.05}, {"date": "2026-05-28", "open": 15.7, "high": 16.34, "low": 15.4, "close": 16.15, "ma5": 16.4, "ma10": 17.14, "ma20": 17.6, "ma30": 17.73, "ma60": 16.53, "ma120": 15.67, "ma250": 11.09}, {"date": "2026-05-29", "open": 16.69, "high": 17.3, "low": 16.45, "close": 16.69, "ma5": 16.32, "ma10": 17.05, "ma20": 17.6, "ma30": 17.71, "ma60": 16.52, "ma120": 15.72, "ma250": 11.13}, {"date": "2026-06-01", "open": 16.82, "high": 18.29, "low": 16.64, "close": 17.95, "ma5": 16.56, "ma10": 17.06, "ma20": 17.62, "ma30": 17.76, "ma60": 16.55, "ma120": 15.78, "ma250": 11.18}, {"date": "2026-06-02", "open": 17.71, "high": 17.72, "low": 16.65, "close": 17.08, "ma5": 16.73, "ma10": 16.9, "ma20": 17.62, "ma30": 17.76, "ma60": 16.56, "ma120": 15.83, "ma250": 11.22}, {"date": "2026-06-03", "open": 16.64, "high": 16.98, "low": 16.03, "close": 16.54, "ma5": 16.88, "ma10": 16.79, "ma20": 17.55, "ma30": 17.71, "ma60": 16.56, "ma120": 15.89, "ma250": 11.27}, {"date": "2026-06-04", "open": 16.19, "high": 16.21, "low": 15.71, "close": 15.9, "ma5": 16.83, "ma10": 16.62, "ma20": 17.38, "ma30": 17.59, "ma60": 16.55, "ma120": 15.93, "ma250": 11.3}, {"date": "2026-06-05", "open": 16.15, "high": 16.34, "low": 15.37, "close": 15.48, "ma5": 16.59, "ma10": 16.46, "ma20": 17.22, "ma30": 17.48, "ma60": 16.53, "ma120": 15.98, "ma250": 11.34}, {"date": "2026-06-08", "open": 14.6, "high": 15.72, "low": 14.56, "close": 15.04, "ma5": 16.01, "ma10": 16.28, "ma20": 17.02, "ma30": 17.34, "ma60": 16.49, "ma120": 16.03, "ma250": 11.38}, {"date": "2026-06-09", "open": 15.19, "high": 15.69, "low": 14.8, "close": 15.55, "ma5": 15.7, "ma10": 16.21, "ma20": 16.89, "ma30": 17.23, "ma60": 16.48, "ma120": 16.09, "ma250": 11.42}, {"date": "2026-06-10", "open": 15.18, "high": 15.46, "low": 14.6, "close": 14.74, "ma5": 15.34, "ma10": 16.11, "ma20": 16.69, "ma30": 17.14, "ma60": 16.47, "ma120": 16.13, "ma250": 11.45}, {"date": "2026-06-11", "open": 14.61, "high": 14.73, "low": 14.22, "close": 14.4, "ma5": 15.04, "ma10": 15.94, "ma20": 16.54, "ma30": 17.04, "ma60": 16.46, "ma120": 16.17, "ma250": 11.49}, {"date": "2026-06-12", "open": 14.58, "high": 14.96, "low": 14.3, "close": 14.35, "ma5": 14.82, "ma10": 15.7, "ma20": 16.38, "ma30": 16.97, "ma60": 16.44, "ma120": 16.22, "ma250": 11.52}, {"date": "2026-06-15", "open": 14.62, "high": 15.14, "low": 14.62, "close": 15.06, "ma5": 14.82, "ma10": 15.41, "ma20": 16.23, "ma30": 16.89, "ma60": 16.44, "ma120": 16.27, "ma250": 11.55}, {"date": "2026-06-16", "open": 14.99, "high": 15.33, "low": 14.72, "close": 15.07, "ma5": 14.72, "ma10": 15.21, "ma20": 16.06, "ma30": 16.82, "ma60": 16.43, "ma120": 16.32, "ma250": 11.59}, {"date": "2026-06-17", "open": 14.87, "high": 15.02, "low": 14.73, "close": 14.94, "ma5": 14.76, "ma10": 15.05, "ma20": 15.92, "ma30": 16.72, "ma60": 16.43, "ma120": 16.37, "ma250": 11.62}, {"date": "2026-06-18", "open": 14.84, "high": 15.59, "low": 14.64, "close": 15.24, "ma5": 14.93, "ma10": 14.99, "ma20": 15.8, "ma30": 16.58, "ma60": 16.45, "ma120": 16.43, "ma250": 11.66}, {"date": "2026-06-22", "open": 14.98, "high": 16.11, "low": 14.88, "close": 16.01, "ma5": 15.26, "ma10": 15.04, "ma20": 15.75, "ma30": 16.49, "ma60": 16.49, "ma120": 16.49, "ma250": 11.7}, {"date": "2026-06-23", "open": 15.7, "high": 15.89, "low": 14.7, "close": 14.77, "ma5": 15.21, "ma10": 15.01, "ma20": 15.65, "ma30": 16.35, "ma60": 16.5, "ma120": 16.55, "ma250": 11.73}, {"date": "2026-06-24", "open": 14.69, "high": 15.04, "low": 14.32, "close": 14.74, "ma5": 15.14, "ma10": 14.93, "ma20": 15.57, "ma30": 16.24, "ma60": 16.51, "ma120": 16.6, "ma250": 11.76}, {"date": "2026-06-25", "open": 14.54, "high": 14.64, "low": 13.99, "close": 14.09, "ma5": 14.97, "ma10": 14.87, "ma20": 15.49, "ma30": 16.08, "ma60": 16.51, "ma120": 16.64, "ma250": 11.79}, {"date": "2026-06-26", "open": 14.01, "high": 14.15, "low": 13.41, "close": 13.41, "ma5": 14.6, "ma10": 14.77, "ma20": 15.35, "ma30": 15.95, "ma60": 16.49, "ma120": 16.68, "ma250": 11.82}, {"date": "2026-06-29", "open": 13.52, "high": 13.94, "low": 13.01, "close": 13.22, "ma5": 14.05, "ma10": 14.66, "ma20": 15.18, "ma30": 15.8, "ma60": 16.47, "ma120": 16.72, "ma250": 11.84}, {"date": "2026-06-30", "open": 13.33, "high": 13.83, "low": 13.11, "close": 13.76, "ma5": 13.84, "ma10": 14.52, "ma20": 14.97, "ma30": 15.66, "ma60": 16.46, "ma120": 16.76, "ma250": 11.87}, {"date": "2026-07-01", "open": 13.76, "high": 14.3, "low": 13.62, "close": 13.92, "ma5": 13.68, "ma10": 14.41, "ma20": 14.81, "ma30": 15.51, "ma60": 16.44, "ma120": 16.81, "ma250": 11.9}, {"date": "2026-07-02", "open": 14.61, "high": 15.18, "low": 13.78, "close": 14.23, "ma5": 13.71, "ma10": 14.34, "ma20": 14.7, "ma30": 15.39, "ma60": 16.45, "ma120": 16.85, "ma250": 11.94}, {"date": "2026-07-03", "open": 13.69, "high": 13.82, "low": 13.15, "close": 13.2, "ma5": 13.67, "ma10": 14.14, "ma20": 14.56, "ma30": 15.25, "ma60": 16.45, "ma120": 16.88, "ma250": 11.96}, {"date": "2026-07-06", "open": 13.12, "high": 13.42, "low": 12.47, "close": 12.48, "ma5": 13.52, "ma10": 13.78, "ma20": 14.41, "ma30": 15.09, "ma60": 16.43, "ma120": 16.89, "ma250": 11.99}, {"date": "2026-07-07", "open": 12.44, "high": 12.74, "low": 12.2, "close": 12.3, "ma5": 13.23, "ma10": 13.54, "ma20": 14.27, "ma30": 14.94, "ma60": 16.36, "ma120": 16.88, "ma250": 12.01}, {"date": "2026-07-08", "open": 12.24, "high": 12.73, "low": 12.0, "close": 12.46, "ma5": 12.93, "ma10": 13.31, "ma20": 14.12, "ma30": 14.82, "ma60": 16.29, "ma120": 16.87, "ma250": 12.04}, {"date": "2026-07-09", "open": 12.28, "high": 13.19, "low": 12.12, "close": 12.93, "ma5": 12.67, "ma10": 13.19, "ma20": 14.03, "ma30": 14.72, "ma60": 16.23, "ma120": 16.85, "ma250": 12.06}, {"date": "2026-07-10", "open": 12.65, "high": 14.78, "low": 12.59, "close": 13.81, "ma5": 12.8, "ma10": 13.23, "ma20": 14.0, "ma30": 14.65, "ma60": 16.19, "ma120": 16.84, "ma250": 12.09}, {"date": "2026-07-13", "open": 13.53, "high": 13.93, "low": 12.73, "close": 12.78, "ma5": 12.86, "ma10": 13.19, "ma20": 13.92, "ma30": 14.52, "ma60": 16.11, "ma120": 16.81, "ma250": 12.12}, {"date": "2026-07-14", "open": 12.75, "high": 12.96, "low": 11.86, "close": 12.42, "ma5": 12.88, "ma10": 13.05, "ma20": 13.79, "ma30": 14.33, "ma60": 16.05, "ma120": 16.74, "ma250": 12.14}, {"date": "2026-07-15", "open": 12.5, "high": 13.14, "low": 12.42, "close": 12.68, "ma5": 12.92, "ma10": 12.93, "ma20": 13.67, "ma30": 14.18, "ma60": 15.97, "ma120": 16.67, "ma250": 12.17}, {"date": "2026-07-16", "open": 12.76, "high": 13.47, "low": 12.5, "close": 13.23, "ma5": 12.98, "ma10": 12.83, "ma20": 13.58, "ma30": 14.07, "ma60": 15.89, "ma120": 16.6, "ma250": 12.19}, {"date": "2026-07-17", "open": 13.0, "high": 13.73, "low": 12.1, "close": 12.14, "ma5": 12.65, "ma10": 12.72, "ma20": 13.43, "ma30": 13.95, "ma60": 15.77, "ma120": 16.55, "ma250": 12.22}, {"date": "2026-07-20", "open": 12.23, "high": 12.64, "low": 11.65, "close": 12.14, "ma5": 12.52, "ma10": 12.69, "ma20": 13.24, "ma30": 13.84, "ma60": 15.66, "ma120": 16.51, "ma250": 12.24}, {"date": "2026-07-21", "open": 12.02, "high": 12.6, "low": 11.42, "close": 12.59, "ma5": 12.56, "ma10": 12.72, "ma20": 13.13, "ma30": 13.76, "ma60": 15.55, "ma120": 16.48, "ma250": 12.26}, {"date": "2026-07-22", "open": 12.3, "high": 12.53, "low": 11.88, "close": 11.98, "ma5": 12.42, "ma10": 12.67, "ma20": 12.99, "ma30": 13.64, "ma60": 15.43, "ma120": 16.43, "ma250": 12.29}, {"date": "2026-07-23", "open": 11.98, "high": 12.21, "low": 11.76, "close": 11.95, "ma5": 12.16, "ma10": 12.57, "ma20": 12.88, "ma30": 13.54, "ma60": 15.34, "ma120": 16.37, "ma250": 12.31}, {"date": "2026-07-24", "open": 11.6, "high": 11.65, "low": 11.2, "close": 11.21, "ma5": 11.97, "ma10": 12.31, "ma20": 12.77, "ma30": 13.44, "ma60": 15.24, "ma120": 16.31, "ma250": 12.33}, {"date": "2026-07-27", "open": 11.17, "high": 11.85, "low": 11.08, "close": 11.83, "ma5": 11.91, "ma10": 12.22, "ma20": 12.7, "ma30": 13.35, "ma60": 15.16, "ma120": 16.24, "ma250": 12.35}, {"date": "2026-07-28", "open": 11.68, "high": 12.32, "low": 11.64, "close": 11.77, "ma5": 11.75, "ma10": 12.15, "ma20": 12.6, "ma30": 13.24, "ma60": 15.07, "ma120": 16.16, "ma250": 12.37}, {"date": "2026-07-29", "open": 11.85, "high": 12.05, "low": 11.42, "close": 11.78, "ma5": 11.71, "ma10": 12.06, "ma20": 12.5, "ma30": 13.13, "ma60": 14.98, "ma120": 16.08, "ma250": 12.39}, {"date": "2026-07-30", "open": 11.61, "high": 12.66, "low": 11.61, "close": 11.96, "ma5": 11.71, "ma10": 11.94, "ma20": 12.38, "ma30": 13.03, "ma60": 14.88, "ma120": 16.01, "ma250": 12.41}, {"date": "2026-07-31", "open": 11.88, "high": 14.35, "low": 11.88, "close": 14.35, "ma5": 12.34, "ma10": 12.16, "ma20": 12.44, "ma30": 13.0, "ma60": 14.79, "ma120": 15.93, "ma250": 12.44}, {"date": "2026-08-03", "open": 14.26, "high": 15.37, "low": 14.01, "close": 14.72, "ma5": 12.92, "ma10": 12.41, "ma20": 12.55, "ma30": 12.96, "ma60": 14.73, "ma120": 15.86, "ma250": 12.47}, {"date": "2026-08-04", "open": 14.82, "high": 16.1, "low": 14.65, "close": 15.72, "ma5": 13.71, "ma10": 12.73, "ma20": 12.72, "ma30": 12.99, "ma60": 14.67, "ma120": 15.81, "ma250": 12.51}, {"date": "2026-08-05", "open": 15.24, "high": 16.07, "low": 15.23, "close": 15.73, "ma5": 14.5, "ma10": 13.1, "ma20": 12.89, "ma30": 13.03, "ma60": 14.63, "ma120": 15.76, "ma250": 12.55}, {"date": "2026-08-06", "open": 15.42, "high": 15.75, "low": 14.86, "close": 15.34, "ma5": 15.17, "ma10": 13.44, "ma20": 13.01, "ma30": 13.07, "ma60": 14.57, "ma120": 15.72, "ma250": 12.58}, {"date": "2026-08-07", "open": 15.08, "high": 15.96, "low": 14.63, "close": 15.88, "ma5": 15.48, "ma10": 13.91, "ma20": 13.11, "ma30": 13.15, "ma60": 14.55, "ma120": 15.69, "ma250": 12.62}, {"date": "2026-08-10", "open": 15.71, "high": 16.38, "low": 15.34, "close": 16.08, "ma5": 15.75, "ma10": 14.33, "ma20": 13.28, "ma30": 13.25, "ma60": 14.52, "ma120": 15.67, "ma250": 12.66}, {"date": "2026-08-11", "open": 16.08, "high": 16.1, "low": 15.52, "close": 15.6, "ma5": 15.73, "ma10": 14.72, "ma20": 13.43, "ma30": 13.31, "ma60": 14.49, "ma120": 15.63, "ma250": 12.69}, {"date": "2026-08-12", "open": 15.72, "high": 16.29, "low": 15.4, "close": 15.89, "ma5": 15.76, "ma10": 15.13, "ma20": 13.59, "ma30": 13.37, "ma60": 14.44, "ma120": 15.6, "ma250": 12.73}, {"date": "2026-08-13", "open": 16.0, "high": 16.98, "low": 15.25, "close": 15.25, "ma5": 15.74, "ma10": 15.46, "ma20": 13.7, "ma30": 13.41, "ma60": 14.4, "ma120": 15.57, "ma250": 12.76}, {"date": "2026-08-14", "open": 15.37, "high": 15.94, "low": 14.72, "close": 15.1, "ma5": 15.58, "ma10": 15.53, "ma20": 13.84, "ma30": 13.47, "ma60": 14.36, "ma120": 15.53, "ma250": 12.79}, {"date": "2026-08-17", "open": 15.0, "high": 15.46, "low": 14.8, "close": 15.4, "ma5": 15.45, "ma10": 15.6, "ma20": 14.01, "ma30": 13.57, "ma60": 14.33, "ma120": 15.5, "ma250": 12.82}, {"date": "2026-08-18", "open": 15.21, "high": 15.35, "low": 14.65, "close": 14.81, "ma5": 15.29, "ma10": 15.51, "ma20": 14.12, "ma30": 13.65, "ma60": 14.3, "ma120": 15.47, "ma250": 12.86}, {"date": "2026-08-19", "open": 14.81, "high": 14.9, "low": 13.71, "close": 13.74, "ma5": 14.86, "ma10": 15.31, "ma20": 14.21, "ma30": 13.69, "ma60": 14.26, "ma120": 15.43, "ma250": 12.88}, {"date": "2026-08-20", "open": 13.93, "high": 14.07, "low": 13.53, "close": 13.64, "ma5": 14.54, "ma10": 15.14, "ma20": 14.29, "ma30": 13.72, "ma60": 14.22, "ma120": 15.4, "ma250": 12.91}, {"date": "2026-08-21", "open": 13.61, "high": 13.72, "low": 13.26, "close": 13.68, "ma5": 14.25, "ma10": 14.92, "ma20": 14.41, "ma30": 13.71, "ma60": 14.18, "ma120": 15.36, "ma250": 12.94}, {"date": "2026-08-24", "open": 13.66, "high": 13.74, "low": 12.96, "close": 13.15, "ma5": 13.8, "ma10": 14.63, "ma20": 14.48, "ma30": 13.73, "ma60": 14.12, "ma120": 15.32, "ma250": 12.96}, {"date": "2026-08-25", "open": 13.16, "high": 13.42, "low": 12.92, "close": 13.33, "ma5": 13.51, "ma10": 14.4, "ma20": 14.56, "ma30": 13.76, "ma60": 14.04, "ma120": 15.29, "ma250": 12.99}, {"date": "2026-08-26", "open": 13.3, "high": 13.42, "low": 13.04, "close": 13.14, "ma5": 13.39, "ma10": 14.12, "ma20": 14.63, "ma30": 13.77, "ma60": 13.98, "ma120": 15.27, "ma250": 13.01}, {"date": "2026-08-27", "open": 13.24, "high": 13.57, "low": 13.13, "close": 13.55, "ma5": 13.37, "ma10": 13.95, "ma20": 14.71, "ma30": 13.78, "ma60": 13.93, "ma120": 15.24, "ma250": 13.04}, {"date": "2026-08-28", "open": 13.95, "high": 13.98, "low": 13.34, "close": 13.37, "ma5": 13.31, "ma10": 13.78, "ma20": 14.66, "ma30": 13.82, "ma60": 13.89, "ma120": 15.22, "ma250": 13.06}, {"date": "2026-08-31", "open": 13.12, "high": 14.35, "low": 13.12, "close": 14.1, "ma5": 13.5, "ma10": 13.65, "ma20": 14.62, "ma30": 13.89, "ma60": 13.86, "ma120": 15.19, "ma250": 13.09}, {"date": "2026-09-01", "open": 13.99, "high": 14.58, "low": 13.68, "close": 14.03, "ma5": 13.64, "ma10": 13.57, "ma20": 14.54, "ma30": 13.94, "ma60": 13.85, "ma120": 15.17, "ma250": 13.12}, {"date": "2026-09-02", "open": 13.75, "high": 14.01, "low": 13.4, "close": 13.55, "ma5": 13.72, "ma10": 13.55, "ma20": 14.43, "ma30": 13.99, "ma60": 13.81, "ma120": 15.15, "ma250": 13.14}, {"date": "2026-09-03", "open": 13.62, "high": 13.85, "low": 13.18, "close": 13.19, "ma5": 13.65, "ma10": 13.51, "ma20": 14.32, "ma30": 14.03, "ma60": 13.79, "ma120": 15.13, "ma250": 13.17}, {"date": "2026-09-04", "open": 13.43, "high": 15.0, "low": 13.4, "close": 13.97, "ma5": 13.77, "ma10": 13.54, "ma20": 14.23, "ma30": 14.12, "ma60": 13.78, "ma120": 15.12, "ma250": 13.19}, {"date": "2026-09-07", "open": 13.9, "high": 14.33, "low": 13.74, "close": 14.24, "ma5": 13.8, "ma10": 13.65, "ma20": 14.14, "ma30": 14.2, "ma60": 13.78, "ma120": 15.11, "ma250": 13.22}, {"date": "2026-09-08", "open": 14.01, "high": 14.5, "low": 13.9, "close": 13.98, "ma5": 13.79, "ma10": 13.71, "ma20": 14.06, "ma30": 14.28, "ma60": 13.76, "ma120": 15.1, "ma250": 13.25}, {"date": "2026-09-09", "open": 13.72, "high": 13.88, "low": 13.42, "close": 13.6, "ma5": 13.8, "ma10": 13.76, "ma20": 13.94, "ma30": 14.34, "ma60": 13.74, "ma120": 15.08, "ma250": 13.27}, {"date": "2026-09-10", "open": 13.69, "high": 13.85, "low": 13.43, "close": 13.46, "ma5": 13.85, "ma10": 13.75, "ma20": 13.85, "ma30": 14.39, "ma60": 13.71, "ma120": 15.07, "ma250": 13.3}, {"date": "2026-09-11", "open": 13.26, "high": 13.34, "low": 12.96, "close": 13.15, "ma5": 13.69, "ma10": 13.73, "ma20": 13.75, "ma30": 14.35, "ma60": 13.68, "ma120": 15.06, "ma250": 13.32}, {"date": "2026-09-14", "open": 12.9, "high": 13.0, "low": 12.6, "close": 12.88, "ma5": 13.41, "ma10": 13.6, "ma20": 13.63, "ma30": 14.28, "ma60": 13.62, "ma120": 15.05, "ma250": 13.35}, {"date": "2026-09-15", "open": 13.09, "high": 13.15, "low": 12.76, "close": 12.79, "ma5": 13.18, "ma10": 13.48, "ma20": 13.53, "ma30": 14.19, "ma60": 13.59, "ma120": 15.04, "ma250": 13.37}, {"date": "2026-09-16", "open": 12.79, "high": 13.02, "low": 12.62, "close": 12.93, "ma5": 13.04, "ma10": 13.42, "ma20": 13.49, "ma30": 14.09, "ma60": 13.56, "ma120": 15.03, "ma250": 13.4}, {"date": "2026-09-17", "open": 12.83, "high": 13.09, "low": 12.81, "close": 12.88, "ma5": 12.93, "ma10": 13.39, "ma20": 13.45, "ma30": 14.01, "ma60": 13.54, "ma120": 15.02, "ma250": 13.42}, {"date": "2026-09-18", "open": 13.0, "high": 13.15, "low": 12.88, "close": 13.15, "ma5": 12.93, "ma10": 13.31, "ma20": 13.42, "ma30": 13.92, "ma60": 13.54, "ma120": 15.01, "ma250": 13.45}, {"date": "2026-09-21", "open": 13.2, "high": 13.33, "low": 13.06, "close": 13.16, "ma5": 12.98, "ma10": 13.2, "ma20": 13.42, "ma30": 13.82, "ma60": 13.53, "ma120": 15.0, "ma250": 13.47}, {"date": "2026-09-22", "open": 13.8, "high": 14.22, "low": 13.48, "close": 14.05, "ma5": 13.23, "ma10": 13.21, "ma20": 13.46, "ma30": 13.77, "ma60": 13.54, "ma120": 15.0, "ma250": 13.5}, {"date": "2026-09-23", "open": 13.81, "high": 13.99, "low": 13.51, "close": 13.52, "ma5": 13.35, "ma10": 13.2, "ma20": 13.48, "ma30": 13.69, "ma60": 13.53, "ma120": 14.99, "ma250": 13.53}, {"date": "2026-09-24", "open": 13.38, "high": 13.74, "low": 13.14, "close": 13.15, "ma5": 13.41, "ma10": 13.17, "ma20": 13.46, "ma30": 13.62, "ma60": 13.51, "ma120": 14.98, "ma250": 13.56}, {"date": "2026-09-28", "open": 13.1, "high": 13.28, "low": 12.68, "close": 12.68, "ma5": 13.31, "ma10": 13.12, "ma20": 13.42, "ma30": 13.54, "ma60": 13.51, "ma120": 14.98, "ma250": 13.58}, {"date": "2026-09-29", "open": 12.61, "high": 13.06, "low": 12.59, "close": 12.91, "ma5": 13.26, "ma10": 13.12, "ma20": 13.36, "ma30": 13.46, "ma60": 13.51, "ma120": 14.97, "ma250": 13.6}, {"date": "2026-09-30", "open": 12.91, "high": 13.05, "low": 12.35, "close": 12.37, "ma5": 12.93, "ma10": 13.08, "ma20": 13.28, "ma30": 13.38, "ma60": 13.51, "ma120": 14.94, "ma250": 13.62}, {"date": "2026-10-08", "open": 12.31, "high": 12.47, "low": 11.98, "close": 12.05, "ma5": 12.63, "ma10": 12.99, "ma20": 13.21, "ma30": 13.32, "ma60": 13.51, "ma120": 14.9, "ma250": 13.65}, {"date": "2026-10-09", "open": 12.01, "high": 13.04, "low": 11.9, "close": 12.87, "ma5": 12.58, "ma10": 12.99, "ma20": 13.19, "ma30": 13.3, "ma60": 13.51, "ma120": 14.87, "ma250": 13.67}, {"date": "2026-10-12", "open": 12.7, "high": 12.96, "low": 12.48, "close": 12.59, "ma5": 12.56, "ma10": 12.93, "ma20": 13.12, "ma30": 13.26, "ma60": 13.49, "ma120": 14.84, "ma250": 13.69}, {"date": "2026-10-13", "open": 12.41, "high": 13.32, "low": 12.22, "close": 13.04, "ma5": 12.58, "ma10": 12.92, "ma20": 13.06, "ma30": 13.26, "ma60": 13.49, "ma120": 14.8, "ma250": 13.72}, {"date": "2026-10-14", "open": 12.83, "high": 13.25, "low": 12.66, "close": 12.85, "ma5": 12.68, "ma10": 12.8, "ma20": 13.0, "ma30": 13.24, "ma60": 13.5, "ma120": 14.77, "ma250": 13.75}, {"date": "2026-10-15", "open": 12.42, "high": 13.1, "low": 12.35, "close": 12.35, "ma5": 12.74, "ma10": 12.69, "ma20": 12.94, "ma30": 13.21, "ma60": 13.49, "ma120": 14.73, "ma250": 13.77}, {"date": "2026-10-16", "open": 12.61, "high": 12.79, "low": 11.82, "close": 11.86, "ma5": 12.54, "ma10": 12.56, "ma20": 12.86, "ma30": 13.16, "ma60": 13.47, "ma120": 14.68, "ma250": 13.79}];
+      var rs={"technical": 41};
+      // 雷达图
+      var rEl=document.getElementById('radar');
+      if(rEl){echarts.init(rEl).setOption({
+        tooltip:{},
+        radar:{indicator:[{name:'技术面',max:100},{name:'基本面',max:100},{name:'产业链',max:100}],radius:'65%',axisName:{fontSize:12,color:'#374151'}},
+        series:[{type:'radar',data:[{value:[rs.technical||0,rs.fundamental||0,rs.industry||0],areaStyle:{color:'rgba(59,130,246,.18)'},lineStyle:{color:'#3b82f6',width:2},itemStyle:{color:'#3b82f6'}}]}]
+      });}
+      // K线蜡烛图
+      var kEl=document.getElementById('kline');
+      if(kEl&&kl.length){
+        var d=kl.slice(-90);
+        var dates=d.map(function(x){return (x.date||'').slice(5)});
+        var cand=d.map(function(x){return [x.open,x.close,x.low,x.high]});
+        var hasOHLC=d[0]&&d[0].open!=null;
+        var ma5=d.map(function(x){return x.ma5}),ma20=d.map(function(x){return x.ma20}),ma250=d.map(function(x){return x.ma250||null});
+        var series=[];
+        if(hasOHLC){series.push({name:'K线',type:'candlestick',data:cand,itemStyle:{color:'#ef4444',color0:'#10b981',borderColor:'#ef4444',borderColor0:'#10b981'}});}
+        else{series.push({name:'收盘',type:'line',data:d.map(function(x){return x.close}),symbol:'none',lineStyle:{color:'#3b82f6',width:2}});}
+        series.push({name:'MA5',type:'line',data:ma5,symbol:'none',lineStyle:{color:'#f97316',width:1}});
+        series.push({name:'MA20',type:'line',data:ma20,symbol:'none',lineStyle:{color:'#8b5cf6',width:1}});
+        series.push({name:'MA250',type:'line',data:ma250,symbol:'none',lineStyle:{color:'#dc2626',width:1.5,type:'dashed'}});
+        echarts.init(kEl).setOption({
+          tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
+          legend:{data:series.map(function(s){return s.name}),top:2,textStyle:{fontSize:11}},
+          grid:{left:8,right:8,top:30,bottom:20,containLabel:true},
+          xAxis:{type:'category',data:dates,axisLabel:{fontSize:9,color:'#9ca3af'}},
+          yAxis:{scale:true,axisLabel:{fontSize:9,color:'#9ca3af'},splitLine:{lineStyle:{color:'#f3f4f6'}}},
+          series:series
+        });
+      }
+    })();
+    
+    (function(){
+      var hist=[{"date": "2026-08-28", "open": 13.95, "high": 13.98, "low": 13.34, "close": 13.37, "ma5": 13.31, "ma10": 13.78, "ma20": 14.66, "ma30": 13.82, "ma60": 13.89, "ma120": 15.22, "ma250": 13.06}, {"date": "2026-08-31", "open": 13.12, "high": 14.35, "low": 13.12, "close": 14.1, "ma5": 13.5, "ma10": 13.65, "ma20": 14.62, "ma30": 13.89, "ma60": 13.86, "ma120": 15.19, "ma250": 13.09}, {"date": "2026-09-01", "open": 13.99, "high": 14.58, "low": 13.68, "close": 14.03, "ma5": 13.64, "ma10": 13.57, "ma20": 14.54, "ma30": 13.94, "ma60": 13.85, "ma120": 15.17, "ma250": 13.12}, {"date": "2026-09-02", "open": 13.75, "high": 14.01, "low": 13.4, "close": 13.55, "ma5": 13.72, "ma10": 13.55, "ma20": 14.43, "ma30": 13.99, "ma60": 13.81, "ma120": 15.15, "ma250": 13.14}, {"date": "2026-09-03", "open": 13.62, "high": 13.85, "low": 13.18, "close": 13.19, "ma5": 13.65, "ma10": 13.51, "ma20": 14.32, "ma30": 14.03, "ma60": 13.79, "ma120": 15.13, "ma250": 13.17}, {"date": "2026-09-04", "open": 13.43, "high": 15.0, "low": 13.4, "close": 13.97, "ma5": 13.77, "ma10": 13.54, "ma20": 14.23, "ma30": 14.12, "ma60": 13.78, "ma120": 15.12, "ma250": 13.19}, {"date": "2026-09-07", "open": 13.9, "high": 14.33, "low": 13.74, "close": 14.24, "ma5": 13.8, "ma10": 13.65, "ma20": 14.14, "ma30": 14.2, "ma60": 13.78, "ma120": 15.11, "ma250": 13.22}, {"date": "2026-09-08", "open": 14.01, "high": 14.5, "low": 13.9, "close": 13.98, "ma5": 13.79, "ma10": 13.71, "ma20": 14.06, "ma30": 14.28, "ma60": 13.76, "ma120": 15.1, "ma250": 13.25}, {"date": "2026-09-09", "open": 13.72, "high": 13.88, "low": 13.42, "close": 13.6, "ma5": 13.8, "ma10": 13.76, "ma20": 13.94, "ma30": 14.34, "ma60": 13.74, "ma120": 15.08, "ma250": 13.27}, {"date": "2026-09-10", "open": 13.69, "high": 13.85, "low": 13.43, "close": 13.46, "ma5": 13.85, "ma10": 13.75, "ma20": 13.85, "ma30": 14.39, "ma60": 13.71, "ma120": 15.07, "ma250": 13.3}, {"date": "2026-09-11", "open": 13.26, "high": 13.34, "low": 12.96, "close": 13.15, "ma5": 13.69, "ma10": 13.73, "ma20": 13.75, "ma30": 14.35, "ma60": 13.68, "ma120": 15.06, "ma250": 13.32}, {"date": "2026-09-14", "open": 12.9, "high": 13.0, "low": 12.6, "close": 12.88, "ma5": 13.41, "ma10": 13.6, "ma20": 13.63, "ma30": 14.28, "ma60": 13.62, "ma120": 15.05, "ma250": 13.35}, {"date": "2026-09-15", "open": 13.09, "high": 13.15, "low": 12.76, "close": 12.79, "ma5": 13.18, "ma10": 13.48, "ma20": 13.53, "ma30": 14.19, "ma60": 13.59, "ma120": 15.04, "ma250": 13.37}, {"date": "2026-09-16", "open": 12.79, "high": 13.02, "low": 12.62, "close": 12.93, "ma5": 13.04, "ma10": 13.42, "ma20": 13.49, "ma30": 14.09, "ma60": 13.56, "ma120": 15.03, "ma250": 13.4}, {"date": "2026-09-17", "open": 12.83, "high": 13.09, "low": 12.81, "close": 12.88, "ma5": 12.93, "ma10": 13.39, "ma20": 13.45, "ma30": 14.01, "ma60": 13.54, "ma120": 15.02, "ma250": 13.42}, {"date": "2026-09-18", "open": 13.0, "high": 13.15, "low": 12.88, "close": 13.15, "ma5": 12.93, "ma10": 13.31, "ma20": 13.42, "ma30": 13.92, "ma60": 13.54, "ma120": 15.01, "ma250": 13.45}, {"date": "2026-09-21", "open": 13.2, "high": 13.33, "low": 13.06, "close": 13.16, "ma5": 12.98, "ma10": 13.2, "ma20": 13.42, "ma30": 13.82, "ma60": 13.53, "ma120": 15.0, "ma250": 13.47}, {"date": "2026-09-22", "open": 13.8, "high": 14.22, "low": 13.48, "close": 14.05, "ma5": 13.23, "ma10": 13.21, "ma20": 13.46, "ma30": 13.77, "ma60": 13.54, "ma120": 15.0, "ma250": 13.5}, {"date": "2026-09-23", "open": 13.81, "high": 13.99, "low": 13.51, "close": 13.52, "ma5": 13.35, "ma10": 13.2, "ma20": 13.48, "ma30": 13.69, "ma60": 13.53, "ma120": 14.99, "ma250": 13.53}, {"date": "2026-09-24", "open": 13.38, "high": 13.74, "low": 13.14, "close": 13.15, "ma5": 13.41, "ma10": 13.17, "ma20": 13.46, "ma30": 13.62, "ma60": 13.51, "ma120": 14.98, "ma250": 13.56}, {"date": "2026-09-28", "open": 13.1, "high": 13.28, "low": 12.68, "close": 12.68, "ma5": 13.31, "ma10": 13.12, "ma20": 13.42, "ma30": 13.54, "ma60": 13.51, "ma120": 14.98, "ma250": 13.58}, {"date": "2026-09-29", "open": 12.61, "high": 13.06, "low": 12.59, "close": 12.91, "ma5": 13.26, "ma10": 13.12, "ma20": 13.36, "ma30": 13.46, "ma60": 13.51, "ma120": 14.97, "ma250": 13.6}, {"date": "2026-09-30", "open": 12.91, "high": 13.05, "low": 12.35, "close": 12.37, "ma5": 12.93, "ma10": 13.08, "ma20": 13.28, "ma30": 13.38, "ma60": 13.51, "ma120": 14.94, "ma250": 13.62}, {"date": "2026-10-08", "open": 12.31, "high": 12.47, "low": 11.98, "close": 12.05, "ma5": 12.63, "ma10": 12.99, "ma20": 13.21, "ma30": 13.32, "ma60": 13.51, "ma120": 14.9, "ma250": 13.65}, {"date": "2026-10-09", "open": 12.01, "high": 13.04, "low": 11.9, "close": 12.87, "ma5": 12.58, "ma10": 12.99, "ma20": 13.19, "ma30": 13.3, "ma60": 13.51, "ma120": 14.87, "ma250": 13.67}, {"date": "2026-10-12", "open": 12.7, "high": 12.96, "low": 12.48, "close": 12.59, "ma5": 12.56, "ma10": 12.93, "ma20": 13.12, "ma30": 13.26, "ma60": 13.49, "ma120": 14.84, "ma250": 13.69}, {"date": "2026-10-13", "open": 12.41, "high": 13.32, "low": 12.22, "close": 13.04, "ma5": 12.58, "ma10": 12.92, "ma20": 13.06, "ma30": 13.26, "ma60": 13.49, "ma120": 14.8, "ma250": 13.72}, {"date": "2026-10-14", "open": 12.83, "high": 13.25, "low": 12.66, "close": 12.85, "ma5": 12.68, "ma10": 12.8, "ma20": 13.0, "ma30": 13.24, "ma60": 13.5, "ma120": 14.77, "ma250": 13.75}, {"date": "2026-10-15", "open": 12.42, "high": 13.1, "low": 12.35, "close": 12.35, "ma5": 12.74, "ma10": 12.69, "ma20": 12.94, "ma30": 13.21, "ma60": 13.49, "ma120": 14.73, "ma250": 13.77}, {"date": "2026-10-16", "open": 12.61, "high": 12.79, "low": 11.82, "close": 11.86, "ma5": 12.54, "ma10": 12.56, "ma20": 12.86, "ma30": 13.16, "ma60": 13.47, "ma120": 14.68, "ma250": 13.79}];
+      var fore=[{"day": 1, "open": 11.86, "high": 12.25, "low": 11.55, "close": 12.08, "note": "超卖修复，布林下轨支撑反弹"}, {"day": 2, "open": 12.08, "high": 12.42, "low": 11.88, "close": 12.28, "note": "延续反弹，测试MA5压力"}, {"day": 3, "open": 12.28, "high": 12.55, "low": 12.05, "close": 12.18, "note": "反弹遇阻回落，量能不足"}, {"day": 4, "open": 12.18, "high": 12.38, "low": 11.85, "close": 11.98, "note": "空头排列压制，回踩确认支撑"}, {"day": 5, "open": 11.98, "high": 12.35, "low": 11.78, "close": 12.22, "note": "底背离支撑，再度尝试反弹"}, {"day": 6, "open": 12.22, "high": 12.58, "low": 12.08, "close": 12.45, "note": "KDJ低位金叉预期，短线走强"}, {"day": 7, "open": 12.45, "high": 12.72, "low": 12.25, "close": 12.38, "note": "反弹至MA20附近承压，震荡整理"}];
+      var el=document.getElementById('forecast_chart');
+      if(!el||typeof echarts==='undefined')return;
+
+      // 历史区日期标签
+      var hDates=hist.map(function(r){return (r.date||'').slice(5)});
+      var hCand=hist.map(function(r){
+        var o=r.open!=null?r.open:r.close, h=r.high!=null?r.high:r.close,
+            l=r.low!=null?r.low:r.close, c=r.close;
+        return [o,c,l,h];
+      });
+
+      // 预测区日期标签（D+1 … D+7）
+      var fDates=fore.map(function(r){return 'D+'+(r.day||'?')});
+      var fCand=fore.map(function(r){return [r.open,r.close,r.low,r.high];});
+
+      var allDates=hDates.concat(fDates);
+      // 历史蜡烛（实体颜色：红涨绿跌），预测蜡烛（灰色渐变区分）
+      var histSeries={
+        name:'历史K线',type:'candlestick',
+        data:hCand,
+        itemStyle:{color:'#ef4444',color0:'#10b981',borderColor:'#ef4444',borderColor0:'#10b981'},
+        markArea:{silent:true,data:[[{xAxis:hDates[0]},{xAxis:hDates[hDates.length-1]}]]}
+      };
+      var foreSeries={
+        name:'预测走势',type:'candlestick',
+        data:Array(hDates.length).fill(null).concat(fCand),
+        itemStyle:{color:'rgba(168,85,247,0.8)',color0:'rgba(99,102,241,0.8)',
+                   borderColor:'#7c3aed',borderColor0:'#4f46e5'},
+      };
+      var hMa5=hist.map(function(r){return r.ma5||null});
+      var hMa20=hist.map(function(r){return r.ma20||null});
+      echarts.init(el).setOption({
+        backgroundColor:'#fff',
+        tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
+        legend:{data:['历史K线','预测走势','MA5','MA20'],top:2,textStyle:{fontSize:11}},
+        grid:{left:8,right:8,top:30,bottom:24,containLabel:true},
+        xAxis:{
+          type:'category',data:allDates,
+          axisLabel:{fontSize:9,color:'#9ca3af'},
+          axisLine:{lineStyle:{color:'#e5e7eb'}},
+          splitLine:{show:false},
+          // 预测区用浅色背景
+          axisPointer:{label:{backgroundColor:'#7c3aed'}}
+        },
+        yAxis:{scale:true,axisLabel:{fontSize:9,color:'#9ca3af'},splitLine:{lineStyle:{color:'#f3f4f6'}}},
+        visualMap:[{
+          show:false,seriesIndex:0,
+          pieces:[{gt:-999999,lte:0,color:'#10b981'},{gt:0,color:'#ef4444'}]
+        }],
+        series:[
+          histSeries,
+          foreSeries,
+          {name:'MA5',type:'line',data:hMa5.concat(Array(fDates.length).fill(null)),
+            symbol:'none',lineStyle:{color:'#f97316',width:1}},
+          {name:'MA20',type:'line',data:hMa20.concat(Array(fDates.length).fill(null)),
+            symbol:'none',lineStyle:{color:'#8b5cf6',width:1}}
+        ]
+      });
+    })();
+    
+    </script></body></html>

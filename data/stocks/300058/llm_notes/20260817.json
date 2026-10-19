@@ -1,0 +1,45 @@
+{
+  "trade_date": "2026-08-17",
+  "notes": {
+    "ma_system": {
+      "stance": "bullish",
+      "reason": "MA5>MA10>MA20，多头排列",
+      "impact": "趋势偏多，但跌破短均线需修复"
+    },
+    "macd": {
+      "stance": "bullish",
+      "reason": "DIF0.616>DEA0.395且在零轴上",
+      "impact": "多头仍占优，柱缩动能降温"
+    },
+    "rsi": {
+      "stance": "neutral",
+      "reason": "RSI6为44.8，RSI12达75",
+      "impact": "短线中性，中期有超买压力"
+    },
+    "kdj": {
+      "stance": "bearish",
+      "reason": "K55.0<D71.8，J仅21.3",
+      "impact": "短线偏弱，接近低位或有反抽"
+    },
+    "bollinger": {
+      "stance": "neutral",
+      "reason": "价格位于布林67%，中部震荡",
+      "impact": "未突破上轨，仍以区间看待"
+    },
+    "overbought": {
+      "stance": "neutral",
+      "reason": "RSI、J、WR均无共振信号",
+      "impact": "暂无极端信号，等待方向选择"
+    },
+    "divergence": {
+      "stance": "neutral",
+      "reason": "RSI底背离确认，MACD顶底并存",
+      "impact": "多空信号混杂，需后续确认"
+    },
+    "volume": {
+      "stance": "neutral",
+      "reason": "量比0.92，跌幅0.98%",
+      "impact": "量能正常，价格回落力度有限"
+    }
+  }
+}

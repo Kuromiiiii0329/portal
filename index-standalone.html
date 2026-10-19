@@ -1,0 +1,3866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股票分析 · Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --brand:    #2563eb;
+      --brand-lt: #eff6ff;
+      --green:    #16a34a;
+      --red:      #dc2626;
+      --amber:    #d97706;
+      --gray-50:  #f9fafb;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* Tab panel visibility */
+    .tab-panel          { display: none; }
+    .tab-panel.active   { display: block; }
+
+    /* Nav tab button states */
+    .nav-tab            { transition: all .15s; }
+    .nav-tab.active     { background: rgba(255,255,255,.95); box-shadow: 0 1px 3px rgba(0,0,0,.15); color: #1e40af; }
+    .nav-tab:not(.active):hover { background: rgba(255,255,255,.15); }
+
+    /* Form controls */
+    .form-input, .form-select {
+      width: 100%; padding: .5rem .75rem;
+      border: 1.5px solid #e5e7eb; border-radius: .5rem;
+      font-size: .875rem; background: #fff; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+
+    /* Signal badges */
+    .badge-buy   { background:#dcfce7; color:#15803d; }
+    .badge-watch { background:#dbeafe; color:#1d4ed8; }
+    .badge-hold  { background:#f3f4f6; color:#4b5563; }
+    .badge-sell  { background:#fee2e2; color:#b91c1c; }
+
+    /* Score ring animation */
+    @keyframes ring-in { from { stroke-dashoffset: 251; } }
+    .score-ring { animation: ring-in .6s ease-out forwards; }
+
+    /* Log terminal */
+    #log-box {
+      font-family: 'Menlo','Monaco','Consolas',monospace;
+      font-size: .7rem; line-height: 1.6;
+    }
+
+    /* Report section accordion */
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] > summary .chevron { transform: rotate(90deg); }
+    .chevron { transition: transform .2s; display: inline-block; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9px; }
+
+    /* Chip */
+    .chip { cursor: pointer; transition: all .12s; user-select: none; }
+    .chip:hover { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+    .chip.selected { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; font-weight: 600; }
+
+    /* Server status dot */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-dot.online  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.2); }
+    .status-dot.offline { background: #d1d5db; }
+    .status-dot.checking{ background: #fbbf24; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Skeleton loader */
+    .skeleton { background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
+                background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius:.375rem; }
+    @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+
+    /* Toast */
+    #toast { transition: opacity .25s, transform .25s; }
+    #toast.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+
+    /* === UI 增强 === */
+    body {
+      background: linear-gradient(135deg, #f0f4ff 0%, #fafbff 50%, #f0fdf4 100%);
+      min-height: 100vh;
+    }
+    /* Log terminal - also covers res-log-box */
+    #res-log-box {
+      font-family: 'Menlo','Monaco','Consolas',monospace;
+      font-size: .7rem; line-height: 1.6;
+    }
+    /* Button press feedback */
+    button:not(:disabled):active { transform: scale(0.97); }
+    /* Card hover elevation */
+    .bg-white.border.border-gray-100.rounded-2xl { transition: box-shadow .2s; }
+    .bg-white.border.border-gray-100.rounded-2xl:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+    /* Header glass effect */
+    header { background: rgba(255,255,255,0.92) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    /* Main content spacing */
+    main { padding-top: 1.5rem; padding-bottom: 2rem; }
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      nav#tab-nav { max-width: 100%; }
+      header .max-w-4xl { padding-left: .75rem; padding-right: .75rem; }
+      main .max-w-4xl { padding-left: .75rem; padding-right: .75rem; }
+      footer .max-w-4xl { padding-left: .75rem; padding-right: .75rem; }
+    }
+
+    /* ── 响应式页面最大宽度 ── */
+    .page-wrap { max-width: 900px; margin: 0 auto; }
+
+    /* ── Header gradient ── */
+    .header-gradient {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 60%, #2563eb 100%);
+    }
+
+    /* ── 卡片悬停提升 ── */
+    .card-hover {
+      transition: box-shadow .2s, transform .15s;
+    }
+    .card-hover:hover {
+      box-shadow: 0 4px 20px rgba(37,99,235,.10);
+      transform: translateY(-1px);
+    }
+
+    /* ── 快捷维度按钮 ── */
+    .dim-quick-btn {
+      cursor: pointer; user-select: none;
+      padding: .25rem .75rem; border-radius: .5rem;
+      font-size: .7rem; font-weight: 600;
+      border: 1.5px solid transparent;
+      transition: all .12s;
+    }
+    .dim-quick-btn:hover { filter: brightness(.94); }
+    .dim-quick-btn.dq-all       { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+    .dim-quick-btn.dq-tech      { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+    .dim-quick-btn.dq-fund      { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+    .dim-quick-btn.dq-ind       { background:#ede9fe; color:#4c1d95; border-color:#c4b5fd; }
+    .dim-quick-btn.dq-fund-ind  { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+
+    /* ── 分析维度行 ── */
+    .dim-group-label {
+      font-size: .65rem; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: #9ca3af;
+      padding: .5rem 1rem .25rem;
+    }
+
+    /* ── 分析卡片 badge ── */
+    .dim-badge {
+      display: inline-flex; align-items: center;
+      padding: .1rem .5rem; border-radius: 9999px;
+      font-size: .65rem; font-weight: 600;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header class="sticky top-0 z-40 shadow-lg" style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#2563eb 100%) !important; background-color:transparent !important"  >
+  <div class="page-wrap px-4 h-14 flex items-center gap-4">
+
+    <!-- Brand -->
+    <div class="flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+        <span class="text-base">📈</span>
+      </div>
+      <div>
+        <span class="font-bold text-white text-sm tracking-tight">股票分析 Portal</span>
+        <span class="hidden sm:inline text-blue-200 text-xs ml-2">AI 量化分析</span>
+      </div>
+    </div>
+
+    <!-- Nav tabs -->
+    <nav class="flex-1 flex bg-white/15 rounded-xl p-1 gap-0.5 overflow-x-auto" id="tab-nav" role="tablist">
+      <!-- filled by JS -->
+    </nav>
+
+    <!-- Server status -->
+    <div class="ml-auto flex items-center gap-2 flex-shrink-0">
+      <span class="status-dot checking" id="status-dot"></span>
+      <span class="text-xs text-blue-100" id="status-label">检测中</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="page-wrap px-4 py-5">
+  <div id="tab-content"><!-- panels injected by JS --></div>
+</main>
+
+<!-- ══════════════ STICKY FOOTER ══════════════ -->
+<footer class="bg-white border-t border-gray-200 sticky bottom-0 z-30 shadow-sm">
+  <div class="page-wrap px-4 h-12 flex items-center justify-between">
+    <p id="footer-time" class="text-xs text-gray-400"></p>
+    <button id="btn-save"
+      class="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700
+             text-white text-xs font-semibold rounded-lg transition-colors shadow-sm shadow-blue-200">
+      <span>💾</span><span>保存配置</span>
+    </button>
+  </div>
+</footer>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div id="modal" class="fixed inset-0 z-50 hidden">
+  <div id="modal-bg" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+  <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b">
+        <h2 class="font-semibold text-gray-800">保存配置</h2>
+        <button id="modal-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+      </div>
+      <div class="px-5 py-4 space-y-4">
+
+        <!-- Direct save (needs server) -->
+        <div id="modal-direct" class="rounded-xl border-2 border-green-200 bg-green-50 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-green-800">🚀 直接保存到文件</p>
+              <p class="text-xs text-green-700 mt-0.5">自动写入 <code class="bg-green-100 px-1 rounded">config/watchlist.json</code></p>
+            </div>
+            <button id="modal-btn-save" disabled
+              class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                     bg-gray-200 text-gray-400 cursor-not-allowed">
+              保存
+            </button>
+          </div>
+          <div id="modal-save-msg" class="mt-2 text-xs hidden"></div>
+          <p id="modal-server-hint" class="mt-2 text-xs text-green-700">
+            需要先运行：<code class="bg-green-100 px-1 rounded">python portal/server.py</code>
+          </p>
+        </div>
+
+        <!-- Copy -->
+        <div class="rounded-xl border border-gray-200 p-4">
+          <p class="text-sm font-semibold text-gray-700 mb-2">📋 复制 JSON</p>
+          <div class="relative">
+            <textarea id="modal-json" readonly rows="7"
+              class="w-full font-mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-2.5 resize-none focus:outline-none"></textarea>
+            <button id="modal-copy"
+              class="absolute top-2 right-2 px-2.5 py-1 bg-blue-600 hover:bg-blue-700
+                     text-white text-xs rounded-md transition-colors">复制</button>
+          </div>
+          <p class="mt-2 text-xs text-gray-400">复制后粘贴保存为仓库中的 config/watchlist.json 并提交</p>
+        </div>
+
+      </div>
+      <div class="px-5 py-3 border-t flex justify-end">
+        <button id="modal-close2" class="px-4 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST ══════════════ -->
+<div id="toast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 hidden
+                       px-4 py-2 rounded-xl text-white text-xs font-medium shadow-lg">
+</div>
+
+<!-- ══════════════ JS ══════════════ -->
+<script>
+
+// ── js/config.js ──────────────────────────────
+/**
+ * config.js — 前端共享配置常量
+ *
+ * 统一本地增强服务地址，供各 Tab / 组件 import。
+ * 原先每个文件各自声明服务地址（6 处重复），且需 build_standalone.py
+ * 的 COLLIDING 机制在内联时逐个改名防冲突；集中到此处后：
+ *   - HTTP 模式：各文件 import { SERVER } 正常工作
+ *   - standalone 模式：build 脚本删除 import，仅本文件保留唯一声明
+ *     （本文件在 ORDER_WITH_PREFIX 中排最前，无需 COLLIDING 改名）
+ */
+const SERVER = 'http://127.0.0.1:7788';
+
+// ── js/components/toast.js ──────────────────────────────
+/**
+ * components/toast.js — 轻量通知条
+ */
+class Toast {
+  constructor() { this._el = null; this._timer = null; }
+  _el_() {
+    if (!this._el) this._el = document.getElementById('toast');
+    return this._el;
+  }
+  show(msg, type = 'info', ms = 2400) {
+    const el = this._el_();
+    if (!el) return;
+    const colors = { success: 'bg-green-600', error: 'bg-red-600', warning: 'bg-amber-500', info: 'bg-gray-800' };
+    el.removeAttribute('class');
+    el.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-white text-xs font-medium shadow-lg whitespace-nowrap ${colors[type] || colors.info}`;
+    el.textContent = msg;
+    el.style.display = '';
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => { el.style.display = 'none'; }, ms);
+  }
+}
+const toast = new Toast();
+
+// ── js/components/modal.js ──────────────────────────────
+/**
+ * components/modal.js — 保存配置弹窗
+ */
+
+
+class Modal {
+  constructor() {
+    this._el     = null;
+    this._store  = null;
+    this._toast  = null;
+    this._online = false;
+  }
+
+  init(store, serverUrl, toast) {
+    this._store = store;
+    this._toast = toast;
+    this._el = document.getElementById('modal');
+
+    document.getElementById('modal-bg')?.addEventListener('click', () => this.hide());
+    document.getElementById('modal-close')?.addEventListener('click', () => this.hide());
+    document.getElementById('modal-close2')?.addEventListener('click', () => this.hide());
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.hide(); });
+
+    // 复制按钮
+    document.getElementById('modal-copy')?.addEventListener('click', async () => {
+      const ta = document.getElementById('modal-json');
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        this._toast.show('已复制到剪贴板', 'success');
+      } catch { ta.select(); }
+    });
+
+    // 直接保存按钮
+    document.getElementById('modal-btn-save')?.addEventListener('click', () => this._directSave());
+  }
+
+  setServerOnline(online) {
+    this._online = online;
+    this._refreshSaveBtn();
+  }
+
+  show(json) {
+    document.getElementById('modal-json').value = json;
+    document.getElementById('modal-save-msg')?.classList.add('hidden');
+    this._refreshSaveBtn();
+    this._el?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  hide() {
+    this._el?.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  _refreshSaveBtn() {
+    const btn  = document.getElementById('modal-btn-save');
+    const hint = document.getElementById('modal-server-hint');
+    if (!btn) return;
+    if (this._online) {
+      btn.disabled = false;
+      btn.className = 'flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors bg-green-600 hover:bg-green-700 text-white cursor-pointer';
+      btn.textContent = '💾 保存';
+      if (hint) hint.classList.add('hidden');
+    } else {
+      btn.disabled = true;
+      btn.className = 'flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-200 text-gray-400 cursor-not-allowed';
+      btn.textContent = '保存（需服务）';
+      if (hint) hint.classList.remove('hidden');
+    }
+  }
+
+  async _directSave() {
+    const json = document.getElementById('modal-json').value;
+    const btn  = document.getElementById('modal-btn-save');
+    const msg  = document.getElementById('modal-save-msg');
+    btn.disabled = true;
+    btn.textContent = '⏳ 保存中...';
+    try {
+      const res  = await fetch(`${SERVER}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        msg.className = 'mt-2 text-xs text-green-700 bg-green-100 rounded-lg px-2 py-1';
+        msg.textContent = '✅ 已保存到 config/watchlist.json';
+        msg.classList.remove('hidden');
+        btn.textContent = '✅ 已保存';
+        setTimeout(() => { btn.textContent = '💾 保存'; btn.disabled = false; }, 2000);
+      } else throw new Error(data.error);
+    } catch (e) {
+      msg.className = 'mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-2 py-1';
+      msg.textContent = `❌ 保存失败：${e.message}`;
+      msg.classList.remove('hidden');
+      btn.textContent = '💾 保存';
+      btn.disabled = false;
+    }
+  }
+}
+
+const modal = new Modal();
+
+// ── js/components/report-view.js ──────────────────────────────
+/**
+ * components/report-view.js — 结构化报告渲染组件
+ *
+ * 布局规则：
+ *   - 只有技术面：单列全宽
+ *   - 技术面 + 1个其他维度：左右各半
+ *   - 技术面 + 2个其他维度：技术面左半，右半再分两行
+ *   - 无技术面：各维度按顺序竖排
+ * 顺序：技术面 → 基本面 → 产业链
+ * 底部：tech_summary AI 一句话 + 综合结论
+ */
+
+const SIGNAL_CONFIG = {
+  buy:   { label: '买入',  bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-300',  dot: '#16a34a' },
+  watch: { label: '关注',  bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-300',   dot: '#2563eb' },
+  hold:  { label: '持有',  bg: 'bg-gray-100',   text: 'text-gray-600',   border: 'border-gray-300',   dot: '#6b7280' },
+  sell:  { label: '卖出',  bg: 'bg-red-100',    text: 'text-red-700',    border: 'border-red-300',    dot: '#dc2626' },
+};
+
+const DIM_ICONS = {
+  technical:   '📊',
+  fundamental: '📈',
+  industry:    '🏭',
+};
+
+const DIM_ORDER = ['technical', 'fundamental', 'industry'];
+
+class ReportView {
+  constructor(container) {
+    this._container = container;
+  }
+
+  render(report) {
+    const { stock_code, stock_name, overall_score, overall_signal,
+            overall_signal_label, conclusion, tech_summary, dimensions, generated_at } = report;
+
+    const sig = SIGNAL_CONFIG[overall_signal] || SIGNAL_CONFIG.hold;
+
+    // 按固定顺序排列维度
+    const sortedDims = [...(dimensions || [])].sort((a, b) => {
+      const oa = DIM_ORDER.indexOf(a.dimension);
+      const ob = DIM_ORDER.indexOf(b.dimension);
+      return (oa < 0 ? 99 : oa) - (ob < 0 ? 99 : ob);
+    });
+
+    this._container.innerHTML = `
+      <!-- 报告头部 -->
+      <div class="mb-5 p-4 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <span class="font-bold text-xl text-gray-900">${this._esc(stock_name)}</span>
+            <span class="ml-2 font-mono text-sm text-gray-500">${this._esc(stock_code)}</span>
+            <div class="mt-1 text-xs text-gray-400">${this._fmtTime(generated_at)}</div>
+          </div>
+          <div id="radar-chart" style="width:220px;height:160px;flex-shrink:0"></div>
+        </div>
+      </div>
+
+      <!-- 维度卡片区域（自适应布局） -->
+      <div id="report-columns" class="mb-5"></div>
+
+      <!-- 技术面 AI 一句话 -->
+      ${tech_summary ? `
+        <div class="mb-3 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-100 text-sm font-medium flex items-center gap-2">
+          <span>${this._esc(tech_summary)}</span>
+        </div>
+      ` : ''}
+
+      <!-- 综合结论 -->
+      <div class="p-4 rounded-xl border-2 ${sig.border} ${sig.bg}">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base font-bold ${sig.text}">🎯 综合结论</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-white/70 ${sig.text} font-medium border ${sig.border}">
+            ${overall_signal_label || sig.label}
+          </span>
+          <span class="text-xs text-gray-500 ml-auto">综合评分 ${overall_score}/100</span>
+        </div>
+        <p class="text-sm text-gray-700 leading-relaxed">${this._esc(conclusion)}</p>
+      </div>
+    `;
+
+    // 渲染自适应列布局
+    this._renderColumns(sortedDims, report);
+
+    setTimeout(() => {
+      this._initRadar(report);
+      this._initKlineChart(report);
+    }, 0);
+  }
+
+  _renderColumns(sortedDims, report) {
+    const colContainer = this._container.querySelector('#report-columns');
+    const techDims  = sortedDims.filter(d => d.dimension === 'technical');
+    const otherDims = sortedDims.filter(d => d.dimension !== 'technical');
+
+    if (techDims.length === 0) {
+      // 无技术面：全部竖排
+      const col = document.createElement('div');
+      col.className = 'space-y-4';
+      otherDims.forEach(d => col.appendChild(this._renderDimension(d, report)));
+      colContainer.appendChild(col);
+      return;
+    }
+
+    if (otherDims.length === 0) {
+      // 只有技术面：单列全宽
+      const col = document.createElement('div');
+      col.className = 'space-y-4';
+      techDims.forEach(d => col.appendChild(this._renderDimension(d, report)));
+      colContainer.appendChild(col);
+      return;
+    }
+
+    // 技术面 + 其他：左右布局
+    const wrapper = document.createElement('div');
+    wrapper.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+
+    // 左列：技术面
+    const leftCol = document.createElement('div');
+    leftCol.className = 'space-y-4';
+    techDims.forEach(d => leftCol.appendChild(this._renderDimension(d, report)));
+    wrapper.appendChild(leftCol);
+
+    // 右列：基本面 + 产业链（竖排）
+    const rightCol = document.createElement('div');
+    rightCol.className = 'space-y-4';
+    otherDims.forEach(d => rightCol.appendChild(this._renderDimension(d, report)));
+    wrapper.appendChild(rightCol);
+
+    colContainer.appendChild(wrapper);
+  }
+
+  _renderDimension(dim, report) {
+    const sig  = SIGNAL_CONFIG[dim.signal] || SIGNAL_CONFIG.hold;
+    const icon = DIM_ICONS[dim.dimension] || '📋';
+
+    const el = document.createElement('div');
+    el.className = 'bg-white border border-gray-200 rounded-xl overflow-hidden';
+
+    const klineHtml = (dim.dimension === 'technical' && report && report.kline_data)
+      ? `<div id="kline-chart-${this._esc(report.stock_code)}" style="height:180px;padding:4px 0"></div>`
+      : '';
+
+    el.innerHTML = `
+      ${klineHtml}
+      <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <div class="flex items-center gap-2">
+          <span class="text-base">${icon}</span>
+          <span class="font-semibold text-sm text-gray-800">${this._esc(dim.name)}</span>
+          ${dim.error ? '<span class="text-xs text-red-500">⚠️ 分析异常</span>' : ''}
+        </div>
+        <div class="flex items-center gap-2">
+          ${this._scoreBadge(dim.score, dim.signal, 'sm')}
+        </div>
+      </div>
+
+      ${dim.summary ? `
+        <div class="px-4 py-2 border-b border-gray-100" style="background:var(--dim-sum-bg,#f9fafb)">
+          <p class="text-xs text-gray-600 leading-relaxed">${this._esc(dim.summary)}</p>
+        </div>
+      ` : ''}
+
+      <div class="divide-y divide-gray-100" id="sections-${dim.dimension}-${Math.random().toString(36).slice(2,7)}"></div>
+    `;
+
+    // 用随机 id 避免多个同维度冲突
+    const sectionsEl = el.querySelector('[id^="sections-"]');
+    if (dim.error) {
+      sectionsEl.innerHTML = `<div class="px-4 py-3 text-sm text-red-500">${this._esc(dim.error)}</div>`;
+    } else {
+      (dim.sections || []).forEach(sec => sectionsEl.appendChild(this._renderSection(sec)));
+    }
+
+    return el;
+  }
+
+  _renderSection(sec) {
+    const sig = SIGNAL_CONFIG[sec.signal] || SIGNAL_CONFIG.hold;
+    const el = document.createElement('details');
+    el.className = 'group';
+    el.innerHTML = `
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50 select-none list-none">
+        <div class="flex items-center gap-2">
+          <span class="text-gray-400 group-open:rotate-90 transition-transform text-xs">▶</span>
+          <span class="text-sm font-medium text-gray-700">${this._esc(sec.title)}</span>
+        </div>
+        <span class="text-xs px-1.5 py-0.5 rounded ${sig.bg} ${sig.text} font-medium">
+          ${sig.label}
+        </span>
+      </summary>
+      <div class="px-4 pb-3 pt-1 text-xs text-gray-600 leading-relaxed bg-gray-50/50">
+        ${this._mdToHtml(sec.content)}
+      </div>
+    `;
+    if (sec.score >= 65 || sec.score <= 35) {
+      el.setAttribute('open', '');
+    }
+    return el;
+  }
+
+  _initRadar(rpt) {
+    const el = this._container.querySelector('#radar-chart');
+    if (!el || typeof echarts === 'undefined') return;
+    const existing = echarts.getInstanceByDom(el);
+    if (existing) existing.dispose();
+    const chart = echarts.init(el);
+    const dimScores = {};
+    (rpt.dimensions || []).forEach(d => { dimScores[d.dimension] = d.score; });
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        formatter: (p) => {
+          const v = p.value;
+          return `技术面: ${v[0]}<br/>基本面: ${v[1]}<br/>产业链: ${v[2]}`;
+        },
+      },
+      radar: {
+        indicator: [
+          { name: '技术面', max: 100 },
+          { name: '基本面', max: 100 },
+          { name: '产业链', max: 100 },
+        ],
+        center: ['50%', '50%'], radius: '70%',
+        axisName: { fontSize: 11, color: '#374151' },
+        splitLine: { lineStyle: { color: '#e5e7eb' } },
+        splitArea: { areaStyle: { color: ['rgba(239,246,255,0.3)', 'rgba(255,255,255,0)'] } },
+        axisLine: { lineStyle: { color: '#d1d5db' } },
+      },
+      series: [{
+        type: 'radar',
+        data: [{
+          value: [dimScores['technical'] ?? 0, dimScores['fundamental'] ?? 0, dimScores['industry'] ?? 0],
+          name: '评分',
+          itemStyle: { color: '#3b82f6' },
+          lineStyle: { color: '#3b82f6', width: 2 },
+          areaStyle: { color: 'rgba(59,130,246,0.18)' },
+          symbol: 'circle', symbolSize: 5,
+        }],
+      }],
+    });
+  }
+
+  _initKlineChart(rpt) {
+    if (!rpt.kline_data || !rpt.kline_data.length) return;
+    if (typeof echarts === 'undefined') return;
+    const el = this._container.querySelector(`#kline-chart-${rpt.stock_code}`);
+    if (!el) return;
+    const existing = echarts.getInstanceByDom(el);
+    if (existing) existing.dispose();
+    const chart = echarts.init(el);
+    const data  = rpt.kline_data.slice(-60);
+    const dates = data.map(d => d.date ? d.date.slice(5) : '');
+    const close  = data.map(d => d.close  ?? null);
+    const ma5    = data.map(d => d.ma5    ?? null);
+    const ma10   = data.map(d => d.ma10   ?? null);
+    const ma20   = data.map(d => d.ma20   ?? null);
+    const ma30   = data.map(d => d.ma30   ?? null);
+    const ma60   = data.map(d => d.ma60   ?? null);
+    const ma120  = data.map(d => d.ma120  ?? null);
+    const ma250  = data.map(d => d.ma250  ?? null);
+    const mkLine = (name, vals, color, w = 1.5) => ({
+      name, type: 'line', data: vals, smooth: false, symbol: 'none',
+      lineStyle: { color, width: w }, itemStyle: { color },
+    });
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#9ca3af' } },
+        textStyle: { fontSize: 11 },
+        formatter: (params) => {
+          const idx = params[0].dataIndex;
+          const date = data[idx]?.date || '';
+          let html = `<div style="font-size:11px"><b>${date}</b></div>`;
+          params.forEach(p => {
+            if (p.value != null)
+              html += `<div style="color:${p.color}">${p.seriesName}: ${Number(p.value).toFixed(2)}</div>`;
+          });
+          return html;
+        },
+      },
+      legend: {
+        data: ['收盘价', 'MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'MA120', 'MA250'],
+        right: 8, top: 2,
+        textStyle: { fontSize: 10, color: '#6b7280' },
+        itemWidth: 12, itemHeight: 3,
+      },
+      grid: { left: 8, right: 8, top: 28, bottom: 20, containLabel: true },
+      xAxis: {
+        type: 'category', data: dates,
+        axisLabel: { fontSize: 9, color: '#9ca3af', interval: Math.floor(data.length / 6) },
+        axisLine: { lineStyle: { color: '#e5e7eb' } }, splitLine: { show: false },
+      },
+      yAxis: {
+        type: 'value', scale: true,
+        axisLabel: { fontSize: 9, color: '#9ca3af', formatter: v => v.toFixed(1) },
+        splitLine: { lineStyle: { color: '#f3f4f6' } },
+      },
+      series: [
+        mkLine('收盘价', close, '#3b82f6', 2),
+        mkLine('MA5',   ma5,   '#f97316', 1),
+        mkLine('MA10',  ma10,  '#facc15', 1),
+        mkLine('MA20',  ma20,  '#ef4444', 1),
+        mkLine('MA30',  ma30,  '#f472b6', 1),
+        mkLine('MA60',  ma60,  '#8b5cf6', 1),
+        mkLine('MA120', ma120, '#06b6d4', 1),
+        mkLine('MA250', ma250, '#6b7280', 1),
+      ],
+    });
+  }
+
+  _scoreBadge(score, signal, size = 'md') {
+    const sig    = SIGNAL_CONFIG[signal] || SIGNAL_CONFIG.hold;
+    const wh     = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-12 h-12 text-sm';
+    const color  = score >= 70 ? '#16a34a' : score >= 55 ? '#2563eb' : score >= 40 ? '#6b7280' : '#dc2626';
+    const radius = size === 'sm' ? 14 : 20;
+    const circum = 2 * Math.PI * radius;
+    const dash   = (score / 100) * circum;
+    return `
+      <div class="flex items-center gap-1.5">
+        <svg class="${wh}" viewBox="0 0 ${radius*2+8} ${radius*2+8}">
+          <circle cx="${radius+4}" cy="${radius+4}" r="${radius}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+          <circle cx="${radius+4}" cy="${radius+4}" r="${radius}" fill="none" stroke="${color}" stroke-width="3"
+                  stroke-dasharray="${dash} ${circum}" stroke-dashoffset="${circum*0.25}" stroke-linecap="round"/>
+          <text x="${radius+4}" y="${radius+4}" text-anchor="middle" dominant-baseline="central"
+                font-size="${size==='sm'?9:11}" font-weight="bold" fill="${color}">${score}</text>
+        </svg>
+        <span class="text-xs px-1.5 py-0.5 rounded ${sig.bg} ${sig.text} font-medium">${sig.label}</span>
+      </div>
+    `;
+  }
+
+  _mdToHtml(md) {
+    if (!md) return '';
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return md.split('\n').map(line => {
+      if (/^#{1,3} (.+)/.test(line))   return `<p class="font-semibold text-gray-800 mt-2 mb-0.5">${esc(line.replace(/^#+\s/,''))}</p>`;
+      if (/^\*\*(.+)\*\*$/.test(line)) return `<p class="font-semibold text-gray-800 mt-1">${esc(line.replace(/\*\*/g,''))}</p>`;
+      if (/^[-*] (.+)/.test(line))     return `<p class="pl-2">• ${esc(line.slice(2))}</p>`;
+      if (/^  [-*] (.+)/.test(line))   return `<p class="pl-5">◦ ${esc(line.trimStart().slice(2))}</p>`;
+      if (line.trim() === '---')        return `<hr class="my-1 border-gray-200"/>`;
+      if (line.trim() === '')           return '';
+      let html = esc(line);
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/`(.+?)`/g, '<code class="bg-gray-200 px-0.5 rounded text-blue-700">$1</code>');
+      html = html.replace(/(✅|🟢|🔵)/g, '<span class="text-green-600">$1</span>');
+      html = html.replace(/(⚠️|🔴|❌|🟠)/g, '<span class="text-red-500">$1</span>');
+      return `<p>${html}</p>`;
+    }).filter(Boolean).join('\n');
+  }
+
+  _fmtTime(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString('zh-CN', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      });
+    } catch { return iso; }
+  }
+
+  _esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+}
+
+// ── js/store.js ──────────────────────────────
+/**
+ * store.js — 全局状态管理 + localStorage 持久化
+ *
+ * stock_list 结构（v2.1 起）：对象数组 [{code, name, checked}]
+ *   - code:    股票代码（大写），唯一键
+ *   - name:    股票名称（添加时自动查 /quote 填充，可空回退显示代码）
+ *   - checked: 是否勾选参与"分析勾选自选股"批量任务（默认 true）
+ * 向后兼容：旧数据是字符串数组 ["600519"]，_load 时自动迁移。
+ *
+ * ⚠️ toJSON() 导出到 config/watchlist.json 时把 stock_list 降维回
+ *    纯代码字符串数组 ["600519",...]，因为 GitHub Action
+ *    (portal-daily-analysis.yml) 读取它期望字符串数组。契约不能破。
+ */
+
+const KEY = 'dsa_portal_v2';
+
+const DEFAULTS = {
+  stock_list: [],   // [{code, name, checked}]
+  report_type: 'simple',
+  market_review_enabled: true,
+  market_review_region: 'cn',
+  analysis_delay: 0,
+  max_workers: 1,
+  force_run: false,
+  llm_note_mode: 'batch',    // 逐指标LLM点评：batch(批量一次) | per_indicator(逐个详细)
+  auto_open_html: true,      // 分析后自动用浏览器打开 HTML 报告
+  email: { enabled: true, subject_prefix: 'A股智能分析' },
+};
+
+class Store {
+  constructor() {
+    this._state = this._load();
+    this._subs = [];
+  }
+
+  get() { return structuredClone(this._state); }
+  /** 别名，兼容历史调用（watchlist.js 曾误用 getState） */
+  getState() { return this.get(); }
+
+  // ── 自选股操作（对象数组）───────────────────────────────
+  addStock(raw, name = '') {
+    const code = String(raw || '').trim().toUpperCase();
+    if (!code) return { ok: false, msg: '代码不能为空' };
+    if (this._state.stock_list.some(s => s.code === code))
+      return { ok: false, msg: `${code} 已存在` };
+    this._state.stock_list = [...this._state.stock_list, { code, name: name || '', checked: true }];
+    this._save(); this._emit(); return { ok: true };
+  }
+
+  removeStock(code) {
+    this._state.stock_list = this._state.stock_list.filter(s => s.code !== code);
+    this._save(); this._emit();
+  }
+
+  setStockName(code, name) {
+    let changed = false;
+    this._state.stock_list = this._state.stock_list.map(s => {
+      if (s.code === code && name && s.name !== name) { changed = true; return { ...s, name }; }
+      return s;
+    });
+    if (changed) { this._save(); this._emit(); }
+  }
+
+  toggleChecked(code, value) {
+    this._state.stock_list = this._state.stock_list.map(s =>
+      s.code === code ? { ...s, checked: (value === undefined ? !s.checked : !!value) } : s);
+    this._save(); this._emit();
+  }
+
+  setAllChecked(value) {
+    this._state.stock_list = this._state.stock_list.map(s => ({ ...s, checked: !!value }));
+    this._save(); this._emit();
+  }
+
+  /** 返回勾选的股票 [{code, name, checked}] */
+  getChecked() {
+    return this._state.stock_list.filter(s => s.checked);
+  }
+
+  set(key, value) {
+    if (key.includes('.')) {
+      const [p, c] = key.split('.');
+      this._state[p] = { ...this._state[p], [c]: value };
+    } else {
+      this._state[key] = value;
+    }
+    this._save(); this._emit();
+  }
+
+  subscribe(fn) { this._subs.push(fn); fn(this.get()); }
+
+  /**
+   * 导出到 config/watchlist.json。
+   * ⚠️ stock_list 降维为纯代码字符串数组（GitHub Action 契约）。
+   */
+  toJSON() {
+    const { stock_list, ...rest } = this._state;
+    return JSON.stringify({
+      _schema_version: '1',
+      _comment: '由 portal/index.html 生成，提交到仓库后被 portal-daily-analysis.yml 读取',
+      updated_at: new Date().toISOString(),
+      ...rest,
+      stock_list: stock_list.map(s => s.code),   // 降维：只导出代码
+    }, null, 2);
+  }
+
+  _emit() { const s = this.get(); this._subs.forEach(f => f(s)); }
+
+  _save() {
+    try { localStorage.setItem(KEY, JSON.stringify(this._state)); } catch {}
+  }
+
+  _load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.stock_list = this._migrateStockList(parsed.stock_list);
+        return this._merge(DEFAULTS, parsed);
+      }
+    } catch {}
+    return structuredClone(DEFAULTS);
+  }
+
+  /** 把旧的字符串数组 ["600519"] 迁移为对象数组 [{code,name,checked}] */
+  _migrateStockList(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(item => {
+      if (typeof item === 'string') return { code: item.toUpperCase(), name: '', checked: true };
+      if (item && typeof item === 'object' && item.code)
+        return { code: String(item.code).toUpperCase(), name: item.name || '', checked: item.checked !== false };
+      return null;
+    }).filter(Boolean);
+  }
+
+  _merge(base, over) {
+    const r = structuredClone(base);
+    for (const k of Object.keys(over)) {
+      if (k in r && typeof r[k] === 'object' && !Array.isArray(r[k]) && r[k] !== null)
+        r[k] = this._merge(r[k], over[k]);
+      else r[k] = over[k];
+    }
+    return r;
+  }
+}
+
+const store = new Store();
+
+// ── js/tabs/watchlist.js ──────────────────────────────
+/**
+ * tabs/watchlist.js — 选股管理
+ *   - 每项 checkbox：勾选参与"分析勾选自选股"批量任务，状态持久化
+ *   - 显示股票名称（store 持久化）优先，无名称回退代码
+ *   - 添加时若本地服务在线，自动查 /quote 拿名称写回 store
+ *   - 实时行情（价格/涨跌幅）在 server 在线时叠加显示
+ */
+
+class WatchlistTab {
+  constructor(container, store, toast) {
+    this._c = container; this._s = store; this._t = toast;
+    this._online = false;
+    this._quotes = {};   // { "600519": { name, price, pct_chg, volume } }
+  }
+
+  init() {
+    this._c.innerHTML = `
+      <div class="max-w-2xl mx-auto space-y-5 pb-20">
+        <div>
+          <h2 class="text-base font-semibold text-gray-900">自选股管理</h2>
+          <p class="text-xs text-gray-500 mt-0.5">支持 A股（600519）、港股（00700）、美股（AAPL）· 勾选项可批量分析</p>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="flex gap-2">
+          <input id="wl-input" type="text" placeholder="输入股票代码，如 600519" maxlength="12"
+            class="form-input flex-1" autocomplete="off" />
+          <button id="wl-add"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            添加
+          </button>
+        </div>
+
+        <!-- 全选 / 反选工具条 -->
+        <div id="wl-toolbar" class="hidden items-center gap-3 text-xs text-gray-500">
+          <label class="flex items-center gap-1.5 cursor-pointer select-none">
+            <input id="wl-check-all" type="checkbox" class="w-4 h-4 accent-blue-600 cursor-pointer" />
+            全选
+          </label>
+          <span id="wl-checked-count" class="text-gray-400"></span>
+        </div>
+
+        <!-- 列表 -->
+        <div id="wl-list" class="space-y-1.5"></div>
+        <p id="wl-count" class="text-xs text-gray-400"></p>
+      </div>`;
+
+    const input = this._c.querySelector('#wl-input');
+    this._c.querySelector('#wl-add').addEventListener('click', () => this._add(input));
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') this._add(input); });
+    this._c.querySelector('#wl-check-all').addEventListener('change', e => {
+      this._s.setAllChecked(e.target.checked);
+    });
+    this._s.subscribe(state => this._render(state));
+
+    // 初始尝试加载行情
+    this._loadQuotes();
+  }
+
+  /** 由 app 层在服务器状态变更时调用 */
+  setServerStatus(online) {
+    this._online = online;
+    if (online) this._loadQuotes();
+  }
+
+  async _loadQuotes() {
+    const state = this._s.get();
+    const stocks = (state && state.stock_list) ? state.stock_list : [];
+    if (!stocks.length) return;
+    // 不依赖 _online 标志（可能未同步）；直接尝试，失败静默
+
+    try {
+      const codes = stocks.map(s => s.code).join(',');
+      const res = await fetch(`${SERVER}/quote?codes=${encodeURIComponent(codes)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok || !Array.isArray(data.quotes)) return;
+
+      const map = {};
+      for (const q of data.quotes) {
+        map[q.code] = { name: q.name, price: q.price, pct_chg: q.pct_chg, volume: q.volume };
+        // 行情带回名称 → 持久化到 store（若该股尚无名称）
+        if (q.name) this._s.setStockName(q.code, q.name);
+      }
+      this._quotes = map;
+      this._render(this._s.get());
+    } catch (_) { /* 网络失败静默 */ }
+  }
+
+  _add(input) {
+    const raw = input.value;
+    const r = this._s.addStock(raw);
+    if (r.ok) {
+      const code = raw.trim().toUpperCase();
+      input.value = '';
+      this._t.show('已添加', 'success');
+      // server 在线：立即查该股名称 + 行情
+      this._fetchName(code);
+      this._loadQuotes();
+    } else {
+      this._t.show(r.msg, 'warning');
+    }
+  }
+
+  /** 添加时查单只股票名称，写回 store 持久化 */
+  async _fetchName(code) {
+    // 不依赖 _online（懒加载 Tab 可能未收到 setServerStatus）；直接试，失败静默
+    try {
+      const res = await fetch(`${SERVER}/quote?codes=${encodeURIComponent(code)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const q = (data.quotes || [])[0];
+      if (q && q.name) this._s.setStockName(code, q.name);
+    } catch (_) {}
+  }
+
+  _render(state) {
+    const list  = this._c.querySelector('#wl-list');
+    const count = this._c.querySelector('#wl-count');
+    const toolbar = this._c.querySelector('#wl-toolbar');
+    if (!list) return;
+    const stocks = state.stock_list || [];
+    if (!stocks.length) {
+      list.innerHTML = `
+        <div class="py-12 text-center text-gray-300">
+          <div class="text-4xl mb-2">📋</div>
+          <p class="text-sm">还没有自选股</p>
+        </div>`;
+      if (count) count.textContent = '';
+      if (toolbar) toolbar.classList.add('hidden');
+      return;
+    }
+
+    if (toolbar) toolbar.classList.remove('hidden');
+
+    list.innerHTML = stocks.map((s, i) => {
+      const code = s.code;
+      const q = this._quotes[code] || {};
+      // 显示名优先级：store 持久化名 > 行情名 > 代码
+      const displayName = s.name || q.name || '';
+      const nameHtml = displayName
+        ? `<span class="font-semibold text-sm text-gray-800">${this._esc(displayName)}</span>
+           <span class="ml-1.5 font-mono text-xs text-gray-400">${this._esc(code)}</span>`
+        : `<span class="font-mono font-semibold text-sm text-gray-800">${this._esc(code)}</span>`;
+
+      let priceHtml = '';
+      if (q.price != null) {
+        priceHtml = `<span class="text-xs text-gray-600 font-mono">${q.price.toFixed(2)}</span>`;
+      }
+      let pctHtml = '';
+      if (q.pct_chg != null) {
+        const sign  = q.pct_chg >= 0 ? '+' : '';
+        const color = q.pct_chg > 0 ? 'text-green-500' : q.pct_chg < 0 ? 'text-red-500' : 'text-gray-400';
+        pctHtml = `<span class="text-xs font-semibold ${color}">${sign}${q.pct_chg.toFixed(2)}%</span>`;
+      }
+      const hasQuote = priceHtml || pctHtml;
+
+      return `
+        <div class="flex items-center justify-between px-4 py-2.5 bg-white rounded-xl border border-gray-100
+                    hover:border-blue-200 hover:shadow-sm transition-all group">
+          <div class="flex items-center gap-3 min-w-0">
+            <input type="checkbox" data-check="${this._esc(code)}" ${s.checked ? 'checked' : ''}
+              class="w-4 h-4 accent-blue-600 cursor-pointer shrink-0" />
+            <span class="text-xs text-gray-300 w-4 text-right shrink-0">${i + 1}</span>
+            <div class="flex flex-col min-w-0">
+              <div class="flex items-center gap-1.5">${nameHtml}</div>
+              ${hasQuote ? `<div class="flex items-center gap-1.5 mt-0.5">${priceHtml}${pctHtml}</div>` : ''}
+            </div>
+          </div>
+          <button data-del="${this._esc(code)}"
+            class="text-gray-200 hover:text-red-400 transition-colors text-lg leading-none opacity-0 group-hover:opacity-100 shrink-0">×</button>
+        </div>`;
+    }).join('');
+
+    // 绑定 checkbox
+    list.querySelectorAll('[data-check]').forEach(cb =>
+      cb.addEventListener('change', () => this._s.toggleChecked(cb.dataset.check, cb.checked)));
+    // 绑定删除
+    list.querySelectorAll('[data-del]').forEach(b =>
+      b.addEventListener('click', () => {
+        this._s.removeStock(b.dataset.del);
+        this._t.show('已移除', 'info');
+      }));
+
+    // 更新计数 + 全选态
+    const checkedN = stocks.filter(s => s.checked).length;
+    if (count) count.textContent = `共 ${stocks.length} 只`;
+    const cntEl = this._c.querySelector('#wl-checked-count');
+    if (cntEl) cntEl.textContent = `已勾选 ${checkedN} 只`;
+    const allEl = this._c.querySelector('#wl-check-all');
+    if (allEl) {
+      allEl.checked = checkedN === stocks.length && stocks.length > 0;
+      allEl.indeterminate = checkedN > 0 && checkedN < stocks.length;
+    }
+  }
+
+  _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+}
+
+// ── js/tabs/settings.js ──────────────────────────────
+/**
+ * tabs/settings.js — 分析参数设置（纯静态，无需 server）
+ * Toggle 用 JS 驱动，不依赖 Tailwind peer（innerHTML 里 peer 无效）
+ */
+
+class SettingsTab {
+  constructor(container, store, toast) {
+    this._c = container; this._s = store; this._t = toast;
+  }
+
+  init() {
+    this._c.innerHTML = `
+      <div class="max-w-2xl mx-auto space-y-6 pb-20">
+        <div>
+          <h2 class="text-base font-semibold text-gray-900">分析设置</h2>
+          <p class="text-xs text-gray-500 mt-0.5">修改后点击底部「保存配置」导出</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+
+          ${this._row('报告类型', `
+            <select id="cfg-report-type" class="form-select w-48">
+              <option value="simple">简洁（推荐）</option>
+              <option value="brief">极简</option>
+              <option value="full">完整</option>
+            </select>`, '影响邮件内容详细程度')}
+
+          ${this._row('技术指标 LLM 打分', `
+            <select id="cfg-llm-mode" class="form-select w-48">
+              <option value="batch">批量打分（打包一次，快，推荐）</option>
+              <option value="per_indicator">逐指标打分（单独调用，慢，更精细）</option>
+            </select>`, '技术面每个指标由 LLM 基于真实数值打分(0-100)并给出信号与说明')}
+
+          ${this._row('分析后自动打开报告', `
+            <div class="flex items-center gap-3">
+              <button id="cfg-openhtml-btn" type="button"
+                class="relative flex-shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 bg-blue-500"
+                role="switch" aria-checked="true">
+                <span id="cfg-openhtml-thumb"
+                  class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-5"></span>
+              </button>
+              <input type="checkbox" id="cfg-openhtml" class="hidden" checked />
+              <span class="text-sm text-gray-700" id="cfg-openhtml-label">已启用</span>
+            </div>`, '生成 HTML 后用浏览器自动打开')}
+
+          ${this._row('大盘复盘', `
+            <div class="flex items-center gap-3">
+              <button id="cfg-market-review-btn" type="button"
+                class="relative flex-shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 bg-blue-500"
+                role="switch" aria-checked="true">
+                <span id="cfg-market-thumb"
+                  class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-5"></span>
+              </button>
+              <input type="checkbox" id="cfg-market-review" class="hidden" checked />
+              <span class="text-sm text-gray-700" id="cfg-market-label">已启用</span>
+            </div>`, '每日附带大盘指数复盘')}
+
+          ${this._row('大盘市场', `
+            <select id="cfg-market-region" class="form-select w-40">
+              <option value="cn">A股（沪深）</option>
+              <option value="hk">港股</option>
+              <option value="us">美股</option>
+              <option value="both">全市场</option>
+            </select>`)}
+
+          ${this._row('分析并发数', `
+            <div class="flex items-center gap-2">
+              <input type="number" id="cfg-workers" min="1" max="5" class="form-input w-20" />
+              <span class="text-xs text-gray-400">建议 1-3，过高易限流</span>
+            </div>`)}
+
+          ${this._row('LLM 间隔(秒)', `
+            <div class="flex items-center gap-2">
+              <input type="number" id="cfg-delay" min="0" max="300" class="form-input w-20" />
+              <span class="text-xs text-gray-400">防止 API 限流</span>
+            </div>`)}
+
+          ${this._row('强制运行', `
+            <div class="flex items-center gap-3">
+              <button id="cfg-force-btn" type="button"
+                class="relative flex-shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 bg-gray-200"
+                role="switch" aria-checked="false">
+                <span id="cfg-force-thumb"
+                  class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-0"></span>
+              </button>
+              <input type="checkbox" id="cfg-force" class="hidden" />
+              <span class="text-xs text-gray-500">跳过交易日检查（含节假日）</span>
+            </div>`)}
+
+          ${this._row('邮件主题前缀', `
+            <input type="text" id="cfg-email-prefix" maxlength="30" placeholder="A股智能分析"
+              class="form-input w-56" />`)}
+        </div>
+
+        <!-- AI Key 说明 -->
+        <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+          <p class="text-xs font-semibold text-amber-800 mb-1.5">🔑 AI 密钥 &amp; 邮件配置</p>
+          <p class="text-xs text-amber-700 leading-relaxed">
+            <code class="bg-amber-100 px-1 rounded">GEMINI_API_KEY</code>、
+            <code class="bg-amber-100 px-1 rounded">EMAIL_SENDER</code>、
+            <code class="bg-amber-100 px-1 rounded">EMAIL_PASSWORD</code> 等敏感配置
+            存储在 GitHub 仓库 <strong>Settings → Secrets</strong> 中，不在此页面填写。
+            详见「说明」Tab。
+          </p>
+        </div>
+
+        <!-- API 配置 -->
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mt-4">
+          <details>
+            <summary class="px-5 py-3.5 cursor-pointer font-semibold text-gray-800 text-sm">🔐 本地 API 配置（.env）</summary>
+            <div class="px-5 pb-4 border-t border-gray-50">
+
+              <!-- Hai Proxy 子区块（SAP 内网 LLM 网关，优先级最高）-->
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-1">Hai Proxy（内网 LLM 网关，推荐）</p>
+              <p class="text-xs text-gray-400 mb-3">配置后优先使用；适合外网 LLM 被内网封锁的场景</p>
+              <div class="space-y-4">
+                ${this._envField('HAI_BASE_URL', 'Proxy Base URL', 'text', '如 http://localhost:6655/openai/v1')}
+                ${this._envField('HAI_API_KEY',  'Proxy API Key',  'password', '')}
+                ${this._envField('HAI_MODEL',    '模型名',          'text', '如 gpt-4.1')}
+              </div>
+
+              <!-- LLM 子区块 -->
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5 mb-3">LLM（公网直连，备选）</p>
+              <div class="space-y-4">
+                ${this._envField('GEMINI_API_KEY',  'Gemini API Key',   'password', '在 aistudio.google.com 获取')}
+                ${this._envField('DEEPSEEK_API_KEY','DeepSeek API Key', 'password', '在 platform.deepseek.com 获取')}
+                ${this._envField('OPENAI_API_KEY',  'OpenAI API Key',   'password', '在 platform.openai.com 获取')}
+              </div>
+
+              <!-- 搜索 子区块 -->
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5 mb-3">Search</p>
+              <div class="space-y-4">
+                ${this._envField('BOCHA_API_KEYS',  'Bocha 搜索 Key',  'password', '在 bochaai.com 获取，可选')}
+                ${this._envField('TAVILY_API_KEYS', 'Tavily 搜索 Key', 'password', '在 app.tavily.com 获取，可选')}
+              </div>
+
+              <!-- 邮件 子区块 -->
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5 mb-3">Email</p>
+              <div class="space-y-4">
+                ${this._envField('EMAIL_SENDER',    '发件人邮箱',   'email',    '')}
+                ${this._envField('EMAIL_PASSWORD',  '邮箱授权码',   'password', '非登录密码，在邮箱设置中生成')}
+                ${this._envField('EMAIL_RECEIVERS', '收件人邮箱',   'text',     '多个用逗号分隔')}
+              </div>
+
+              <!-- 底部按钮 & 状态 -->
+              <div class="flex items-center gap-3 mt-5 pt-4 border-t border-gray-100">
+                <button id="btn-save-env"
+                  class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 active:scale-95 transition-all">
+                  💾 保存到本地 .env
+                </button>
+                <span id="env-status" class="text-xs text-gray-400">正在读取...</span>
+              </div>
+
+            </div>
+          </details>
+        </div>
+      </div>`;
+
+    this._bindToggle('cfg-market-review-btn', 'cfg-market-thumb', 'cfg-market-review',
+      (on) => {
+        const lbl = this._c.querySelector('#cfg-market-label');
+        if (lbl) lbl.textContent = on ? '已启用' : '已关闭';
+        this._s.set('market_review_enabled', on);
+      });
+
+    this._bindToggle('cfg-force-btn', 'cfg-force-thumb', 'cfg-force',
+      (on) => { this._s.set('force_run', on); });
+
+    this._bindToggle('cfg-openhtml-btn', 'cfg-openhtml-thumb', 'cfg-openhtml',
+      (on) => {
+        const lbl = this._c.querySelector('#cfg-openhtml-label');
+        if (lbl) lbl.textContent = on ? '已启用' : '已关闭';
+        this._s.set('auto_open_html', on);
+      });
+
+    this._bindInput('cfg-report-type',   'report_type');
+    this._bindInput('cfg-llm-mode',      'llm_note_mode');
+    this._bindInput('cfg-market-region', 'market_review_region');
+    this._bindInput('cfg-workers',       'max_workers',    v => Math.max(1, Math.min(5, +v || 1)));
+    this._bindInput('cfg-delay',         'analysis_delay', v => Math.max(0, +v || 0));
+    this._bindInput('cfg-email-prefix',  'email.subject_prefix');
+
+    this._s.subscribe(state => this._sync(state));
+
+    this._c.querySelector('#btn-save-env')
+      ?.addEventListener('click', () => this._saveEnv());
+
+    this._loadEnvStatus();
+  }
+
+  _row(label, control, hint = '') {
+    return `
+      <div class="flex items-center justify-between px-5 py-3.5 gap-4">
+        <div class="flex-shrink-0">
+          <p class="text-sm font-medium text-gray-700">${label}</p>
+          ${hint ? `<p class="text-xs text-gray-400 mt-0.5">${hint}</p>` : ''}
+        </div>
+        <div class="flex-shrink-0">${control}</div>
+      </div>`;
+  }
+
+  _bindToggle(btnId, thumbId, hiddenId, onChange) {
+    const btn    = this._c.querySelector(`#${btnId}`);
+    const thumb  = this._c.querySelector(`#${thumbId}`);
+    const hidden = this._c.querySelector(`#${hiddenId}`);
+    if (!btn) return;
+    const setOn = (on) => {
+      hidden.checked = on;
+      btn.setAttribute('aria-checked', String(on));
+      btn.classList.toggle('bg-blue-500', on);
+      btn.classList.toggle('bg-gray-200', !on);
+      thumb.classList.toggle('translate-x-5', on);
+      thumb.classList.toggle('translate-x-0', !on);
+      onChange(on);
+    };
+    btn.addEventListener('click', () => setOn(!hidden.checked));
+  }
+
+  _bindInput(id, key, xf = v => v) {
+    const el = this._c.querySelector(`#${id}`);
+    if (!el) return;
+    el.addEventListener('input', () => this._s.set(key, xf(el.value)));
+  }
+
+  _sync(state) {
+    const sv = (id, val) => { const el = this._c.querySelector(`#${id}`); if (el) el.value = val ?? ''; };
+    sv('cfg-report-type',   state.report_type);
+    sv('cfg-llm-mode',      state.llm_note_mode || 'batch');
+    sv('cfg-market-region', state.market_review_region);
+    sv('cfg-workers',       state.max_workers);
+    sv('cfg-delay',         state.analysis_delay);
+    sv('cfg-email-prefix',  state.email?.subject_prefix ?? 'A股智能分析');
+
+    this._applyToggle('cfg-market-review-btn', 'cfg-market-thumb', 'cfg-market-review',
+      !!state.market_review_enabled,
+      (on) => { const l = this._c.querySelector('#cfg-market-label'); if (l) l.textContent = on ? '已启用' : '已关闭'; });
+    this._applyToggle('cfg-force-btn', 'cfg-force-thumb', 'cfg-force', !!state.force_run);
+    this._applyToggle('cfg-openhtml-btn', 'cfg-openhtml-thumb', 'cfg-openhtml',
+      state.auto_open_html !== false,
+      (on) => { const l = this._c.querySelector('#cfg-openhtml-label'); if (l) l.textContent = on ? '已启用' : '已关闭'; });
+  }
+
+  _applyToggle(btnId, thumbId, hiddenId, on, sideEffect) {
+    const btn    = this._c.querySelector(`#${btnId}`);
+    const thumb  = this._c.querySelector(`#${thumbId}`);
+    const hidden = this._c.querySelector(`#${hiddenId}`);
+    if (!btn) return;
+    hidden.checked = on;
+    btn.setAttribute('aria-checked', String(on));
+    btn.classList.toggle('bg-blue-500', on);
+    btn.classList.toggle('bg-gray-200', !on);
+    thumb.classList.toggle('translate-x-5', on);
+    thumb.classList.toggle('translate-x-0', !on);
+    sideEffect?.(on);
+  }
+
+  /** 渲染单个 .env 字段行 */
+  _envField(key, label, type = 'text', help = '') {
+    return `
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+        <input type="${type}" id="env-${key}" autocomplete="off" spellcheck="false"
+          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-mono"
+          placeholder="${key}" />
+        ${help ? `<p class="text-xs text-gray-400 mt-1">${help}</p>` : ''}
+      </div>`;
+  }
+
+  /** 从 /env 读取掩码值填充各 input */
+  async _loadEnvStatus() {
+    const status = this._c.querySelector('#env-status');
+    try {
+      const res = await fetch(`${SERVER}/env`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const env = data.env || data;
+      const keys = [
+        'HAI_BASE_URL','HAI_API_KEY','HAI_MODEL',
+        'GEMINI_API_KEY','DEEPSEEK_API_KEY','OPENAI_API_KEY',
+        'BOCHA_API_KEYS','TAVILY_API_KEYS',
+        'EMAIL_SENDER','EMAIL_PASSWORD','EMAIL_RECEIVERS'
+      ];
+      keys.forEach(k => {
+        const el = this._c.querySelector(`#env-${k}`);
+        if (el && env[k]) el.value = env[k];
+      });
+      if (status) status.textContent = '已从服务器读取';
+    } catch (e) {
+      if (status) status.textContent = `读取失败：${e.message}（本地服务未启动？）`;
+    }
+  }
+
+  /** 收集非空 input 值，POST /env 保存 */
+  async _saveEnv() {
+    const status = this._c.querySelector('#env-status');
+    const keys = [
+      'HAI_BASE_URL','HAI_API_KEY','HAI_MODEL',
+      'GEMINI_API_KEY','DEEPSEEK_API_KEY','OPENAI_API_KEY',
+      'BOCHA_API_KEYS','TAVILY_API_KEYS',
+      'EMAIL_SENDER','EMAIL_PASSWORD','EMAIL_RECEIVERS'
+    ];
+    const payload = {};
+    keys.forEach(k => {
+      const el = this._c.querySelector(`#env-${k}`);
+      // 掩码值（含 *）不回传，避免把掩码写进 .env
+      if (el && el.value.trim() && !el.value.includes('*')) payload[k] = el.value.trim();
+    });
+    if (status) status.textContent = '保存中...';
+    try {
+      const res = await fetch(`${SERVER}/env`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this._t?.show('已保存到 .env，分析将自动使用', 'success');
+      if (status) status.textContent = '保存成功';
+    } catch (e) {
+      this._t?.show(`保存失败：${e.message}（请确认本地服务已启动）`, 'error');
+      if (status) status.textContent = `保存失败：${e.message}`;
+    }
+  }
+}
+
+// ── js/tabs/guide.js ──────────────────────────────
+/**
+ * tabs/guide.js — 使用说明（纯静态）
+ */
+class GuideTab {
+  constructor(container, store, toast) { this._c = container; }
+
+  init() {
+    this._c.innerHTML = `
+      <div class="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h2 class="text-base font-semibold text-gray-900">使用说明</h2>
+          <p class="text-xs text-gray-500 mt-0.5">两种使用模式，按需选择</p>
+        </div>
+
+        <!-- 模式说明 -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <p class="text-sm font-semibold text-blue-800 mb-1">🌐 纯静态模式</p>
+            <p class="text-xs text-blue-700 leading-relaxed">
+              管理自选股、调整参数、导出配置文件。<br/>
+              可直接通过 GitHub Pages 访问，无需启动任何程序。
+            </p>
+            <div class="mt-2 space-y-1">
+              <p class="text-xs text-blue-600">✓ 选股管理</p>
+              <p class="text-xs text-blue-600">✓ 参数设置</p>
+              <p class="text-xs text-blue-600">✓ 复制 JSON 配置</p>
+              <p class="text-xs text-blue-600">✓ GitHub Action 每日分析</p>
+            </div>
+          </div>
+          <div class="bg-green-50 border border-green-100 rounded-2xl p-4">
+            <p class="text-sm font-semibold text-green-800 mb-1">⚡ 本地增强模式</p>
+            <p class="text-xs text-green-700 leading-relaxed">
+              点击「直接保存」或「立即分析」时自动激活，无需手动启动。
+            </p>
+            <div class="mt-2 space-y-1">
+              <p class="text-xs text-green-600">✓ 直接写入配置文件</p>
+              <p class="text-xs text-green-600">✓ 立即触发个股深度分析</p>
+              <p class="text-xs text-green-600">✓ 实时查看分析日志</p>
+              <p class="text-xs text-green-600">✓ 结构化双维度报告</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 步骤 -->
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm divide-y divide-gray-50">
+          ${[
+            ['1', '配置 GitHub Secrets', `
+              仓库 <strong>Settings → Secrets and variables → Actions</strong> 添加：
+              <div class="mt-2 overflow-x-auto">
+                <table class="w-full text-xs border-collapse">
+                  <thead><tr class="bg-gray-50">
+                    <th class="text-left px-2 py-1.5 border border-gray-100">变量名</th>
+                    <th class="text-left px-2 py-1.5 border border-gray-100">说明</th>
+                    <th class="px-2 py-1.5 border border-gray-100">必填</th>
+                  </tr></thead>
+                  <tbody>
+                    ${[
+                      ['EMAIL_SENDER','发件人邮箱','✅'],
+                      ['EMAIL_PASSWORD','SMTP 授权码','✅'],
+                      ['EMAIL_RECEIVERS','收件人，逗号分隔','✅'],
+                      ['GEMINI_API_KEY','Google Gemini Key（免费可用）','✅ AI必填其一'],
+                      ['DEEPSEEK_API_KEY','DeepSeek Key','可选'],
+                      ['OPENAI_API_KEY','OpenAI Key','可选'],
+                      ['TUSHARE_TOKEN','Tushare Pro Token（提升数据质量）','可选'],
+                    ].map(([n,d,r]) => `<tr>
+                      <td class="px-2 py-1 border border-gray-100 font-mono text-blue-700">${n}</td>
+                      <td class="px-2 py-1 border border-gray-100 text-gray-600">${d}</td>
+                      <td class="px-2 py-1 border border-gray-100 text-center">${r}</td>
+                    </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>`],
+            ['2', '配置自选股和参数', `
+              在「自选股」Tab 添加股票代码，在「设置」Tab 调整参数。<br/>
+              点击底部「保存配置」→「复制 JSON」→ 提交到仓库 <code class="bg-gray-100 px-1 rounded">config/watchlist.json</code>`],
+            ['3', '启用 GitHub Pages（可选）', `
+              仓库 Settings → Pages → Source: main，Folder: /portal<br/>
+              访问 <code class="bg-gray-100 px-1 rounded">https://用户名.github.io/仓库名/</code>`],
+            ['4', '等待每日自动分析', `
+              每个工作日北京时间 18:00 自动运行，结果发送到配置的邮箱。<br/>
+              也可在 Actions → <strong>Portal 每日股票分析</strong> 手动触发。`],
+            ['5', '本地立即分析（可选）', `
+              安装 Python 依赖后，直接在「立即运行」Tab 点击分析按钮，<br/>
+              首次点击会自动尝试启动本地服务，无需手动操作。<br/>
+              <code class="bg-gray-100 px-1 rounded text-xs">pip install -r requirements.txt</code>`],
+          ].map(([n, title, body]) => `
+            <div class="px-5 py-4 flex gap-4">
+              <div class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">${n}</div>
+              <div>
+                <p class="text-sm font-semibold text-gray-800 mb-1.5">${title}</p>
+                <div class="text-xs text-gray-600 leading-relaxed">${body}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+
+        <!-- FAQ -->
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">常见问题</p>
+          ${[
+            ['邮件收不到？', '检查 EMAIL_SENDER/EMAIL_PASSWORD 是否正确，确认 SMTP 服务已开启（QQ邮箱需手动开启 POP3/SMTP）。'],
+            ['AI 分析报错？', '确认至少配置了一个 AI API Key（GEMINI_API_KEY 推荐，有免费额度）。'],
+            ['东方财富数据源失败？', '正常现象，系统自动切换到 AkShare/新浪备用源。'],
+            ['如何修改分析时间？', '修改 .github/workflows/portal-daily-analysis.yml 中的 cron 表达式，UTC = 北京时间 - 8h。'],
+          ].map(([q, a]) => `
+            <details class="bg-white border border-gray-100 rounded-xl overflow-hidden">
+              <summary class="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
+                <span>${q}</span><span class="chevron text-gray-400 text-xs">▶</span>
+              </summary>
+              <div class="px-4 pb-3 text-xs text-gray-600 leading-relaxed">${a}</div>
+            </details>`).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+// ── js/tabs/run.js ──────────────────────────────
+/**
+ * tabs/run.js — 立即运行分析（三子面板布局）
+ *
+ * 子面板布局：
+ *   [分析] 紧凑输入 + 自选股芯片 + 可折叠维度选择（<details>）+ 操作按钮行
+ *   [日志] 状态 badge + 清空按钮 + 全高日志区（每行带 [HH:MM:SS] 时间戳）
+ *   [报告] 工具栏（复制/视图切换）+ 报告内容区 + 历史列表（最近 5 条）
+ *
+ * 流程：
+ *   点击分析 -> _deepAnalyze() -> _switchSubTab('log') -> SSE done -> _switchSubTab('report')
+ *
+ * 历史记录：
+ *   localStorage key: "dsa_run_history"
+ *   格式：[{code, name, score, signal, time, taskId}]
+ *   最多 10 条，新的在前
+ */
+
+
+const DIM_DEFS = {
+  technical: {
+    label: '📊 技术面', color: 'blue',
+    mods: {
+      ma_system: '均线系统 MA5/10/20/60', macd: 'MACD',
+      rsi: 'RSI', kdj: 'KDJ', bollinger: '布林带',
+      overbought: '超买超卖综合', divergence: '背离(顶/底)',
+      volume: '量价关系', pattern: 'K线形态(LLM)',
+      wave: '波浪理论(LLM)', chan: '缠论(LLM)',
+    },
+    defaults: ['ma_system','macd','rsi','kdj','bollinger','overbought','divergence','volume'],
+  },
+  fundamental: {
+    label: '📈 基本面', color: 'emerald',
+    mods: {
+      financials: '核心财报', growth: '成长能力',
+      dividend: '分红质量', capital_flow: '主力资金',
+      valuation: '估值水平（PE/PB）', business: '主营业务(LLM)',
+    },
+    defaults: ['financials','growth','valuation','capital_flow'],
+  },
+  industry: {
+    label: '🏭 产业链', color: 'violet',
+    mods: {
+      key_commodity: '核心商品/产品价格',
+      industry_chain: '产业链地位',
+      competitors: '竞争格局',
+      policy: '政策风向',
+    },
+    defaults: ['key_commodity','industry_chain','competitors','policy'],
+  },
+};
+
+const HISTORY_KEY = 'dsa_run_history';
+const HISTORY_MAX = 10;
+const HISTORY_SHOW = 5;
+const REPORT_CACHE_PREFIX = 'dsa_report_';
+
+class RunTab {
+  constructor(container, store, toast) {
+    this._c = container; this._s = store; this._t = toast;
+    this._online         = false;
+    this._sse            = null;
+    this._report         = null;
+    this._selDims        = new Set(['technical']);
+    this._selMods        = Object.fromEntries(
+      // 默认全选：每个维度的全部子模块都勾选
+      Object.entries(DIM_DEFS).map(([k,v]) => [k, new Set(Object.keys(v.mods))])
+    );
+    this._serverStarting = false;
+    this._activeSub      = 'analyze'; // 'analyze' | 'log' | 'report'
+    this._viewMode       = 'structured'; // 'structured' | 'markdown'
+    this._lastRawReport  = null;
+    this._lastRtype      = null;
+  }
+
+  init() {
+    this._render();
+    this._s.subscribe(st => this._syncChips(st));
+  }
+
+  setServerStatus(online) {
+    const changed = online !== this._online;
+    this._online = online;
+    if (changed) this._updateOnlineUI();
+  }
+
+  // ── 主渲染 ────────────────────────────────────────────────────────────
+  _render() {
+    this._c.innerHTML = `
+      <div class="pb-20">
+
+        <!-- 子 Tab 导航栏 -->
+        <div class="flex gap-1 mb-4 bg-white/70 backdrop-blur-sm rounded-2xl p-1.5 shadow-sm border border-gray-100">
+          <button data-sub="analyze"
+            class="sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">
+            ⚙️ 分析
+          </button>
+          <button data-sub="log"
+            class="sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">
+            <span>📋 日志</span>
+            <span id="tab-log-badge" class="hidden ml-1 inline-block w-2 h-2 rounded-full bg-blue-500 align-middle"></span>
+          </button>
+          <button data-sub="report"
+            class="sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">
+            <span>📄 报告</span>
+            <span id="tab-report-badge" class="hidden ml-1 inline-block w-2 h-2 rounded-full bg-green-500 align-middle"></span>
+          </button>
+        </div>
+
+        <!-- ══ 子面板 1：分析 ══ -->
+        <div id="sub-analyze" class="space-y-4">
+
+          <div class="bg-white border border-gray-100 rounded-2xl shadow-md overflow-hidden card-hover">
+            <!-- 卡片头 -->
+            <div class="px-4 pt-3.5 pb-2.5 border-b border-gray-50 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">🔬</span>
+                </div>
+                <p class="text-sm font-semibold text-gray-900">深度分析</p>
+              </div>
+              <div id="run-svc-chip"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium
+                       bg-gray-50 border-gray-200 text-gray-400">
+                <span class="status-dot offline" id="run-dot"></span>
+                <span id="run-svc-label">纯静态模式</span>
+              </div>
+            </div>
+
+            <div class="px-4 py-3.5 space-y-3.5">
+
+              <!-- 输入行：股票代码 + 股票名称 -->
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                  <input id="run-code" type="text" placeholder="股票代码，如 002466" maxlength="12"
+                    class="form-input pl-7 text-sm" autocomplete="off" />
+                </div>
+                <input id="run-name" type="text" placeholder="名称（可选）" maxlength="20"
+                  class="form-input w-28 text-sm" />
+              </div>
+
+              <!-- 自选股芯片 -->
+              <div id="run-chips" class="flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
+
+              <!-- 快捷维度选择 -->
+              <div>
+                <p class="text-xs text-gray-400 font-medium mb-1.5">⚡ 快捷维度</p>
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="dim-quick-btn dq-all"      data-dq="all">🔬 全部</button>
+                  <button class="dim-quick-btn dq-tech"     data-dq="technical">📊 技术面</button>
+                  <button class="dim-quick-btn dq-fund"     data-dq="fundamental">📈 基本面</button>
+                  <button class="dim-quick-btn dq-ind"      data-dq="industry">🏭 产业链</button>
+                  <button class="dim-quick-btn dq-fund-ind" data-dq="fund+ind">📈🏭 基本面+产业链</button>
+                </div>
+              </div>
+
+              <!-- 维度选择：<details> 折叠，默认收起 -->
+              <details class="group">
+                <summary class="flex items-center gap-1.5 text-xs text-gray-500
+                                hover:text-gray-700 transition-colors cursor-pointer select-none list-none">
+                  <span class="transition-transform group-open:rotate-90">▶</span>
+                  <span>自定义子模块 · 已选 <span id="dims-count">1</span> 个维度</span>
+                </summary>
+                <div id="dim-list" class="mt-2 space-y-2"></div>
+              </details>
+
+              <!-- 🤖 Agent 综合研判开关 -->
+              <label class="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer select-none">
+                <input type="checkbox" id="chk-agent-review"
+                  class="w-3.5 h-3.5 accent-amber-600"/>
+                <span class="text-xs text-amber-800">🤖 附加 <b>Agent 综合研判</b>（多花约 1 次 LLM）</span>
+              </label>
+
+              <!-- 主操作按钮行：[深度分析] [大盘复盘] -->
+              <div class="grid grid-cols-2 gap-2">
+                <button id="btn-deep"
+                  class="py-2.5 rounded-xl text-xs font-bold transition-all
+                         bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  🔬 深度分析
+                </button>
+                <button id="btn-market"
+                  class="py-2.5 rounded-xl text-xs font-bold transition-all
+                         bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  🌐 大盘复盘
+                </button>
+              </div>
+
+              <!-- 次要按钮行：[全量分析] [批量分析] -->
+              <div class="grid grid-cols-2 gap-2">
+                <button id="btn-full"
+                  class="py-2 rounded-xl text-xs font-semibold transition-all
+                         bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  ⚡ 全量分析
+                </button>
+                <button id="btn-batch"
+                  class="py-2 rounded-xl text-xs font-semibold transition-all
+                         bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  📑 批量分析
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 -mt-1">批量分析：依次处理「自选股」Tab 中勾选的股票</p>
+
+            </div>
+          </div>
+
+          <!-- 回测卡片 -->
+          <div class="bg-white border border-gray-100 rounded-2xl shadow-md overflow-hidden card-hover">
+            <div class="px-4 pt-3.5 pb-2.5 border-b border-gray-50 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">📈</span>
+                </div>
+                <p class="text-sm font-semibold text-gray-900">信号回测</p>
+                <span class="text-xs text-gray-400 hidden sm:inline">基于 K 线历史验证各技术信号胜率</span>
+              </div>
+              <span id="bt-note" class="text-xs text-gray-300">需先运行一次深度分析</span>
+            </div>
+            <div class="px-4 py-3.5 space-y-3">
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">📊</span>
+                  <input id="bt-code" type="text" placeholder="股票代码，如 002466" maxlength="12"
+                    class="form-input pl-7 text-sm" autocomplete="off" />
+                </div>
+                <button id="btn-backtest"
+                  class="px-4 py-2 rounded-xl text-xs font-bold transition-all
+                         bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  运行回测
+                </button>
+              </div>
+              <!-- 结果区：默认隐藏 -->
+              <div id="bt-result" class="hidden space-y-3">
+                <div id="bt-meta" class="text-xs text-gray-400"></div>
+                <div id="bt-chart" style="height:300px"></div>
+                <div id="bt-table" class="overflow-x-auto"></div>
+              </div>
+              <div id="bt-error" class="hidden text-xs text-red-400 py-2"></div>
+              <div id="bt-loading" class="hidden text-xs text-gray-400 py-2 text-center">⏳ 回测运行中…</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ══ 子面板 2：日志 ══ -->
+        <div id="sub-log" class="hidden">
+          <div class="bg-white border border-gray-100 rounded-2xl shadow-md overflow-hidden">
+            <!-- 顶部状态栏 -->
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+              <div class="flex items-center gap-2">
+                <div class="w-5 h-5 bg-gray-800 rounded flex items-center justify-center">
+                  <span class="text-xs">📋</span>
+                </div>
+                <span class="text-xs font-semibold text-gray-700">运行日志</span>
+                <span id="run-badge"
+                  class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">待机</span>
+              </div>
+              <button id="btn-clear-log"
+                class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-lg hover:bg-red-50">清空</button>
+            </div>
+            <!-- 日志框 -->
+            <div id="log-box"
+              class="min-h-96 max-h-[65vh] overflow-y-auto p-4 bg-gray-950 font-mono rounded-b-2xl"></div>
+          </div>
+        </div>
+
+        <!-- ══ 子面板 3：报告 ══ -->
+        <div id="sub-report" class="hidden space-y-4">
+
+          <!-- 工具栏：复制 + 切换视图 -->
+          <div class="bg-white border border-gray-100 rounded-2xl shadow-md px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 bg-green-50 rounded-lg flex items-center justify-center">
+                <span class="text-xs">📄</span>
+              </div>
+              <p class="text-sm font-semibold text-gray-900">分析报告</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <!-- 视图切换 -->
+              <div class="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+                <button id="btn-view-structured"
+                  class="view-btn px-2.5 py-1.5 font-medium transition-colors bg-blue-600 text-white">
+                  结构化
+                </button>
+                <button id="btn-view-markdown"
+                  class="view-btn px-2.5 py-1.5 font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50">
+                  Markdown
+                </button>
+              </div>
+              <!-- 复制 -->
+              <button id="btn-copy-report"
+                class="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors">
+                📋 复制
+              </button>
+            </div>
+          </div>
+
+          <!-- 报告内容区 -->
+          <div id="report-structured" class="min-h-32"></div>
+          <div id="report-markdown"
+            class="hidden bg-white border border-gray-100 rounded-2xl p-5 text-sm text-gray-700 leading-relaxed min-h-32 shadow-md"></div>
+
+          <!-- 无报告提示 -->
+          <div id="report-empty" class="py-20 text-center">
+            <div class="text-4xl mb-3">📊</div>
+            <p class="text-gray-400 text-sm font-medium">运行分析后报告将显示在这里</p>
+            <p class="text-gray-300 text-xs mt-1">选择股票代码，点击「深度分析」开始</p>
+          </div>
+
+          <!-- 历史记录：最近 5 条 -->
+          <div id="run-history" class="hidden mt-4">
+            <div class="flex items-center gap-2 mb-2.5">
+              <span class="text-xs font-semibold text-gray-500">最近历史</span>
+              <button id="btn-clear-history"
+                class="text-xs text-gray-300 hover:text-red-400 transition-colors">清空</button>
+            </div>
+            <div id="run-history-list" class="space-y-1.5"></div>
+          </div>
+
+        </div>
+
+      </div>`;
+
+    this._buildDims();
+    this._bindEvents();
+    this._updateOnlineUI();
+    this._report = new ReportView(this._c.querySelector('#report-structured'));
+    this._switchSubTab('analyze');
+    this._renderHistory();
+  }
+
+  // ── 子面板切换 ────────────────────────────────────────────────────────
+  _switchSubTab(name) {
+    this._activeSub = name;
+    ['analyze','log','report'].forEach(p => {
+      const el  = this._c.querySelector(`#sub-${p}`);
+      const btn = this._c.querySelector(`[data-sub="${p}"]`);
+      if (!el || !btn) return;
+      const active = p === name;
+      el.classList.toggle('hidden', !active);
+      if (active) {
+        btn.classList.remove('text-gray-500');
+        btn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+      } else {
+        btn.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+        btn.classList.add('text-gray-500');
+      }
+    });
+    if (name === 'log')    this._c.querySelector('#tab-log-badge')?.classList.add('hidden');
+    if (name === 'report') this._c.querySelector('#tab-report-badge')?.classList.add('hidden');
+  }
+
+  // ── 维度选择器 ────────────────────────────────────────────────────────
+  _buildDims() {
+    const list = this._c.querySelector('#dim-list');
+    Object.entries(DIM_DEFS).forEach(([dimKey, dimDef]) => {
+      const c = dimDef.color || 'blue';
+      const wrap = document.createElement('div');
+      wrap.className = 'border border-gray-100 rounded-xl overflow-hidden';
+      const checked = this._selDims.has(dimKey);
+      wrap.innerHTML = `
+        <div class="flex items-center gap-3 px-3 py-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+             data-dim="${dimKey}">
+          <input type="checkbox" id="dim-${dimKey}" ${checked ? 'checked' : ''}
+            class="w-4 h-4 accent-${c}-600 cursor-pointer" />
+          <label for="dim-${dimKey}" class="text-xs font-medium text-gray-700 cursor-pointer flex-1 select-none">
+            ${dimDef.label}
+          </label>
+          <span class="text-xs text-gray-400">▼</span>
+        </div>
+        <div class="dim-mods ${checked ? '' : 'hidden'} px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 bg-white"
+             data-dim="${dimKey}">
+          ${Object.entries(dimDef.mods).map(([mk, ml]) => `
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer hover:text-${c}-600">
+              <input type="checkbox" class="mod-cb accent-${c}-600 w-3.5 h-3.5"
+                data-dim="${dimKey}" data-mod="${mk}"
+                ${this._selMods[dimKey]?.has(mk) ? 'checked' : ''} />
+              ${ml}
+            </label>`).join('')}
+        </div>`;
+      list.appendChild(wrap);
+    });
+
+    list.querySelectorAll('[data-dim]').forEach(row => {
+      if (row.classList.contains('dim-mods')) return;
+      row.addEventListener('click', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+        const cb = row.querySelector('input[type=checkbox]');
+        cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
+      });
+    });
+    list.querySelectorAll('[id^="dim-"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const k = cb.id.replace('dim-', '');
+        const modsEl = list.querySelector(`.dim-mods[data-dim="${k}"]`);
+        cb.checked ? this._selDims.add(k) : this._selDims.delete(k);
+        modsEl?.classList.toggle('hidden', !cb.checked);
+        this._updateDimsCount();
+      });
+    });
+    list.querySelectorAll('.mod-cb').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const { dim, mod } = cb.dataset;
+        cb.checked ? this._selMods[dim]?.add(mod) : this._selMods[dim]?.delete(mod);
+      });
+    });
+  }
+
+  _updateDimsCount() {
+    const el = this._c.querySelector('#dims-count');
+    if (el) el.textContent = this._selDims.size;
+  }
+
+  _setDims(keys) {
+    const all = Object.keys(DIM_DEFS);
+    this._selDims = new Set(keys.filter(k => all.includes(k)));
+    const list = this._c.querySelector('#dim-list');
+    if (!list) return;
+    all.forEach(k => {
+      const cb    = list.querySelector(`#dim-${k}`);
+      const mods  = list.querySelector(`.dim-mods[data-dim="${k}"]`);
+      const on    = this._selDims.has(k);
+      if (cb) cb.checked = on;
+      mods?.classList.toggle('hidden', !on);
+    });
+    this._updateDimsCount();
+    this._t.show(`已切换到：${keys.join(' + ')}`, 'info', 1800);
+  }
+
+  // ── 自选股芯片 ────────────────────────────────────────────────────────
+  _syncChips(state) {
+    const chips = this._c.querySelector('#run-chips');
+    if (!chips) return;
+    const stocks = state.stock_list || [];
+    if (!stocks.length) {
+      chips.innerHTML = '<span class="text-xs text-gray-300">（自选股为空，先去「自选股」Tab 添加）</span>';
+      return;
+    }
+    chips.innerHTML = stocks.map(s => {
+      const label = s.name ? `${this._esc(s.name)}` : s.code;
+      return `<button class="chip px-2.5 py-1 text-xs border border-gray-200 rounded-lg text-gray-600"
+              data-code="${s.code}" data-name="${this._esc(s.name || '')}">${label}</button>`;
+    }).join('');
+    chips.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._c.querySelector('#run-code').value = btn.dataset.code;
+        const nameEl = this._c.querySelector('#run-name');
+        if (nameEl) nameEl.value = btn.dataset.name || '';
+        chips.querySelectorAll('.chip').forEach(b => b.classList.toggle('selected', b === btn));
+      });
+    });
+  }
+
+  _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── 在线状态 UI ───────────────────────────────────────────────────────
+  _updateOnlineUI() {
+    const dot   = this._c.querySelector('#run-dot');
+    const label = this._c.querySelector('#run-svc-label');
+    const chip  = this._c.querySelector('#run-svc-chip');
+    if (!dot) return;
+    if (this._online) {
+      dot.className     = 'status-dot online';
+      label.textContent = '本地服务在线';
+      chip.className    = chip.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim()
+        + ' bg-green-50 border-green-200 text-green-700';
+    } else {
+      dot.className     = 'status-dot offline';
+      label.textContent = '纯静态模式';
+      chip.className    = chip.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim()
+        + ' bg-gray-50 border-gray-200 text-gray-400';
+    }
+  }
+
+  // ── 事件绑定 ──────────────────────────────────────────────────────────
+  _bindEvents() {
+    // 子 Tab 切换
+    this._c.querySelectorAll('.sub-tab').forEach(btn => {
+      btn.addEventListener('click', () => this._switchSubTab(btn.dataset.sub));
+    });
+
+    // 快捷维度按钮
+    this._c.querySelectorAll('.dim-quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dq = btn.dataset.dq;
+        if (dq === 'all')         this._setDims(['technical','fundamental','industry']);
+        else if (dq === 'fund+ind') this._setDims(['fundamental','industry']);
+        else                      this._setDims([dq]);
+      });
+    });
+
+    // 分析按钮
+    this._c.querySelector('#btn-deep').addEventListener('click',   () => this._deepAnalyze());
+    this._c.querySelector('#btn-market').addEventListener('click', () => this._marketReview());
+    this._c.querySelector('#btn-full').addEventListener('click',   () => this._quickRun('full'));
+    this._c.querySelector('#btn-batch').addEventListener('click',  () => this._batchAnalyze());
+    this._c.querySelector('#run-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter') this._deepAnalyze();
+    });
+
+    // 日志清空
+    this._c.querySelector('#btn-clear-log').addEventListener('click', () => {
+      this._c.querySelector('#log-box').innerHTML = '';
+    });
+
+    // 复制报告
+    this._c.querySelector('#btn-copy-report').addEventListener('click', async () => {
+      const mbox = this._c.querySelector('#report-markdown');
+      const sbox = this._c.querySelector('#report-structured');
+      try {
+        await navigator.clipboard.writeText(mbox.dataset.raw || sbox.innerText || '');
+        this._t.show('已复制', 'success');
+      } catch { this._t.show('复制失败', 'warning'); }
+    });
+
+    // 视图切换
+    this._c.querySelector('#btn-view-structured').addEventListener('click', () => this._setViewMode('structured'));
+    this._c.querySelector('#btn-view-markdown').addEventListener('click',   () => this._setViewMode('markdown'));
+
+    // 历史清空
+    this._c.querySelector('#btn-clear-history')?.addEventListener('click', () => {
+      localStorage.removeItem(HISTORY_KEY);
+      this._renderHistory();
+    });
+
+    // 回测
+    this._c.querySelector('#btn-backtest').addEventListener('click', () => this._runBacktest());
+    this._c.querySelector('#bt-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter') this._runBacktest();
+    });
+    // 同步深度分析的股票代码到回测输入框
+    this._c.querySelector('#run-code').addEventListener('input', e => {
+      const btCode = this._c.querySelector('#bt-code');
+      if (!btCode.value) btCode.value = e.target.value;
+    });
+  }
+
+  // ── 回测 ────────────────────────────────────────────────────────────
+  async _runBacktest() {
+    const code = (this._c.querySelector('#bt-code').value || '').trim();
+    if (!code) { this._t.show('请输入股票代码', 'warning'); return; }
+
+    const loading = this._c.querySelector('#bt-loading');
+    const errEl   = this._c.querySelector('#bt-error');
+    const resEl   = this._c.querySelector('#bt-result');
+    const noteEl  = this._c.querySelector('#bt-note');
+    const btn     = this._c.querySelector('#btn-backtest');
+
+    loading.classList.remove('hidden');
+    errEl.classList.add('hidden');
+    resEl.classList.add('hidden');
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${SERVER}/backtest?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      loading.classList.add('hidden');
+      btn.disabled = false;
+
+      if (!res.ok || data.ok === false || data.error) {
+        errEl.textContent = '❌ ' + (data.error || `请求失败（HTTP ${res.status}）`);
+        errEl.classList.remove('hidden');
+        noteEl.textContent = '请先对该股票运行一次深度分析';
+        return;
+      }
+      // 后端返回结构为 { ok, code, backtest: { signals, total_days, stock_days } }，
+      // 回测结果字段都在 backtest 层；兼容旧的平铺结构。
+      const bt = data.backtest || data;
+      noteEl.textContent = `数据区间：${bt.stock_days}  共 ${bt.total_days} 个交易日`;
+      this._renderBacktestResult(bt);
+    } catch (e) {
+      loading.classList.add('hidden');
+      btn.disabled = false;
+      errEl.textContent = '❌ 请求失败：' + e.message + '（请确认本地服务已启动）';
+      errEl.classList.remove('hidden');
+    }
+  }
+
+  _renderBacktestResult(data) {
+    const resEl   = this._c.querySelector('#bt-result');
+    const metaEl  = this._c.querySelector('#bt-meta');
+    const chartEl = this._c.querySelector('#bt-chart');
+    const tableEl = this._c.querySelector('#bt-table');
+
+    resEl.classList.remove('hidden');
+    metaEl.textContent = `数据区间：${data.stock_days}  共 ${data.total_days} 个交易日`;
+
+    const signals = data.signals || {};
+    const names   = Object.keys(signals).filter(k => signals[k].count > 0);
+    const days    = ['1', '3', '5', '10', '20'];
+    const colors  = { '1': '#a855f7', '3': '#ec4899', '5': '#3b82f6', '10': '#f59e0b', '20': '#10b981' };
+
+    // ── ECharts 柱状图：各信号 × 三个持有期的胜率 ──────────────
+    if (typeof echarts !== 'undefined' && names.length > 0) {
+      const chart = echarts.init(chartEl);
+      chart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          formatter: params => {
+            let s = `<b>${params[0].axisValue}</b><br/>`;
+            params.forEach(p => { s += `${p.marker}${p.seriesName}日胜率：<b>${p.value}%</b><br/>`; });
+            return s;
+          }
+        },
+        legend: {
+          data: days.map(d => d + '日胜率'),
+          textStyle: { fontSize: 11 },
+          bottom: 0,
+        },
+        grid: { left: 10, right: 10, top: 16, bottom: 36, containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: names,
+          axisLabel: { fontSize: 10, rotate: names.length > 5 ? 15 : 0, overflow: 'break', width: 80 },
+        },
+        yAxis: {
+          type: 'value', min: 0, max: 100,
+          axisLabel: { formatter: '{value}%', fontSize: 10 },
+          splitLine: { lineStyle: { color: '#f0f0f0' } },
+        },
+        series: days.map(d => ({
+          name: d + '日胜率',
+          type: 'bar',
+          barGap: '5%',
+          barCategoryGap: '30%',
+          itemStyle: { color: colors[d], borderRadius: [3, 3, 0, 0] },
+          data: names.map(n => signals[n].stats?.[d]?.win_rate ?? 0),
+          label: { show: true, position: 'top', fontSize: 9,
+                   formatter: p => p.value > 0 ? p.value + '%' : '' },
+        })),
+      });
+      window.addEventListener('resize', () => chart.resize());
+    } else {
+      chartEl.innerHTML = '<div class="text-xs text-gray-400 text-center py-8">无信号触发记录</div>';
+    }
+
+    // ── 明细表格 ────────────────────────────────────────────────
+    const rows = names.map(n => {
+      const s = signals[n];
+      const stat = s.stats || {};
+      return `<tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+        <td class="px-3 py-2 text-xs font-medium text-gray-700 whitespace-nowrap">${n}</td>
+        <td class="px-3 py-2 text-xs text-center text-gray-500">${s.count}</td>
+        ${days.map(d => {
+          const w  = stat[d]?.win_rate  ?? '-';
+          const r  = stat[d]?.avg_return ?? '-';
+          const wc = typeof w === 'number' ? (w >= 60 ? 'text-emerald-600 font-semibold' : w < 45 ? 'text-red-500' : 'text-gray-600') : 'text-gray-400';
+          const rc = typeof r === 'number' ? (r > 0 ? 'text-emerald-600' : r < 0 ? 'text-red-500' : 'text-gray-500') : 'text-gray-400';
+          return `<td class="px-2 py-2 text-xs text-center ${wc}">${typeof w === 'number' ? w + '%' : w}</td>
+                  <td class="px-2 py-2 text-xs text-center ${rc}">${typeof r === 'number' ? (r > 0 ? '+' : '') + r + '%' : r}</td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+
+    const allZero = names.length === 0;
+    tableEl.innerHTML = allZero
+      ? '<p class="text-xs text-gray-400 text-center py-4">历史数据中未触发任何信号</p>'
+      : `<table class="w-full text-left border-collapse">
+           <thead>
+             <tr class="bg-gray-50 text-xs text-gray-500">
+               <th class="px-3 py-2 font-medium">信号名称</th>
+               <th class="px-3 py-2 font-medium text-center">触发次数</th>
+               ${days.map(d =>
+                 `<th class="px-2 py-2 font-medium text-center" colspan="2">${d} 日持有</th>`
+               ).join('')}
+             </tr>
+             <tr class="bg-gray-50 text-xs text-gray-400 border-b border-gray-100">
+               <th></th><th></th>
+               ${days.map(() => '<th class="px-2 py-1 text-center">胜率</th><th class="px-2 py-1 text-center">均收益</th>').join('')}
+             </tr>
+           </thead>
+           <tbody>${rows}</tbody>
+         </table>
+         <p class="text-xs text-gray-400 mt-2 px-1">胜率≥60% 绿色 · <45% 红色；均收益正负对应涨跌</p>`;
+  }
+
+  // ── 视图切换（结构化 / Markdown）────────────────────────────────────
+  _setViewMode(mode) {
+    this._viewMode = mode;
+    const btnS = this._c.querySelector('#btn-view-structured');
+    const btnM = this._c.querySelector('#btn-view-markdown');
+    const sbox = this._c.querySelector('#report-structured');
+    const mbox = this._c.querySelector('#report-markdown');
+
+    if (mode === 'structured') {
+      btnS.className = btnS.className.replace('bg-white text-gray-500 hover:bg-gray-50','') + ' bg-blue-600 text-white';
+      btnM.className = btnM.className.replace('bg-blue-600 text-white','') + ' bg-white text-gray-500 hover:bg-gray-50';
+      sbox.classList.remove('hidden');
+      mbox.classList.add('hidden');
+    } else {
+      btnM.className = btnM.className.replace('bg-white text-gray-500 hover:bg-gray-50','') + ' bg-blue-600 text-white';
+      btnS.className = btnS.className.replace('bg-blue-600 text-white','') + ' bg-white text-gray-500 hover:bg-gray-50';
+      mbox.classList.remove('hidden');
+      sbox.classList.add('hidden');
+      if (!mbox.dataset.raw && this._lastRawReport && this._lastRtype === 'structured') {
+        mbox.dataset.raw = typeof this._lastRawReport === 'string'
+          ? this._lastRawReport
+          : JSON.stringify(this._lastRawReport, null, 2);
+        mbox.innerHTML = this._md(mbox.dataset.raw);
+      }
+    }
+  }
+
+  // ── 自动启动 server ───────────────────────────────────────────────────
+  async _ensureServer() {
+    if (this._online) return true;
+    if (this._serverStarting) {
+      this._t.show('正在等待本地服务启动...', 'warning');
+      return false;
+    }
+    this._serverStarting = true;
+    this._t.show('需要本地服务，请运行：python portal/server.py', 'warning', 8000);
+
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const r = await fetch(`${SERVER}/health`, { signal: AbortSignal.timeout(1000) });
+        if (r.ok) {
+          this._online = true;
+          this._serverStarting = false;
+          this._updateOnlineUI();
+          window.dispatchEvent(new CustomEvent('server-online'));
+          return true;
+        }
+      } catch {}
+    }
+    this._serverStarting = false;
+    this._t.show('本地服务未启动，请先运行 server.py', 'error');
+    return false;
+  }
+
+  // ── 深度分析（单股，读输入框）──────────────────────────────────────────
+  async _deepAnalyze() {
+    const code = this._c.querySelector('#run-code').value.trim().toUpperCase();
+    const name = this._c.querySelector('#run-name').value.trim();
+    if (!code) { this._t.show('请输入股票代码', 'warning'); return; }
+
+    const dims = [...this._selDims];
+    if (!dims.length) { this._t.show('请至少选择一个分析维度', 'warning'); return; }
+
+    const ok = await this._ensureServer();
+    if (!ok) return;
+
+    await this._runSingle(code, name || code, dims);
+  }
+
+  // ── 批量分析勾选的自选股（串行队列）──────────────────────────────────
+  async _batchAnalyze() {
+    const dims = [...this._selDims];
+    if (!dims.length) { this._t.show('请至少选择一个分析维度', 'warning'); return; }
+
+    const state = this._s.get();
+    const checked = (state.stock_list || []).filter(s => s.checked);
+    if (!checked.length) {
+      this._t.show('请先在「自选股」Tab 勾选要分析的股票', 'warning');
+      return;
+    }
+
+    const ok = await this._ensureServer();
+    if (!ok) return;
+
+    this._prepareLog(`📑 批量分析 ${checked.length} 只自选股`);
+    this._disableBtns();
+
+    let done = 0, failed = 0;
+    for (const s of checked) {
+      done++;
+      this._disableBtns();   // 每只前重新禁用（_runSingle 内 SSE done 会解禁）
+      this._appendLog(`──────── (${done}/${checked.length}) ${s.name || s.code} ────────`, 'info');
+      try {
+        const okOne = await this._runSingle(s.code, s.name || s.code, dims, { batch: true });
+        if (!okOne) failed++;
+      } catch (e) {
+        failed++;
+        this._appendLog(`❌ ${s.code} 分析异常：${e.message}`, 'error');
+      }
+    }
+
+    const badge = this._c.querySelector('#run-badge');
+    badge.textContent = `批量完成 ${done - failed}/${done}`;
+    badge.className = `text-xs px-2 py-0.5 rounded-full font-medium ${failed ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`;
+    this._resetBtns();
+    this._t.show(`批量分析完成：成功 ${done - failed} / 共 ${done}`, failed ? 'warning' : 'success', 6000);
+    // 批量结束切到报告页看最近历史
+    this._switchSubTab('report');
+  }
+
+  /**
+   * 分析单只股票 → Promise<boolean>（成功 true / 失败 false，永不 reject）。
+   * 供单股按钮和批量队列共用。batch=true 时不重置日志（保留队列上下文）。
+   */
+  async _runSingle(code, name, dims, { batch = false } = {}) {
+    const modulesMap = Object.fromEntries(dims.map(d => [d, [...(this._selMods[d] || [])]]));
+    if (!batch) {
+      this._prepareLog(`🔬 深度分析：${name || code}（${code}）`);
+    } else {
+      this._appendLog(`🔬 深度分析：${name || code}（${code}）`, 'info');
+    }
+
+    let taskId;
+    try {
+      const res = await fetch(`${SERVER}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock_code: code, stock_name: name || code, dimensions: dims, modules: modulesMap,
+          llm_mode: this._s.get().llm_note_mode || 'batch',
+          open_report: this._s.get().auto_open_html !== false,
+          agent_review: !!this._c.querySelector('#chk-agent-review')?.checked }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      taskId = d.task_id;
+    } catch (e) {
+      this._appendLog(`❌ 启动失败：${e.message}`, 'error');
+      if (!batch) { this._t.show(`启动失败: ${e.message}`, 'error'); this._resetBtns(); }
+      return false;
+    }
+    return this._listenSSE(taskId, 'structured', code, name || code);
+  }
+
+  // ── 快速任务 ──────────────────────────────────────────────────────────
+  async _quickRun(mode) {
+    const ok = await this._ensureServer();
+    if (!ok) return;
+
+    const label = mode === 'market' ? '🌐 大盘复盘' : '⚡ 全量分析';
+    this._prepareLog(label);
+
+    let taskId;
+    try {
+      const res = await fetch(`${SERVER}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, force_run: false, no_notify: true }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      taskId = d.task_id;
+    } catch (e) {
+      this._t.show(`启动失败: ${e.message}`, 'error');
+      this._resetBtns(); return;
+    }
+    this._listenSSE(taskId, 'markdown', '', label);
+  }
+
+  // ── 大盘复盘（新链路：上证+创业板，生成HTML）──────────────────────────
+  async _marketReview() {
+    const ok = await this._ensureServer();
+    if (!ok) return;
+    this._prepareLog('🌐 大盘复盘（上证指数 + 创业板指）');
+    let taskId;
+    try {
+      const res = await fetch(`${SERVER}/market_review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ open_report: this._s.get().auto_open_html !== false }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      taskId = d.task_id;
+    } catch (e) {
+      this._t.show(`启动失败: ${e.message}`, 'error');
+      this._resetBtns(); return;
+    }
+    this._listenSSE(taskId, 'market', '__market__', '大盘复盘');
+  }
+
+  // ── 日志区准备（切换到日志子面板）──────────────────────────────────
+  _prepareLog(title) {
+    if (this._sse) { this._sse.close(); this._sse = null; }
+    this._c.querySelector('#log-box').innerHTML = '';
+    this._c.querySelector('#report-structured').innerHTML = '';
+    const badge = this._c.querySelector('#run-badge');
+    badge.textContent = '运行中';
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium';
+    this._appendLog(title, 'info');
+    this._disableBtns();
+    // 自动切换到日志子面板
+    this._switchSubTab('log');
+  }
+
+  // ── SSE 监听（返回 Promise，done/error 都 resolve，供批量队列 await）──
+  _listenSSE(taskId, rtype, code = '', subject = '') {
+    return new Promise((resolve) => {
+      const sse = new EventSource(`${SERVER}/run/stream/${taskId}`);
+      this._sse = sse;
+      let settled = false;
+      const finish = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+
+      sse.onmessage = e => {
+        const d = JSON.parse(e.data);
+        this._appendLog(d.log, d.status === 'error' ? 'error' : 'default');
+      };
+      sse.addEventListener('done', e => {
+        sse.close(); this._sse = null;
+        const d = JSON.parse(e.data);
+        const ok = d.status === 'done';
+        const badge = this._c.querySelector('#run-badge');
+        badge.textContent = ok ? '完成 ✓' : '失败 ✗';
+        badge.className = `text-xs px-2 py-0.5 rounded-full font-medium ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+        this._resetBtns();
+        if (d.has_report) {
+          this._loadReport(taskId, d.report_type || rtype, code, subject).finally(() => finish(ok));
+        } else {
+          finish(ok);
+        }
+      });
+      sse.onerror = () => {
+        sse.close(); this._sse = null;
+        this._appendLog('⚠️ 连接断开，拉取结果...', 'warn');
+        setTimeout(() => {
+          this._loadReport(taskId, rtype, code, subject).finally(() => finish(false));
+        }, 600);
+        this._resetBtns();
+      };
+    });
+  }
+
+  async _loadReport(taskId, rtype, code = '', subject = '') {
+    try {
+      const res = await fetch(`${SERVER}/run/report/${taskId}`);
+      const d = await res.json();
+      const box = this._c.querySelector('#log-box');
+      if (d.logs) {
+        const ex = box.children.length;
+        d.logs.slice(ex).forEach(l => this._appendLog(l));
+      }
+      if (d.report) {
+        this._lastRtype = rtype;
+        if (rtype === 'market') {
+          // 大盘：HTML 已在浏览器打开，portal 内不渲染，只提示 + 记历史
+          this._t.show('大盘复盘完成，HTML 已在浏览器打开', 'success', 5000);
+          this._saveHistory({ code: '__market__', name: '大盘复盘', score: null, signal: '', taskId }, null);
+        } else {
+          rtype === 'structured'
+            ? this._showStructured(d.report, code, subject, taskId)
+            : this._showMarkdown(d.report, code, subject, taskId);
+        }
+      }
+    } catch {}
+  }
+
+  _showStructured(json, code = '', subject = '', taskId = '') {
+    try {
+      const rpt = typeof json === 'string' ? JSON.parse(json) : json;
+      this._lastRawReport = rpt;
+      const sbox  = this._c.querySelector('#report-structured');
+      const mbox  = this._c.querySelector('#report-markdown');
+      const empty = this._c.querySelector('#report-empty');
+      sbox.classList.remove('hidden');
+      mbox.classList.add('hidden');
+      mbox.dataset.raw = '';
+      if (empty) empty.classList.add('hidden');
+      this._report.render(rpt);
+      // 🤖 Agent 综合研判（选项B）：若有则在结构化报告末尾追加一节
+      if (rpt && rpt.agent_review) {
+        const card = document.createElement('div');
+        card.className = 'mt-4 p-3 rounded-xl border border-blue-200 bg-blue-50/60';
+        card.innerHTML =
+          `<div class="text-xs font-bold text-blue-700 mb-1.5">🤖 Agent 综合研判</div>` +
+          `<div class="text-xs leading-relaxed text-gray-800">${this._md(String(rpt.agent_review))}</div>`;
+        sbox.appendChild(card);
+      }
+      this._setViewMode('structured');
+      // 从报告中提取评分和信号
+      const score  = rpt?.summary?.score  ?? rpt?.score  ?? null;
+      const signal = rpt?.summary?.signal ?? rpt?.signal ?? '';
+      this._saveHistory({ code, name: subject, score, signal, taskId }, rpt);
+      // 红点 + 切到报告子面板
+      this._c.querySelector('#tab-report-badge')?.classList.remove('hidden');
+      this._switchSubTab('report');
+    } catch { this._showMarkdown(String(json), code, subject, taskId); }
+  }
+
+  _showMarkdown(md, code = '', subject = '', taskId = '') {
+    const sbox  = this._c.querySelector('#report-structured');
+    const mbox  = this._c.querySelector('#report-markdown');
+    const empty = this._c.querySelector('#report-empty');
+    this._lastRawReport = md;
+    sbox.innerHTML = '';
+    sbox.classList.add('hidden');
+    mbox.dataset.raw = md;
+    mbox.innerHTML = this._md(md);
+    mbox.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    this._setViewMode('markdown');
+    this._saveHistory({ code, name: subject, score: null, signal: '', taskId }, md);
+    // 红点 + 切到报告子面板
+    this._c.querySelector('#tab-report-badge')?.classList.remove('hidden');
+    this._switchSubTab('report');
+  }
+
+  // ── 日志追加（带 [HH:MM:SS] 时间戳）────────────────────────────────
+  _appendLog(line, type = 'default') {
+    const box = this._c.querySelector('#log-box');
+    if (!line || !box) return;
+
+    const now = new Date();
+    const ts  = [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map(n => String(n).padStart(2, '0')).join(':');
+
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 text-xs leading-relaxed font-mono py-0.5';
+
+    const colors = {
+      info:    '#6ee7b7',
+      error:   '#fca5a5',
+      warn:    '#fcd34d',
+      default: '#d1fae5',
+    };
+    let col = colors.default;
+    if (/✅|成功|完成/.test(line))      col = colors.info;
+    else if (/❌|失败|ERROR/.test(line)) col = colors.error;
+    else if (/⚠|WARNING/.test(line))    col = colors.warn;
+
+    const tsEl = document.createElement('span');
+    tsEl.className   = 'shrink-0 select-none';
+    tsEl.style.color = '#4b5563';
+    tsEl.textContent = `[${ts}]`;
+
+    const msgEl = document.createElement('span');
+    msgEl.style.color = col;
+    msgEl.textContent  = line;
+
+    row.appendChild(tsEl);
+    row.appendChild(msgEl);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+
+    if (this._activeSub !== 'log') {
+      this._c.querySelector('#tab-log-badge')?.classList.remove('hidden');
+    }
+  }
+
+  // ── 历史记录（localStorage，最多 10 条，显示最近 5 条）──────────────
+  // 格式：[{code, name, score, signal, time, taskId}]
+  _saveHistory({ code, name, score, signal, taskId } = {}, rpt = null) {
+    let list = this._loadHistoryList();
+    // 去重（需求1）：同 code 只保留最新——删旧项及其报告缓存
+    if (code) {
+      list.filter(h => h.code === code).forEach(h => {
+        if (h.taskId) { try { localStorage.removeItem(REPORT_CACHE_PREFIX + h.taskId); } catch {} }
+      });
+      list = list.filter(h => h.code !== code);
+    }
+    list.unshift({
+      code:   code   || '',
+      name:   name   || code || '',
+      score:  score  ?? null,
+      signal: signal || '',
+      time:   Date.now(),
+      taskId: taskId || '',
+    });
+    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch {}
+    // 缓存完整报告 JSON（< 200KB 才写入）
+    if (rpt != null && taskId) {
+      try {
+        const reportStr = JSON.stringify(rpt);
+        if (reportStr.length < 200 * 1024) {
+          try { localStorage.setItem(REPORT_CACHE_PREFIX + taskId, reportStr); } catch(e) {}
+        }
+      } catch(e) {}
+    }
+    this._renderHistory();
+  }
+
+  _loadHistoryList() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  _cleanOldReportCache() {
+    try {
+      const list = this._loadHistoryList();
+      const validIds = new Set(list.map(h => h.taskId).filter(Boolean));
+      const keysToDelete = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(REPORT_CACHE_PREFIX)) {
+          const taskId = key.slice(REPORT_CACHE_PREFIX.length);
+          if (!validIds.has(taskId)) keysToDelete.push(key);
+        }
+      }
+      keysToDelete.forEach(k => localStorage.removeItem(k));
+    } catch(e) {}
+  }
+
+  _renderHistory() {
+    const sec  = this._c.querySelector('#run-history');
+    const list = this._c.querySelector('#run-history-list');
+    if (!sec || !list) return;
+    const items = this._loadHistoryList().slice(0, HISTORY_SHOW);
+    if (!items.length) { sec.classList.add('hidden'); return; }
+    sec.classList.remove('hidden');
+
+    // 清理孤立缓存（历史列表中已不存在的 taskId）
+    this._cleanOldReportCache();
+
+    list.innerHTML = items.map((h, i) => {
+      const d    = new Date(h.time);
+      const time = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const scoreBadge = h.score != null
+        ? `<span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-mono">${h.score}</span>`
+        : '';
+      const signalBadge = h.signal
+        ? `<span class="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">${h.signal}</span>`
+        : '';
+      const label = h.code
+        ? `${h.code}${h.name && h.name !== h.code ? ' · ' + h.name : ''}`
+        : (h.name || '分析报告');
+      const cached = h.taskId && localStorage.getItem(REPORT_CACHE_PREFIX + h.taskId) != null;
+      const cacheIcon = cached
+        ? `<span title="已缓存，可离线查看" class="shrink-0 text-xs">💾</span>`
+        : `<span title="需联网拉取" class="shrink-0 text-xs">🌐</span>`;
+      return `
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl text-xs text-gray-600
+                    hover:bg-gray-100 cursor-pointer transition-colors"
+             data-history-idx="${i}">
+          ${cacheIcon}
+          ${scoreBadge}
+          ${signalBadge}
+          <span class="flex-1 font-medium truncate">${label}</span>
+          <span class="text-gray-400 shrink-0">${time}</span>
+        </div>`;
+    }).join('');
+
+    // 点击历史条目：优先读缓存，否则走网络
+    list.querySelectorAll('[data-history-idx]').forEach(row => {
+      row.addEventListener('click', async () => {
+        const idx  = parseInt(row.dataset.historyIdx, 10);
+        const item = this._loadHistoryList()[idx];
+        if (!item) return;
+        // 优先：在线时让 server 打开该 code 最新 HTML 报告（需求2）
+        if (item.code) {
+          try {
+            const r = await fetch(`${SERVER}/open_report?code=${encodeURIComponent(item.code)}`,
+                                  { signal: AbortSignal.timeout(3000) });
+            const d = await r.json();
+            if (d.ok) { this._t.show('已在浏览器打开报告', 'success'); return; }
+          } catch {}
+        }
+        // 回退：缓存结构化视图（离线兜底）
+        if (!item.taskId) { this._t.show('无缓存报告，请重新分析', 'warning'); return; }
+        const cached = localStorage.getItem(REPORT_CACHE_PREFIX + item.taskId);
+        if (cached) {
+          try {
+            const rpt = JSON.parse(cached);
+            if (typeof rpt === 'object' && rpt !== null) {
+              this._lastRtype = 'structured';
+              this._showStructuredFromCache(rpt, item.code, item.name);
+            } else {
+              this._lastRtype = 'markdown';
+              this._showMarkdownFromCache(String(rpt), item.code, item.name);
+            }
+            return;
+          } catch(e) {}
+        }
+        this._loadReport(item.taskId, 'structured', item.code, item.name);
+      });
+    });
+  }
+
+  // 从缓存渲染结构化报告（不重新写历史、不重新缓存）
+  _showStructuredFromCache(rpt, code = '', subject = '') {
+    try {
+      this._lastRawReport = rpt;
+      const sbox  = this._c.querySelector('#report-structured');
+      const mbox  = this._c.querySelector('#report-markdown');
+      const empty = this._c.querySelector('#report-empty');
+      sbox.classList.remove('hidden');
+      mbox.classList.add('hidden');
+      mbox.dataset.raw = '';
+      if (empty) empty.classList.add('hidden');
+      this._report.render(rpt);
+      this._setViewMode('structured');
+      this._t.show('(已缓存)', 'success');
+      this._c.querySelector('#tab-report-badge')?.classList.remove('hidden');
+      this._switchSubTab('report');
+    } catch(e) { this._t.show('缓存解析失败', 'warning'); }
+  }
+
+  // 从缓存渲染 markdown 报告
+  _showMarkdownFromCache(md, code = '', subject = '') {
+    const sbox  = this._c.querySelector('#report-structured');
+    const mbox  = this._c.querySelector('#report-markdown');
+    const empty = this._c.querySelector('#report-empty');
+    this._lastRawReport = md;
+    sbox.innerHTML = '';
+    sbox.classList.add('hidden');
+    mbox.dataset.raw = md;
+    mbox.innerHTML = this._md(md);
+    mbox.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    this._setViewMode('markdown');
+    this._t.show('(已缓存)', 'success');
+    this._c.querySelector('#tab-report-badge')?.classList.remove('hidden');
+    this._switchSubTab('report');
+  }
+
+  // ── 按钮状态 ──────────────────────────────────────────────────────────
+  _disableBtns() {
+    ['#btn-deep','#btn-market','#btn-full','#btn-batch'].forEach(s => {
+      const el = this._c.querySelector(s);
+      if (el) el.disabled = true;
+    });
+  }
+  _resetBtns() {
+    ['#btn-deep','#btn-market','#btn-full','#btn-batch'].forEach(s => {
+      const el = this._c.querySelector(s);
+      if (el) el.disabled = false;
+    });
+  }
+
+  // ── 简易 Markdown -> HTML ────────────────────────────────────────────
+  _md(md) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return md.split('\n').map(l => {
+      if (/^### (.+)/.test(l)) return `<h3 class="font-bold mt-3 mb-1 text-sm">${esc(l.slice(4))}</h3>`;
+      if (/^## (.+)/.test(l))  return `<h2 class="font-bold mt-4 mb-2 text-base border-b pb-1">${esc(l.slice(3))}</h2>`;
+      if (/^# (.+)/.test(l))   return `<h1 class="font-bold mt-5 mb-2 text-lg">${esc(l.slice(2))}</h1>`;
+      if (/^---+$/.test(l))    return '<hr class="my-3 border-gray-200"/>';
+      if (/^[-*] (.+)/.test(l)) return `<p class="ml-4">• ${esc(l.slice(2))}</p>`;
+      if (!l.trim()) return '<br/>';
+      let h = esc(l);
+      h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      h = h.replace(/`(.+?)`/g,'<code class="bg-gray-100 px-1 rounded text-blue-700 text-xs">$1</code>');
+      return `<p>${h}</p>`;
+    }).join('\n');
+  }
+}
+
+// ── js/tabs/chat.js ──────────────────────────────
+/**
+ * tabs/chat.js — 🤖 AI 对话（交互式 multi-agent 问答，选项A）
+ *
+ * 通过 POST /chat 触发 server 端的 AgentOrchestrator（Technical→Intel→Decision 多轮），
+ * 复用现有 SSE 通道 /run/stream/<task_id> 显示各 agent 阶段进度，done 后取 /run/report/<id>
+ * 作为 assistant 气泡渲染。
+ *
+ * session_id：前端生成并持久化到 localStorage（key: dsa_chat_session），保证多轮连续。
+ * 纯静态模式（server 离线）时优雅提示"需启动本地服务"。
+ */
+
+const SESSION_KEY = 'dsa_chat_session';
+
+class ChatTab {
+  constructor(container, store, toast) {
+    this._c = container;
+    this._s = store;
+    this._t = toast;
+    this._online = false;
+    this._busy = false;
+    this._sse = null;
+  }
+
+  init() {
+    this._c.innerHTML = `
+      <div class="flex flex-col h-full">
+        <!-- 股票上下文（可选）-->
+        <div class="flex gap-2 mb-2">
+          <input id="chat-code" placeholder="股票代码(可选)"
+            class="w-28 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"/>
+          <input id="chat-name" placeholder="名称(可选)"
+            class="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"/>
+          <button id="chat-clear"
+            class="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">清空</button>
+        </div>
+
+        <!-- 消息流 -->
+        <div id="chat-stream"
+          class="flex-1 overflow-y-auto space-y-3 p-2 bg-gray-50 rounded-xl min-h-[280px] max-h-[52vh]">
+          <div class="text-center text-xs text-gray-400 py-8">
+            🤖 向 AI 投研助手提问，例如：<br/>
+            "帮我看看这只票现在能不能买"、"结合技术面和风险分析一下"
+          </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div id="chat-hint" class="text-[11px] text-amber-600 mt-2 mb-1 hidden">
+          ⚠️ AI 对话需启动本地服务（python portal/server.py）
+        </div>
+        <div class="flex gap-2 mt-2">
+          <textarea id="chat-input" rows="2" placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
+            class="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl resize-none focus:outline-none focus:border-blue-400"></textarea>
+          <button id="chat-send"
+            class="px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white
+                   shadow-sm shadow-blue-200 active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+            发送
+          </button>
+        </div>
+      </div>
+    `;
+
+    this._stream = this._c.querySelector('#chat-stream');
+    this._input  = this._c.querySelector('#chat-input');
+    this._sendBtn = this._c.querySelector('#chat-send');
+
+    this._sendBtn.addEventListener('click', () => this._send());
+    this._input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._send(); }
+    });
+    this._c.querySelector('#chat-clear').addEventListener('click', () => this._clear());
+
+    this._syncOnlineUI();
+  }
+
+  // 由 app.js 的 _switchTab 调用（若注册），保持与 RunTab 一致
+  setServerStatus(online) {
+    this._online = online;
+    this._syncOnlineUI();
+  }
+
+  _syncOnlineUI() {
+    const hint = this._c.querySelector('#chat-hint');
+    if (hint) hint.classList.toggle('hidden', this._online);
+  }
+
+  _sessionId() {
+    let sid = null;
+    try { sid = localStorage.getItem(SESSION_KEY); } catch {}
+    if (!sid) {
+      sid = (crypto?.randomUUID?.() ? `sess_${crypto.randomUUID()}` : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+      try { localStorage.setItem(SESSION_KEY, sid); } catch {}
+    }
+    return sid;
+  }
+
+  _clear() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+    this._stream.innerHTML = `<div class="text-center text-xs text-gray-400 py-8">🆕 已开始新对话</div>`;
+    this._t?.show?.('已开始新对话', 'info');
+  }
+
+  _bubble(role, html) {
+    const wrap = document.createElement('div');
+    const isUser = role === 'user';
+    wrap.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    wrap.innerHTML = `
+      <div class="${isUser ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}
+                  max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed shadow-sm
+                  ${isUser ? 'rounded-br-sm' : 'rounded-bl-sm'}">${html}</div>`;
+    // 首次发消息时清掉占位提示
+    const placeholder = this._stream.querySelector('.text-center');
+    if (placeholder) placeholder.remove();
+    this._stream.appendChild(wrap);
+    this._stream.scrollTop = this._stream.scrollHeight;
+    return wrap.firstElementChild;
+  }
+
+  async _send() {
+    if (this._busy) return;
+    const message = this._input.value.trim();
+    if (!message) return;
+    if (!this._online) {
+      this._t?.show?.('AI 对话需启动本地服务', 'error');
+      return;
+    }
+
+    this._busy = true;
+    this._sendBtn.disabled = true;
+    this._bubble('user', this._esc(message));
+    this._input.value = '';
+
+    const code = this._c.querySelector('#chat-code').value.trim().toUpperCase();
+    const name = this._c.querySelector('#chat-name').value.trim();
+
+    // 助手"思考中"气泡（先展示 stage 进度，done 后替换成最终回答）
+    const thinking = this._bubble('assistant', '<span class="text-gray-400">🤖 思考中…</span>');
+    const stages = [];
+
+    let taskId, sessionId;
+    try {
+      const res = await fetch(`${SERVER}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, session_id: this._sessionId(), stock_code: code, stock_name: name || code }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error || '请求失败');
+      taskId = d.task_id;
+      sessionId = d.session_id;
+      if (sessionId) { try { localStorage.setItem(SESSION_KEY, sessionId); } catch {} }
+    } catch (e) {
+      thinking.innerHTML = `<span class="text-red-500">❌ ${this._esc(e.message)}</span>`;
+      this._finish();
+      return;
+    }
+
+    // 复用现有 SSE 通道
+    const sse = new EventSource(`${SERVER}/run/stream/${taskId}`);
+    this._sse = sse;
+
+    sse.onmessage = e => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.log) {
+          stages.push(d.log);
+          // 只展示最近几条 stage 进度
+          const recent = stages.slice(-4).map(s => this._esc(s)).join('<br/>');
+          thinking.innerHTML = `<span class="text-gray-400">🤖 ${recent}</span>`;
+          this._stream.scrollTop = this._stream.scrollHeight;
+        }
+      } catch {}
+    };
+
+    sse.addEventListener('done', async () => {
+      sse.close(); this._sse = null;
+      try {
+        const res = await fetch(`${SERVER}/run/report/${taskId}`);
+        const d = await res.json();
+        const answer = (d.report || '').trim();
+        thinking.innerHTML = answer ? this._md(answer) : '<span class="text-gray-400">（无回复）</span>';
+      } catch (e) {
+        thinking.innerHTML = `<span class="text-red-500">❌ 获取回复失败：${this._esc(e.message)}</span>`;
+      }
+      this._stream.scrollTop = this._stream.scrollHeight;
+      this._finish();
+    });
+
+    sse.onerror = () => {
+      sse.close(); this._sse = null;
+      // 连接断开后兜底拉一次结果
+      setTimeout(async () => {
+        try {
+          const res = await fetch(`${SERVER}/run/report/${taskId}`);
+          const d = await res.json();
+          const answer = (d.report || '').trim();
+          if (answer) thinking.innerHTML = this._md(answer);
+        } catch {}
+        this._finish();
+      }, 600);
+    };
+  }
+
+  _finish() {
+    this._busy = false;
+    this._sendBtn.disabled = false;
+    this._input.focus();
+  }
+
+  _esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // 轻量 markdown 渲染（与 run.js 的 _md 同款风格）
+  _md(md) {
+    const esc = this._esc;
+    return md.split('\n').map(l => {
+      if (/^### (.+)/.test(l)) return `<h3 class="font-bold mt-2 mb-1 text-xs">${esc(l.slice(4))}</h3>`;
+      if (/^## (.+)/.test(l))  return `<h2 class="font-bold mt-2 mb-1 text-sm">${esc(l.slice(3))}</h2>`;
+      if (/^# (.+)/.test(l))   return `<h1 class="font-bold mt-2 mb-1 text-sm">${esc(l.slice(2))}</h1>`;
+      if (/^---+$/.test(l))    return '<hr class="my-2 border-gray-200"/>';
+      if (/^[-*] (.+)/.test(l)) return `<p class="ml-3">• ${esc(l.slice(2))}</p>`;
+      if (!l.trim()) return '<br/>';
+      let h = esc(l);
+      h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      h = h.replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1 rounded text-blue-700">$1</code>');
+      return `<p>${h}</p>`;
+    }).join('\n');
+  }
+}
+
+// ── js/app.js ──────────────────────────────
+/**
+ * app.js — 主入口：Tab 路由 + 服务状态轮询 + 底栏 + Modal
+ */
+
+// ── ResearchTab：基本面 + 产业链独立分析 ──────────────────────────────────
+/**
+ * ResearchTab — 基本面 + 产业链研究，可独立运行，与技术面完全分离。
+ * 复用 RunTab 的核心 SSE/Report/Log 逻辑，只预设 fundamental+industry 维度。
+ */
+const RESEARCH_DIM_DEFS = {
+  fundamental: DIM_DEFS.fundamental,
+  industry:    DIM_DEFS.industry,
+};
+const RESEARCH_HISTORY_KEY = 'dsa_research_history';
+
+class ResearchTab {
+  constructor(container, store, toast) {
+    this._c = container; this._s = store; this._t = toast;
+    this._online         = false;
+    this._sse            = null;
+    this._report         = null;
+    this._selDims        = new Set(['fundamental', 'industry']);
+    this._selMods        = Object.fromEntries(
+      Object.entries(RESEARCH_DIM_DEFS).map(([k, v]) => [k, new Set(Object.keys(v.mods))])
+    );
+    this._serverStarting = false;
+    this._activeSub      = 'analyze';
+    this._viewMode       = 'structured';
+    this._lastRawReport  = null;
+    this._lastRtype      = null;
+  }
+
+  init() {
+    this._render();
+    this._s.subscribe(st => this._syncChips(st));
+  }
+
+  setServerStatus(online) {
+    const changed = online !== this._online;
+    this._online = online;
+    if (changed) this._updateOnlineUI();
+  }
+
+  _render() {
+    this._c.innerHTML = `
+      <div class="pb-20">
+
+        <!-- 子 Tab 导航栏 -->
+        <div class="flex gap-1 mb-4 bg-white/70 backdrop-blur-sm rounded-2xl p-1.5 shadow-sm border border-gray-100">
+          <button data-sub="analyze" class="res-sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">⚙️ 分析</button>
+          <button data-sub="log"     class="res-sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">
+            <span>📋 日志</span>
+            <span id="res-log-badge" class="hidden ml-1 inline-block w-2 h-2 rounded-full bg-blue-500 align-middle"></span>
+          </button>
+          <button data-sub="report"  class="res-sub-tab flex-1 py-2 text-xs font-semibold rounded-xl transition-all">
+            <span>📄 报告</span>
+            <span id="res-report-badge" class="hidden ml-1 inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle"></span>
+          </button>
+        </div>
+
+        <!-- ══ 子面板 1：分析 ══ -->
+        <div id="res-sub-analyze" class="space-y-4">
+          <div class="bg-white border border-gray-100 rounded-2xl shadow-md overflow-hidden card-hover">
+            <!-- 卡片头 -->
+            <div class="px-4 pt-3.5 pb-2.5 border-b border-gray-50 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <span class="text-xs">🔬</span>
+                </div>
+                <p class="text-sm font-semibold text-gray-900">基本面 &amp; 产业链研究</p>
+                <span class="text-xs text-gray-400 hidden sm:inline">独立运行，不含技术指标</span>
+              </div>
+              <div id="res-svc-chip"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium
+                       bg-gray-50 border-gray-200 text-gray-400">
+                <span class="status-dot offline" id="res-dot"></span>
+                <span id="res-svc-label">纯静态模式</span>
+              </div>
+            </div>
+            <div class="px-4 py-3.5 space-y-3.5">
+
+              <!-- 输入行 -->
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                  <input id="res-code" type="text" placeholder="股票代码，如 002466" maxlength="12"
+                    class="form-input pl-7 text-sm" autocomplete="off" />
+                </div>
+                <input id="res-name" type="text" placeholder="名称（可选）" maxlength="20"
+                  class="form-input w-28 text-sm" />
+              </div>
+
+              <!-- 自选股芯片 -->
+              <div id="res-chips" class="flex flex-wrap gap-1.5 min-h-[1.75rem]"></div>
+
+              <!-- 维度选择 -->
+              <details class="border border-gray-100 rounded-xl overflow-hidden" open>
+                <summary class="flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 cursor-pointer text-xs font-semibold text-gray-600 select-none">
+                  <span>研究维度 &amp; 子模块</span>
+                  <span class="text-gray-400 font-normal">已选 <span id="res-dims-count">2</span> 个维度</span>
+                </summary>
+                <div id="res-dim-list" class="divide-y divide-gray-50"></div>
+              </details>
+
+              <!-- Agent 研判选项 -->
+              <label class="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer select-none">
+                <input type="checkbox" id="res-agent-review" class="w-3.5 h-3.5 accent-amber-600" />
+                <span class="text-xs text-amber-800">🤖 附加 <b>Agent 综合研判</b>（多花约 1 次 LLM）</span>
+              </label>
+
+              <!-- 操作按钮行 -->
+              <div class="grid grid-cols-2 gap-2">
+                <button id="res-btn-deep"
+                  class="py-2.5 bg-emerald-600 hover:bg-emerald-700
+                         text-white text-xs font-bold rounded-xl transition-colors shadow-sm shadow-emerald-200
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  🔍 立即分析
+                </button>
+                <button id="res-btn-batch"
+                  class="py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200
+                         text-xs font-semibold rounded-xl transition-colors
+                         active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed">
+                  📑 批量研究自选股
+                </button>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span id="res-badge" class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">就绪</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ 子面板 2：日志 ══ -->
+        <div id="res-sub-log" class="hidden">
+          <div class="bg-gray-900 rounded-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-800">
+              <span class="text-xs text-gray-400 font-medium">运行日志</span>
+              <button id="res-btn-clear-log" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">清空</button>
+            </div>
+            <div id="res-log-box" class="p-3 min-h-[24rem] max-h-[60vh] overflow-y-auto space-y-0.5"
+                 style="font-family:'Menlo','Monaco','Consolas',monospace;font-size:.7rem;line-height:1.6"></div>
+          </div>
+        </div>
+
+        <!-- ══ 子面板 3：报告 ══ -->
+        <div id="res-sub-report" class="hidden space-y-4">
+          <!-- 工具栏 -->
+          <div class="flex items-center gap-2">
+            <button id="res-btn-copy-report"
+              class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors">
+              📋 复制
+            </button>
+            <div class="flex rounded-lg overflow-hidden border border-gray-200 ml-auto">
+              <button id="res-btn-view-structured"
+                class="px-3 py-1.5 text-xs font-medium transition-colors bg-blue-600 text-white">
+                结构化
+              </button>
+              <button id="res-btn-view-markdown"
+                class="px-3 py-1.5 text-xs font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50">
+                Markdown
+              </button>
+            </div>
+          </div>
+
+          <!-- 报告内容 -->
+          <div id="res-report-area" class="min-h-[20rem]">
+            <div id="res-report-empty" class="flex flex-col items-center justify-center py-16 text-gray-300">
+              <span class="text-4xl mb-3">📋</span>
+              <p class="text-sm">暂无报告，请先运行分析</p>
+            </div>
+            <div id="res-report-structured" class="hidden"></div>
+            <div id="res-report-markdown"
+              class="hidden prose prose-sm max-w-none p-4 rounded-2xl border border-gray-100 bg-white
+                     leading-relaxed text-gray-700 overflow-x-auto"
+              style="font-size:.82rem"></div>
+          </div>
+
+          <!-- 历史列表 -->
+          <div id="res-history-list" class="space-y-2"></div>
+        </div>
+
+      </div>`;
+
+    this._report = new ReportView(this._c.querySelector('#res-report-structured'));
+    this._bindEvents();
+    this._buildDims();
+    this._renderHistory();
+  }
+
+  _buildDims() {
+    const list = this._c.querySelector('#res-dim-list');
+    Object.entries(RESEARCH_DIM_DEFS).forEach(([dimKey, dimDef]) => {
+      const c = dimDef.color || 'emerald';
+      const wrap = document.createElement('div');
+      wrap.className = 'border-0 overflow-hidden';
+      const checked = this._selDims.has(dimKey);
+      wrap.innerHTML = `
+        <div class="flex items-center gap-3 px-3 py-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+             data-dim="${dimKey}">
+          <input type="checkbox" id="res-dim-${dimKey}" ${checked ? 'checked' : ''}
+            class="w-4 h-4 accent-${c}-600 cursor-pointer" />
+          <label for="res-dim-${dimKey}" class="text-xs font-medium text-gray-700 cursor-pointer flex-1 select-none">
+            ${dimDef.label}
+          </label>
+          <span class="text-xs text-gray-400">▼</span>
+        </div>
+        <div class="res-dim-mods ${checked ? '' : 'hidden'} px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 bg-white"
+             data-dim="${dimKey}">
+          ${Object.entries(dimDef.mods).map(([mk, ml]) => `
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer hover:text-${c}-600">
+              <input type="checkbox" class="res-mod-cb accent-${c}-600 w-3.5 h-3.5"
+                data-dim="${dimKey}" data-mod="${mk}"
+                ${this._selMods[dimKey]?.has(mk) ? 'checked' : ''} />
+              ${ml}
+            </label>`).join('')}
+        </div>`;
+      list.appendChild(wrap);
+    });
+
+    list.querySelectorAll('[data-dim]').forEach(row => {
+      if (row.classList.contains('res-dim-mods')) return;
+      row.addEventListener('click', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+        const cb = row.querySelector('input[type=checkbox]');
+        cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
+      });
+    });
+    list.querySelectorAll('[id^="res-dim-"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const k = cb.id.replace('res-dim-', '');
+        const modsEl = list.querySelector(`.res-dim-mods[data-dim="${k}"]`);
+        cb.checked ? this._selDims.add(k) : this._selDims.delete(k);
+        modsEl?.classList.toggle('hidden', !cb.checked);
+        this._updateDimsCount();
+      });
+    });
+    list.querySelectorAll('.res-mod-cb').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const { dim, mod } = cb.dataset;
+        cb.checked ? this._selMods[dim]?.add(mod) : this._selMods[dim]?.delete(mod);
+      });
+    });
+  }
+
+  _updateDimsCount() {
+    const el = this._c.querySelector('#res-dims-count');
+    if (el) el.textContent = this._selDims.size;
+  }
+
+  _syncChips(state) {
+    const chips = this._c.querySelector('#res-chips');
+    if (!chips) return;
+    const stocks = state.stock_list || [];
+    if (!stocks.length) {
+      chips.innerHTML = '<span class="text-xs text-gray-300">（自选股为空，先去「自选股」Tab 添加）</span>';
+      return;
+    }
+    chips.innerHTML = stocks.map(s => {
+      const label = s.name ? `${this._esc(s.name)}` : s.code;
+      return `<button class="chip px-2.5 py-1 text-xs border border-gray-200 rounded-lg text-gray-600"
+              data-code="${s.code}" data-name="${this._esc(s.name || '')}">${label}</button>`;
+    }).join('');
+    chips.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._c.querySelector('#res-code').value = btn.dataset.code;
+        const nameEl = this._c.querySelector('#res-name');
+        if (nameEl) nameEl.value = btn.dataset.name || '';
+        chips.querySelectorAll('.chip').forEach(b => b.classList.toggle('selected', b === btn));
+      });
+    });
+  }
+
+  _updateOnlineUI() {
+    const dot   = this._c.querySelector('#res-dot');
+    const label = this._c.querySelector('#res-svc-label');
+    const chip  = this._c.querySelector('#res-svc-chip');
+    if (!dot) return;
+    if (this._online) {
+      dot.className     = 'status-dot online';
+      label.textContent = '本地服务在线';
+      chip.className    = chip.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim()
+        + ' bg-green-50 border-green-200 text-green-700';
+    } else {
+      dot.className     = 'status-dot offline';
+      label.textContent = '纯静态模式';
+      chip.className    = chip.className.replace(/bg-\S+|border-\S+|text-\S+/g, '').trim()
+        + ' bg-gray-50 border-gray-200 text-gray-400';
+    }
+  }
+
+  _switchSubTab(name) {
+    ['analyze','log','report'].forEach(p => {
+      const el  = this._c.querySelector(`#res-sub-${p}`);
+      const btn = this._c.querySelector(`.res-sub-tab[data-sub="${p}"]`);
+      if (!el || !btn) return;
+      const active = p === name;
+      el.classList.toggle('hidden', !active);
+      if (active) {
+        btn.classList.remove('text-gray-500');
+        btn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+      } else {
+        btn.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+        btn.classList.add('text-gray-500');
+      }
+    });
+    this._activeSub = name;
+    if (name === 'log')    this._c.querySelector('#res-log-badge')?.classList.add('hidden');
+    if (name === 'report') this._c.querySelector('#res-report-badge')?.classList.add('hidden');
+  }
+
+  _bindEvents() {
+    this._c.querySelectorAll('.res-sub-tab').forEach(btn => {
+      btn.addEventListener('click', () => this._switchSubTab(btn.dataset.sub));
+    });
+    this._c.querySelector('#res-btn-deep').addEventListener('click', () => this._deepAnalyze());
+    this._c.querySelector('#res-btn-batch').addEventListener('click', () => this._batchAnalyze());
+    this._c.querySelector('#res-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter') this._deepAnalyze();
+    });
+    this._c.querySelector('#res-btn-clear-log').addEventListener('click', () => {
+      this._c.querySelector('#res-log-box').innerHTML = '';
+    });
+    this._c.querySelector('#res-btn-copy-report').addEventListener('click', async () => {
+      const mbox = this._c.querySelector('#res-report-markdown');
+      const sbox = this._c.querySelector('#res-report-structured');
+      try {
+        await navigator.clipboard.writeText(mbox.dataset.raw || sbox.innerText || '');
+        this._t.show('已复制', 'success');
+      } catch { this._t.show('复制失败', 'warning'); }
+    });
+    this._c.querySelector('#res-btn-view-structured').addEventListener('click', () => this._setViewMode('structured'));
+    this._c.querySelector('#res-btn-view-markdown').addEventListener('click', () => this._setViewMode('markdown'));
+    // 初始激活第一个子tab
+    this._switchSubTab('analyze');
+  }
+
+  _setViewMode(mode) {
+    this._viewMode = mode;
+    const btnS = this._c.querySelector('#res-btn-view-structured');
+    const btnM = this._c.querySelector('#res-btn-view-markdown');
+    const sbox = this._c.querySelector('#res-report-structured');
+    const mbox = this._c.querySelector('#res-report-markdown');
+    if (mode === 'structured') {
+      btnS.className = 'px-3 py-1.5 text-xs font-medium transition-colors bg-blue-600 text-white';
+      btnM.className = 'px-3 py-1.5 text-xs font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50';
+      sbox.classList.remove('hidden');
+      mbox.classList.add('hidden');
+    } else {
+      btnM.className = 'px-3 py-1.5 text-xs font-medium transition-colors bg-blue-600 text-white';
+      btnS.className = 'px-3 py-1.5 text-xs font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50';
+      mbox.classList.remove('hidden');
+      sbox.classList.add('hidden');
+      if (!mbox.dataset.raw && this._lastRawReport && this._lastRtype === 'structured') {
+        mbox.dataset.raw = typeof this._lastRawReport === 'string'
+          ? this._lastRawReport
+          : JSON.stringify(this._lastRawReport, null, 2);
+        mbox.innerHTML = this._md(mbox.dataset.raw);
+      }
+    }
+  }
+
+  async _ensureServer() {
+    if (this._online) return true;
+    if (this._serverStarting) {
+      this._t.show('正在等待本地服务启动...', 'warning');
+      return false;
+    }
+    this._serverStarting = true;
+    this._t.show('需要本地服务，请运行：python portal/server.py', 'warning', 8000);
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const r = await fetch(`${SERVER}/health`, { signal: AbortSignal.timeout(1000) });
+        if (r.ok) {
+          this._online = true;
+          this._serverStarting = false;
+          this._updateOnlineUI();
+          window.dispatchEvent(new CustomEvent('server-online'));
+          return true;
+        }
+      } catch {}
+    }
+    this._serverStarting = false;
+    this._t.show('本地服务未启动，请先运行 server.py', 'error');
+    return false;
+  }
+
+  async _deepAnalyze() {
+    const code = this._c.querySelector('#res-code').value.trim().toUpperCase();
+    const name = this._c.querySelector('#res-name').value.trim();
+    if (!code) { this._t.show('请输入股票代码', 'warning'); return; }
+    const dims = [...this._selDims];
+    if (!dims.length) { this._t.show('请至少选择一个研究维度', 'warning'); return; }
+    const ok = await this._ensureServer();
+    if (!ok) return;
+    await this._runSingle(code, name || code, dims);
+  }
+
+  async _batchAnalyze() {
+    const dims = [...this._selDims];
+    if (!dims.length) { this._t.show('请至少选择一个研究维度', 'warning'); return; }
+    const state = this._s.get();
+    const checked = (state.stock_list || []).filter(s => s.checked);
+    if (!checked.length) {
+      this._t.show('请先在「自选股」Tab 勾选要分析的股票', 'warning');
+      return;
+    }
+    const ok = await this._ensureServer();
+    if (!ok) return;
+
+    this._prepareLog(`📑 批量研究 ${checked.length} 只自选股`);
+    this._disableBtns();
+    let done = 0, failed = 0;
+    for (const s of checked) {
+      done++;
+      this._disableBtns();
+      this._appendLog(`──────── (${done}/${checked.length}) ${s.name || s.code} ────────`, 'info');
+      try {
+        const okOne = await this._runSingle(s.code, s.name || s.code, dims, { batch: true });
+        if (!okOne) failed++;
+      } catch (e) {
+        failed++;
+        this._appendLog(`❌ ${s.code} 分析异常：${e.message}`, 'error');
+      }
+    }
+    const badge = this._c.querySelector('#res-badge');
+    badge.textContent = `批量完成 ${done - failed}/${done}`;
+    badge.className = `text-xs px-2 py-0.5 rounded-full font-medium ${failed ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`;
+    this._resetBtns();
+    this._t.show(`批量研究完成：成功 ${done - failed} / 共 ${done}`, failed ? 'warning' : 'success', 6000);
+    this._switchSubTab('report');
+  }
+
+  async _runSingle(code, name, dims, { batch = false } = {}) {
+    const modulesMap = Object.fromEntries(dims.map(d => [d, [...(this._selMods[d] || [])]]));
+    if (!batch) {
+      this._prepareLog(`🔬 研究分析：${name || code}（${code}）`);
+    } else {
+      this._appendLog(`🔬 研究分析：${name || code}（${code}）`, 'info');
+    }
+    let taskId;
+    try {
+      const res = await fetch(`${SERVER}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stock_code: code,
+          stock_name: name || code,
+          dimensions: dims,
+          modules: modulesMap,
+          llm_mode: this._s.get().llm_note_mode || 'batch',
+          open_report: this._s.get().auto_open_html !== false,
+          agent_review: !!this._c.querySelector('#res-agent-review')?.checked,
+        }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      taskId = d.task_id;
+    } catch (e) {
+      this._appendLog(`❌ 启动失败：${e.message}`, 'error');
+      if (!batch) { this._t.show(`启动失败: ${e.message}`, 'error'); this._resetBtns(); }
+      return false;
+    }
+    return this._listenSSE(taskId, 'structured', code, name || code);
+  }
+
+  _prepareLog(title) {
+    if (this._sse) { this._sse.close(); this._sse = null; }
+    this._c.querySelector('#res-log-box').innerHTML = '';
+    this._c.querySelector('#res-report-structured').innerHTML = '';
+    const badge = this._c.querySelector('#res-badge');
+    badge.textContent = '运行中';
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium';
+    this._appendLog(title, 'info');
+    this._disableBtns();
+    this._switchSubTab('log');
+  }
+
+  _listenSSE(taskId, rtype, code = '', subject = '') {
+    return new Promise((resolve) => {
+      const sse = new EventSource(`${SERVER}/run/stream/${taskId}`);
+      this._sse = sse;
+      let settled = false;
+      const finish = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+
+      sse.onmessage = e => {
+        const d = JSON.parse(e.data);
+        this._appendLog(d.log, d.status === 'error' ? 'error' : 'default');
+      };
+      sse.addEventListener('done', e => {
+        sse.close(); this._sse = null;
+        const d = JSON.parse(e.data);
+        const ok = d.status === 'done';
+        const badge = this._c.querySelector('#res-badge');
+        badge.textContent = ok ? '完成 ✓' : '失败 ✗';
+        badge.className = `text-xs px-2 py-0.5 rounded-full font-medium ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+        this._resetBtns();
+        if (d.has_report) {
+          this._loadReport(taskId, d.report_type || rtype, code, subject).finally(() => finish(ok));
+        } else {
+          finish(ok);
+        }
+      });
+      sse.onerror = () => {
+        sse.close(); this._sse = null;
+        this._appendLog('⚠️ 连接断开，拉取结果...', 'warn');
+        setTimeout(() => {
+          this._loadReport(taskId, rtype, code, subject).finally(() => finish(false));
+        }, 600);
+        this._resetBtns();
+      };
+    });
+  }
+
+  async _loadReport(taskId, rtype, code = '', subject = '') {
+    try {
+      const res = await fetch(`${SERVER}/run/report/${taskId}`);
+      const d = await res.json();
+      const box = this._c.querySelector('#res-log-box');
+      if (d.logs) {
+        const ex = box.children.length;
+        d.logs.slice(ex).forEach(l => this._appendLog(l));
+      }
+      if (d.report) {
+        this._lastRtype = rtype;
+        rtype === 'structured'
+          ? this._showStructured(d.report, code, subject, taskId)
+          : this._showMarkdown(d.report, code, subject, taskId);
+      }
+    } catch {}
+  }
+
+  _showStructured(json, code = '', subject = '', taskId = '') {
+    try {
+      const rpt = typeof json === 'string' ? JSON.parse(json) : json;
+      this._lastRawReport = rpt;
+      const sbox  = this._c.querySelector('#res-report-structured');
+      const mbox  = this._c.querySelector('#res-report-markdown');
+      const empty = this._c.querySelector('#res-report-empty');
+      sbox.classList.remove('hidden');
+      mbox.classList.add('hidden');
+      mbox.dataset.raw = '';
+      if (empty) empty.classList.add('hidden');
+      this._report.render(rpt);
+      if (rpt && rpt.agent_review) {
+        const card = document.createElement('div');
+        card.className = 'mt-4 p-3 rounded-xl border border-emerald-200 bg-emerald-50/60';
+        card.innerHTML =
+          `<div class="text-xs font-bold text-emerald-700 mb-1.5">🤖 Agent 综合研判</div>` +
+          `<div class="text-xs leading-relaxed text-gray-800">${this._md(String(rpt.agent_review))}</div>`;
+        sbox.appendChild(card);
+      }
+      this._setViewMode('structured');
+      const score  = rpt?.summary?.score  ?? rpt?.score  ?? null;
+      const signal = rpt?.summary?.signal ?? rpt?.signal ?? '';
+      this._saveHistory({ code, name: subject, score, signal, taskId }, rpt);
+      this._c.querySelector('#res-report-badge')?.classList.remove('hidden');
+      this._switchSubTab('report');
+    } catch { this._showMarkdown(String(json), code, subject, taskId); }
+  }
+
+  _showMarkdown(md, code = '', subject = '', taskId = '') {
+    const sbox  = this._c.querySelector('#res-report-structured');
+    const mbox  = this._c.querySelector('#res-report-markdown');
+    const empty = this._c.querySelector('#res-report-empty');
+    this._lastRawReport = md;
+    sbox.innerHTML = '';
+    sbox.classList.add('hidden');
+    mbox.dataset.raw = md;
+    mbox.innerHTML = this._md(md);
+    mbox.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    this._setViewMode('markdown');
+    this._saveHistory({ code, name: subject, score: null, signal: '', taskId }, md);
+    this._c.querySelector('#res-report-badge')?.classList.remove('hidden');
+    this._switchSubTab('report');
+  }
+
+  _appendLog(line, type = 'default') {
+    const box = this._c.querySelector('#res-log-box');
+    if (!line || !box) return;
+    const now = new Date();
+    const ts  = [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map(n => String(n).padStart(2, '0')).join(':');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 text-xs leading-relaxed font-mono py-0.5';
+    const colors = { info:'#6ee7b7', error:'#fca5a5', warn:'#fcd34d', default:'#d1fae5' };
+    let col = colors.default;
+    if (/✅|成功|完成/.test(line)) col = colors.info;
+    else if (/❌|失败|ERROR/.test(line)) col = colors.error;
+    else if (/⚠|WARNING/.test(line)) col = colors.warn;
+    const tsEl = document.createElement('span');
+    tsEl.className = 'shrink-0 select-none'; tsEl.style.color = '#4b5563'; tsEl.textContent = `[${ts}]`;
+    const msgEl = document.createElement('span');
+    msgEl.style.color = col; msgEl.textContent = line;
+    row.appendChild(tsEl); row.appendChild(msgEl);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+    if (this._activeSub !== 'log') this._c.querySelector('#res-log-badge')?.classList.remove('hidden');
+  }
+
+  _disableBtns() {
+    ['res-btn-deep','res-btn-batch'].forEach(id => {
+      const b = this._c.querySelector(`#${id}`);
+      if (b) { b.disabled = true; b.classList.add('opacity-50','cursor-not-allowed'); }
+    });
+  }
+
+  _resetBtns() {
+    ['res-btn-deep','res-btn-batch'].forEach(id => {
+      const b = this._c.querySelector(`#${id}`);
+      if (b) { b.disabled = false; b.classList.remove('opacity-50','cursor-not-allowed'); }
+    });
+  }
+
+  _saveHistory({ code, name, score, signal, taskId } = {}, rpt = null) {
+    let list = this._loadHistoryList();
+    if (code) {
+      list.filter(h => h.code === code).forEach(h => {
+        if (h.taskId) { try { localStorage.removeItem(REPORT_CACHE_PREFIX + h.taskId); } catch {} }
+      });
+      list = list.filter(h => h.code !== code);
+    }
+    list.unshift({ code: code||'', name: name||code||'', score: score??null, signal: signal||'', time: Date.now(), taskId: taskId||'' });
+    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+    try { localStorage.setItem(RESEARCH_HISTORY_KEY, JSON.stringify(list)); } catch {}
+    if (rpt != null && taskId) {
+      try {
+        const reportStr = JSON.stringify(rpt);
+        if (reportStr.length < 200 * 1024) {
+          localStorage.setItem(REPORT_CACHE_PREFIX + 'r_' + taskId, reportStr);
+        }
+      } catch {}
+    }
+    this._renderHistory();
+  }
+
+  _loadHistoryList() {
+    try { return JSON.parse(localStorage.getItem(RESEARCH_HISTORY_KEY) || '[]'); } catch { return []; }
+  }
+
+  _renderHistory() {
+    const list = this._loadHistoryList();
+    const el = this._c.querySelector('#res-history-list');
+    if (!el) return;
+    if (!list.length) { el.innerHTML = ''; return; }
+    const sig2cls = { buy:'bg-green-100 text-green-700', watch:'bg-blue-100 text-blue-700', hold:'bg-gray-100 text-gray-500', sell:'bg-red-100 text-red-700' };
+    el.innerHTML = `
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">近期记录</p>
+      ${list.slice(0, HISTORY_SHOW).map(h => {
+        const sc = h.score != null ? `<span class="text-xs text-gray-400">${h.score}分</span>` : '';
+        const sg = h.signal ? `<span class="text-xs px-1.5 py-0.5 rounded ${sig2cls[h.signal]||sig2cls.hold} font-medium">${(SIGNAL_CONFIG[h.signal]||SIGNAL_CONFIG.hold).label}</span>` : '';
+        const t  = h.time ? new Date(h.time).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        const cacheKey = REPORT_CACHE_PREFIX + 'r_' + h.taskId;
+        return `
+          <div class="flex items-center gap-2 px-3 py-2 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+               data-taskid="${h.taskId}" data-code="${h.code}" data-name="${this._esc(h.name||'')}">
+            <div class="flex-1 min-w-0">
+              <span class="text-sm font-medium text-gray-800">${this._esc(h.name||h.code)}</span>
+              <span class="ml-1.5 text-xs font-mono text-gray-400">${h.code}</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">${sc}${sg}</div>
+            <span class="text-xs text-gray-300 flex-shrink-0">${t}</span>
+          </div>`;
+      }).join('')}`;
+
+    el.querySelectorAll('[data-taskid]').forEach(row => {
+      row.addEventListener('click', () => {
+        const taskId = row.dataset.taskid;
+        const code = row.dataset.code;
+        const name = row.dataset.name;
+        if (!taskId) return;
+        const cached = (() => { try { return localStorage.getItem(REPORT_CACHE_PREFIX + 'r_' + taskId); } catch { return null; } })();
+        if (cached) {
+          try {
+            const rpt = JSON.parse(cached);
+            const sbox = this._c.querySelector('#res-report-structured');
+            const mbox = this._c.querySelector('#res-report-markdown');
+            const empty = this._c.querySelector('#res-report-empty');
+            sbox.classList.remove('hidden'); mbox.classList.add('hidden');
+            if (empty) empty.classList.add('hidden');
+            this._report.render(rpt);
+            this._switchSubTab('report');
+            return;
+          } catch {}
+        }
+        this._loadReport(taskId, 'structured', code, name);
+        this._switchSubTab('report');
+      });
+    });
+  }
+
+  _md(text) {
+    return String(text||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`([^`]+)`/g,'<code class="bg-gray-100 px-1 rounded text-xs">$1</code>')
+      .replace(/^### (.+)$/gm,'<h3 class="text-sm font-semibold mt-3 mb-1.5">$1</h3>')
+      .replace(/^## (.+)$/gm,'<h2 class="text-base font-semibold mt-4 mb-2">$1</h2>')
+      .replace(/^# (.+)$/gm,'<h1 class="text-lg font-bold mt-4 mb-2">$1</h1>')
+      .replace(/^\- (.+)$/gm,'<li class="ml-4 list-disc text-gray-600">$1</li>')
+      .replace(/\n/g,'<br/>');
+  }
+
+  _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+}
+
+const TABS = [
+  { id: 'run',       icon: '▶',  label: '技术面', Cls: RunTab },
+  { id: 'research',  icon: '🔬', label: '基本面', Cls: ResearchTab },
+  { id: 'chat',      icon: '🤖', label: 'AI 对话',  Cls: ChatTab },
+  { id: 'watchlist', icon: '☰',  label: '选股',     Cls: WatchlistTab },
+  { id: 'settings',  icon: '⚙', label: '设置',     Cls: SettingsTab },
+  { id: 'guide',     icon: '?',  label: '说明',     Cls: GuideTab },
+];
+
+class App {
+  constructor() {
+    this._instances = {};
+    this._activeId  = 'run';
+    this._online    = false;
+  }
+
+  init() {
+    this._buildNav();
+    this._buildPanels();
+    modal.init(store, SERVER, toast);
+    this._bindSave();
+    this._bindFooter();
+    this._pollServer();
+    this._restoreTab();
+  }
+
+  // ── Nav ─────────────────────────────────────────────────
+  _buildNav() {
+    const nav = document.getElementById('tab-nav');
+    TABS.forEach(({ id, icon, label }) => {
+      const btn = document.createElement('button');
+      btn.id = `nav-${id}`;
+      btn.className = 'nav-tab flex-1 flex items-center justify-center gap-0.5 py-1.5 px-1 text-xs font-medium text-white/70 rounded-lg whitespace-nowrap min-w-0';
+      btn.innerHTML = `<span>${icon}</span><span>${label}</span>`;
+      btn.addEventListener('click', () => this._switchTab(id));
+      nav.appendChild(btn);
+    });
+  }
+
+  _buildPanels() {
+    const content = document.getElementById('tab-content');
+    TABS.forEach(({ id, Cls }) => {
+      const panel = document.createElement('div');
+      panel.id = `panel-${id}`;
+      panel.className = 'tab-panel';
+      content.appendChild(panel);
+      const inst = new Cls(panel, store, toast);
+      inst.init();
+      this._instances[id] = inst;
+    });
+  }
+
+  _switchTab(id) {
+    this._activeId = id;
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById(`panel-${id}`)?.classList.add('active');
+    document.getElementById(`nav-${id}`)?.classList.add('active');
+    try { sessionStorage.setItem('dsa_tab', id); } catch {}
+  }
+
+  _restoreTab() {
+    const saved = (() => { try { return sessionStorage.getItem('dsa_tab'); } catch {} })();
+    this._switchTab(TABS.some(t => t.id === saved) ? saved : 'run');
+  }
+
+  // ── Server poll ─────────────────────────────────────────
+  async _pollServer() {
+    const check = async () => {
+      let ok = false;
+      try {
+        const r = await fetch(`${SERVER}/health`, { signal: AbortSignal.timeout(1500) });
+        ok = r.ok;
+      } catch {}
+      if (ok !== this._online) {
+        this._online = ok;
+        this._updateStatusUI(ok);
+        // 通知 RunTab / ResearchTab / ChatTab
+        this._instances['run']?.setServerStatus?.(ok);
+        this._instances['research']?.setServerStatus?.(ok);
+        this._instances['chat']?.setServerStatus?.(ok);
+      }
+    };
+    await check();
+    setInterval(check, 5000);
+  }
+
+  _updateStatusUI(online) {
+    const dot   = document.getElementById('status-dot');
+    const label = document.getElementById('status-label');
+    if (!dot || !label) return;
+    dot.className   = `status-dot ${online ? 'online' : 'offline'}`;
+    label.textContent = online ? '本地服务在线' : '纯静态模式';
+    label.className   = `text-xs ${online ? 'text-green-300 font-medium' : 'text-blue-200'}`;
+    // 通知 modal
+    modal.setServerOnline(online);
+  }
+
+  // ── Footer ───────────────────────────────────────────────
+  _bindFooter() {
+    store.subscribe(() => {
+      const el = document.getElementById('footer-time');
+      if (!el) return;
+      el.textContent = `上次编辑 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+    });
+  }
+
+  _bindSave() {
+    document.getElementById('btn-save')?.addEventListener('click', () => {
+      modal.show(store.toJSON());
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => new App().init());
+</script>
+</body>
+</html>

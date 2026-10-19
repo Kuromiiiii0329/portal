@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>贵州茅台 600519 分析报告 20260831</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;background:#f8fafc;color:#1f2937;line-height:1.6;padding:20px}
+.wrap{max-width:1080px;margin:0 auto}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.hd{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.title{font-size:22px;font-weight:700}.code{font-family:monospace;color:#6b7280;font-size:14px;margin-left:8px}
+.date{color:#9ca3af;font-size:13px;margin-top:4px}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.ring{font-size:26px;font-weight:800}
+.concl{background:linear-gradient(to right,#f8fafc,#eff6ff);border:1px solid #dbeafe;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.chart{height:300px;width:100%}
+.dim-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9fafb;border-bottom:1px solid #eee;border-radius:12px 12px 0 0;font-weight:600}
+.sec{border-bottom:1px solid #f1f5f9;padding:10px 14px}
+.sec:last-child{border-bottom:none}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:14px;margin-bottom:4px}
+.sec-bd{font-size:13px;color:#4b5563}.sec-bd p{margin:2px 0}.sec-bd .b{font-weight:600;color:#374151;margin-top:4px}
+.sec-bd .li{padding-left:8px}.sec-bd code{background:#eef2ff;color:#4338ca;padding:0 4px;border-radius:4px;font-size:12px}
+.note{margin-top:8px;padding:8px 10px;border-radius:8px;font-size:13px;border-left:3px solid}
+.note b{font-weight:700}
+.forecast-meta{display:flex;gap:20px;flex-wrap:wrap;padding:10px 14px 0}
+.forecast-meta-item{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:8px 14px;font-size:13px;flex:1;min-width:160px}
+.forecast-meta-item .fm-label{color:#6b7280;font-size:11px;margin-bottom:2px}
+.forecast-meta-item .fm-value{font-weight:700;font-size:15px}
+.forecast-note{padding:6px 14px 10px;font-size:11px;color:#9ca3af}
+.foot{text-align:center;color:#9ca3af;font-size:12px;margin-top:20px;padding:12px}
+.small{font-size:12px;color:#6b7280}
+</style></head>
+<body>
+    <div class="wrap">
+      <div class="card hd">
+        <div><span class="title">贵州茅台</span><span class="code">600519</span>
+          <div class="date">📅 报告日期：2026-08-31 23:24（最新交易日数据）</div></div>
+        <div style="text-align:right">
+          <div class="ring" style="color:#16a34a">75<span style="font-size:14px;color:#9ca3af">/100</span></div>
+          <span class="badge" style="background:#dcfce7;color:#15803d">买入</span>
+        </div>
+      </div>
+      <div class="concl">🎯 <b>综合结论</b>：测试结论</div>
+      
+      
+      <div class="grid2">
+        <div class="card"><div class="small" style="margin-bottom:6px">📡 维度评分雷达</div><div id="radar" class="chart" style="height:260px"></div></div>
+        <div class="card"><div class="small" style="margin-bottom:6px">📈 K线走势（近90日）</div><div id="kline" class="chart" style="height:260px"></div></div>
+      </div>
+      <div><div class="card" style="padding:0"><div class="dim-hd"><span>📊 技术面</span><span class="badge" style="background:#dcfce7;color:#15803d">买入 · 75</span></div><div class="sec"><div class="sec-hd"><span>均线</span><span class="badge" style="background:#dcfce7;color:#15803d">买入 · 75</span></div><div class="sec-bd"><p><strong>测试</strong>内容</p></div></div></div></div>
+      <div class="foot">本报告由本地量化系统自动生成，仅供研究参考，不构成投资建议。生成时间 2026-08-31 23:24</div>
+    </div>
+    <script>
+    (function(){
+      if(typeof echarts==='undefined')return;
+      var kl=[];
+      var rs={"technical": 75};
+      // 雷达图
+      var rEl=document.getElementById('radar');
+      if(rEl){echarts.init(rEl).setOption({
+        tooltip:{},
+        radar:{indicator:[{name:'技术面',max:100},{name:'基本面',max:100},{name:'产业链',max:100}],radius:'65%',axisName:{fontSize:12,color:'#374151'}},
+        series:[{type:'radar',data:[{value:[rs.technical||0,rs.fundamental||0,rs.industry||0],areaStyle:{color:'rgba(59,130,246,.18)'},lineStyle:{color:'#3b82f6',width:2},itemStyle:{color:'#3b82f6'}}]}]
+      });}
+      // K线蜡烛图
+      var kEl=document.getElementById('kline');
+      if(kEl&&kl.length){
+        var d=kl.slice(-90);
+        var dates=d.map(function(x){return (x.date||'').slice(5)});
+        var cand=d.map(function(x){return [x.open,x.close,x.low,x.high]});
+        var hasOHLC=d[0]&&d[0].open!=null;
+        var ma5=d.map(function(x){return x.ma5}),ma20=d.map(function(x){return x.ma20}),ma250=d.map(function(x){return x.ma250||null});
+        var series=[];
+        if(hasOHLC){series.push({name:'K线',type:'candlestick',data:cand,itemStyle:{color:'#ef4444',color0:'#10b981',borderColor:'#ef4444',borderColor0:'#10b981'}});}
+        else{series.push({name:'收盘',type:'line',data:d.map(function(x){return x.close}),symbol:'none',lineStyle:{color:'#3b82f6',width:2}});}
+        series.push({name:'MA5',type:'line',data:ma5,symbol:'none',lineStyle:{color:'#f97316',width:1}});
+        series.push({name:'MA20',type:'line',data:ma20,symbol:'none',lineStyle:{color:'#8b5cf6',width:1}});
+        series.push({name:'MA250',type:'line',data:ma250,symbol:'none',lineStyle:{color:'#dc2626',width:1.5,type:'dashed'}});
+        echarts.init(kEl).setOption({
+          tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
+          legend:{data:series.map(function(s){return s.name}),top:2,textStyle:{fontSize:11}},
+          grid:{left:8,right:8,top:30,bottom:20,containLabel:true},
+          xAxis:{type:'category',data:dates,axisLabel:{fontSize:9,color:'#9ca3af'}},
+          yAxis:{scale:true,axisLabel:{fontSize:9,color:'#9ca3af'},splitLine:{lineStyle:{color:'#f3f4f6'}}},
+          series:series
+        });
+      }
+    })();
+    
+    </script></body></html>

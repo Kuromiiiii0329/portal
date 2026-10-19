@@ -1,0 +1,45 @@
+{
+  "trade_date": "2026-08-27",
+  "notes": {
+    "ma_system": {
+      "stance": "neutral",
+      "reason": "均线缠绕，价60.81高于MA60/120但MA5<MA10",
+      "impact": "短线震荡，53.71-52.70一带有支撑"
+    },
+    "macd": {
+      "stance": "bullish",
+      "reason": "DIF2.0331略高DEA2.0319，零轴上金叉",
+      "impact": "短线偏多，但柱值很小需确认"
+    },
+    "rsi": {
+      "stance": "neutral",
+      "reason": "RSI6/12/24为55.3/60.1/65.8，均未超买",
+      "impact": "动能略偏强但信号中性，需等待突破确认"
+    },
+    "kdj": {
+      "stance": "bearish",
+      "reason": "K=46.3低于D=47.5，J=43.8偏弱",
+      "impact": "动能略偏空，短线或承压震荡"
+    },
+    "bollinger": {
+      "stance": "bullish",
+      "reason": "价格位于布林上半区，位置76%，走势偏强",
+      "impact": "短线偏多，但接近上轨65.08有压力"
+    },
+    "overbought": {
+      "stance": "neutral",
+      "reason": "RSI6=55、J=44、WR=-28均中性",
+      "impact": "暂无超买超卖信号，方向指引有限"
+    },
+    "divergence": {
+      "stance": "bearish",
+      "reason": "已确认RSI顶背离，价新高17.7%而RSI降至75.89",
+      "impact": "动能转弱，短线回调压力增大"
+    },
+    "volume": {
+      "stance": "bullish",
+      "reason": "量比1.23属正常，股价大涨8.53%",
+      "impact": "短线动能偏强，但需补量确认"
+    }
+  }
+}

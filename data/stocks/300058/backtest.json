@@ -1,0 +1,235 @@
+{
+  "code": "300058",
+  "updated_at": "2026-09-03T16:44:03.018463+08:00",
+  "result": {
+    "signals": {
+      "MACD金叉": {
+        "count": 41,
+        "last_date": "2026-07-28 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 58.5,
+            "avg_return": 0.64,
+            "valid": 41
+          },
+          "3": {
+            "win_rate": 46.3,
+            "avg_return": 1.75,
+            "valid": 41
+          },
+          "5": {
+            "win_rate": 51.2,
+            "avg_return": 4.59,
+            "valid": 41
+          },
+          "10": {
+            "win_rate": 46.3,
+            "avg_return": 3.65,
+            "valid": 41
+          },
+          "20": {
+            "win_rate": 53.7,
+            "avg_return": 7.79,
+            "valid": 41
+          }
+        }
+      },
+      "MACD死叉": {
+        "count": 42,
+        "last_date": "2026-08-19 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 50.0,
+            "avg_return": -0.4,
+            "valid": 42
+          },
+          "3": {
+            "win_rate": 45.2,
+            "avg_return": 1.12,
+            "valid": 42
+          },
+          "5": {
+            "win_rate": 52.4,
+            "avg_return": 1.71,
+            "valid": 42
+          },
+          "10": {
+            "win_rate": 45.2,
+            "avg_return": 2.24,
+            "valid": 42
+          },
+          "20": {
+            "win_rate": 48.8,
+            "avg_return": 4.28,
+            "valid": 41
+          }
+        }
+      },
+      "RSI超卖(<30)": {
+        "count": 164,
+        "last_date": "2026-08-26 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 53.0,
+            "avg_return": 0.18,
+            "valid": 164
+          },
+          "3": {
+            "win_rate": 50.0,
+            "avg_return": 0.81,
+            "valid": 164
+          },
+          "5": {
+            "win_rate": 48.2,
+            "avg_return": 1.29,
+            "valid": 164
+          },
+          "10": {
+            "win_rate": 48.1,
+            "avg_return": 1.49,
+            "valid": 160
+          },
+          "20": {
+            "win_rate": 45.0,
+            "avg_return": 5.59,
+            "valid": 160
+          }
+        }
+      },
+      "RSI超买(>70)": {
+        "count": 143,
+        "last_date": "2026-08-12 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 49.0,
+            "avg_return": 0.47,
+            "valid": 143
+          },
+          "3": {
+            "win_rate": 46.9,
+            "avg_return": 1.92,
+            "valid": 143
+          },
+          "5": {
+            "win_rate": 45.5,
+            "avg_return": 2.51,
+            "valid": 143
+          },
+          "10": {
+            "win_rate": 49.7,
+            "avg_return": 2.55,
+            "valid": 143
+          },
+          "20": {
+            "win_rate": 47.5,
+            "avg_return": 5.24,
+            "valid": 139
+          }
+        }
+      },
+      "KDJ金叉": {
+        "count": 0,
+        "note": "历史未触发"
+      },
+      "放量上涨": {
+        "count": 15,
+        "last_date": "2026-04-09 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 33.3,
+            "avg_return": 0.23,
+            "valid": 15
+          },
+          "3": {
+            "win_rate": 46.7,
+            "avg_return": 0.66,
+            "valid": 15
+          },
+          "5": {
+            "win_rate": 60.0,
+            "avg_return": 2.49,
+            "valid": 15
+          },
+          "10": {
+            "win_rate": 66.7,
+            "avg_return": 4.52,
+            "valid": 15
+          },
+          "20": {
+            "win_rate": 60.0,
+            "avg_return": 9.39,
+            "valid": 15
+          }
+        }
+      },
+      "放量下跌": {
+        "count": 0,
+        "note": "历史未触发"
+      },
+      "均线多头排列": {
+        "count": 313,
+        "last_date": "2026-08-14 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 48.9,
+            "avg_return": 0.31,
+            "valid": 313
+          },
+          "3": {
+            "win_rate": 48.9,
+            "avg_return": 1.04,
+            "valid": 313
+          },
+          "5": {
+            "win_rate": 45.4,
+            "avg_return": 1.16,
+            "valid": 313
+          },
+          "10": {
+            "win_rate": 47.0,
+            "avg_return": 1.04,
+            "valid": 313
+          },
+          "20": {
+            "win_rate": 49.3,
+            "avg_return": 2.35,
+            "valid": 306
+          }
+        }
+      },
+      "价格跌破布林下轨": {
+        "count": 34,
+        "last_date": "2026-07-24 00:00:00",
+        "stats": {
+          "1": {
+            "win_rate": 55.9,
+            "avg_return": 0.64,
+            "valid": 34
+          },
+          "3": {
+            "win_rate": 70.6,
+            "avg_return": 2.68,
+            "valid": 34
+          },
+          "5": {
+            "win_rate": 67.6,
+            "avg_return": 5.45,
+            "valid": 34
+          },
+          "10": {
+            "win_rate": 61.8,
+            "avg_return": 6.19,
+            "valid": 34
+          },
+          "20": {
+            "win_rate": 64.7,
+            "avg_return": 8.85,
+            "valid": 34
+          }
+        }
+      }
+    },
+    "total_days": 997,
+    "stock_days": "2022-07-26 00:00:00 ~ 2026-09-02 00:00:00"
+  }
+}
