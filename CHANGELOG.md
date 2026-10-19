@@ -5,7 +5,7 @@
 
 | 版本 | 日期 | 主题 | 规模 | 验收 |
 |---|---|---|---|---|
-| **v1.1** | 2026-10-19 | 从「分析系统」升级为「可自我否证的虚拟盘系统」 | 62 文件 / +17,600 行 | 12/12 + 39/39 |
+| **v1.1** | 2026-10-19 | 从「分析系统」升级为「可自我否证的虚拟盘系统」 | 65 文件 / +17,085 行 | 12/12 + 39/39 |
 | v1.0 | 2026-09 | 初版：股票分析配置中心（技术/基本面/产业链 + 多 Agent） | — | — |
 
 ---
@@ -16,7 +16,7 @@
 
 把 portal 从「拉数据 → 算指标 → 写报告」的**单向流水线**，改造成
 **计划 → 机械回放结算 → 账本 → 规则闸门 → 演化**的闭环，
-并给它配了一套可复现的回测内核、全市场数据库与 47 条自检断言。
+并给它配了一套可复现的回测内核、全市场数据库与 51 条自检断言。
 
 **核心原则：Agent 只提议，确定性内核裁决。**
 
@@ -194,8 +194,11 @@ python -m portal.virtual.verify_report --selftest # → 探针有效
 python -m portal.virtual.warmup --check           # → missed_other=0, extra_other=0
 ```
 
-47 条断言分布：C1–C12（回测内核 12）+ S1–S7（记忆层 7）+ T1–T10（结算 10）
+**51 条**断言分布：C1–C12（回测内核 12）+ S1–S7（记忆层 7）+ T1–T10（结算 10）
 + U1–U8（闸门/衰减/审计/演化 8）+ V1–V7（融合 7）+ W1–W7（数据层 7，见 2.4）。
+
+其中 C8/C9 需要 `--real` 才计入（不带参数是 10 条），所以
+`backtest_audit` 报 12/12、`virtual.selfcheck` 报 39/39，合计 **51** 条。
 
 **每条断言都必须能失败**：塞已知错误值进去确认它报错。已单独验证：
 - C6 探针有效性、V7 审计拦截、W2 盘中护栏真的拒绝写入、
@@ -217,36 +220,43 @@ python -m portal.virtual.warmup --check           # → missed_other=0, extra_ot
 1. **北交所 351 只无历史日K**：新浪不支持 `bj` 前缀，腾讯只回 0~1 行。免费源无解。
 2. **权重只有技术 vs 游资被回测过**：基本面/产业链需要历史财报与板块归属快照，数据库没有。
 3. **历史日的封单额/流通市值不可重建**：可买性判据只能用于当日实时。
-4. **每日增量还没有调度**：`python -m portal.virtual.marketdb update` 需挂 GitHub Action 或计划任务。
+4. **增量做了两条通道，但都还没在真实环境跑满一周**：Portal 按钮与 GitHub Action 的
+   代码路径已验证（W2/W7 + 模拟目录布局 39/39），**调度稳定性要看接下来一周的实际运行**。
+   数据库放 Actions 缓存（1.9 GB/份、上限 10 GB）长期需裁剪版。
 5. **`predictions.jsonl` 尚空**：写入已接在 `settle` 买卖两端并测过，需第一轮真实
    `plan → settle → exit` 才有数据。
 6. **报告图表约 1 MB/份**：内联 echarts 的代价，换来零外部引用、离线可看。
 
 ## 九、变更清单
 
-**47 个新增文件**（约 15,000 行）：
+`git diff --shortstat d16e0b0..HEAD` → **65 文件 / +17,085 / −1,012**
+（新增 **52** 个，修改 **13** 个）。
 
 ```
-portal/virtual/            24 个模块（anchor audit datafeed dataset decay evolve expr
-                                  fill_model gate marketdb minute_data paths plan pools
-                                  predictions report rules scan selfcheck selfcheck_p2
-                                  selfcheck_p3 selfcheck_p4 settle tagging ths_reason
-                                  toolbox verify_report warmup weights _check __init__）
+portal/virtual/            32 个 .py（24 核心模块 + 5 套自检 + _check + __init__ + verify_report）
+                           anchor audit datafeed dataset decay evolve expr fill_model gate
+                           marketdb minute_data paths plan pools predictions report rules
+                           scan settle tagging ths_reason toolbox warmup weights
+                           selfcheck selfcheck_p2 selfcheck_p3 selfcheck_p4 selfcheck_p5
 portal/virtual/assets/     echarts.min.js（1010 KB，报告内联用）
 portal/backtest_core.py    754 行  统一收益口径
 portal/backtest_audit.py   579 行  C1–C12 对照实验
 portal/analyzers/yuzi.py   249 行  游资情绪维度
-portal/srv/virtual_api.py  465 行  7 个端点
+portal/srv/virtual_api.py  465 行  9 个端点（含 update / update/status）
 portal/js/tabs/virtual.js  426 行  虚拟盘 Tab
+portal/.github/workflows/market-db.yml  207 行  每日增量 + 每周全量
+portal/requirements-marketdb.txt         20 行  建库最小依赖
 portal/docs/               6 份工程记录（p0–p4 + data-and-ui）
 portal/UPGRADE_PLAN.md     727 行  升级方案（第一性文档）
-portal/data/virtual/rules.jsonl    种子规则（3 条 hypothesis）
+portal/CHANGELOG.md        本文件
+portal/data/virtual/rules.jsonl   种子规则（3 条 hypothesis）
+portal/.gitattributes      LF 规范化（避免 Windows 换行把 diff 打满）
 ```
 
-**12 个修改文件**：`backtester.py`（重写为薄封装）、`analyzers/{__init__,merger}.py`、
+**13 个修改文件**：`backtester.py`（重写为薄封装）、`analyzers/{__init__,merger}.py`、
 `build_standalone.py`（+7 项校验与 `--self-test`）、`index-standalone.html`（重建）、
 `js/{app.js,tabs/run.js}`、`lib/data_provider/akshare_fetcher.py`（补 `float_cap`/`seal_ratio_pct`）、
-`srv/{http_handler,prompts,tasks}.py`、`.gitignore`。
+`srv/{http_handler,prompts,tasks}.py`、`README.md`、`.gitignore`。
 
 ## 十、分支与提交（全部已推送 GitHub）
 
@@ -262,7 +272,7 @@ portal/data/virtual/rules.jsonl    种子规则（3 条 hypothesis）
 | `feat/ui-virtual-tab` | `9176152` | 虚拟盘 Tab + build 加固 |
 | `feat/report-charts` | `19d7ade` | ECharts 内联 + 渲染校验 |
 | `fix/data-rounding-panel` | `fc8bbfd` | 交易所舍入 + 池分类 + 面板修复 |
-| `feat/daily-update` | （本分支） | 当日增量（腾讯快通道 + 盘中护栏）+ Portal 按钮 + GitHub Action |
+| `docs/v1.1-changelog` | `c79a173` | 本文件 + README 更新；同一提交也含「当日增量两条通道」的实现 |
 | `main` | （合并后更新） | 全部合并 |
 
 ## 十一、下一步（v1.2 候选）
