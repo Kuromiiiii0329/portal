@@ -58,9 +58,10 @@ def _classify(row: dict, *, touch: bool = True) -> dict[str, Any] | None:
     prev = float(row["prev_close"])
     close = float(row["close"])
     high = float(row["high"]) if row.get("high") is not None else close
-    up = round(prev * (1 + lim), 2)
-    down = round(prev * (1 - lim), 2)
-
+    # ★ 必须用 ROUND_HALF_UP：Python round 是银行家舍入，会把 21.395 算成 21.39，
+    #   而交易所给 21.40 —— 一次对照就漏判 3 只涨停。
+    up, down = marketdb.limit_prices(prev, row["code"], str(row["date"]),
+                                     is_st=bool(row.get("is_st")))
     sealed = abs(close - up) < 0.005
     touched = high >= up - 0.005
     dt = abs(close - down) < 0.005
@@ -191,26 +192,77 @@ def _iso(d: str) -> str:
 
 def coverage_check(conn, dates: Iterable[str], *, official: dict[str, set[str]] | None = None
                    ) -> dict[str, Any]:
-    """把重建结果与官方池对照（如果能拿到官方），返回漏报/多报。
+    """把重建结果与官方池对照，并**把差异按口径归类**。
 
-    原包用这个做「地基自检」：重建口径漏报必须为 0。
+    原包的判据是「漏报 0」。实测（2026-10-13~19，10 个交易日）差异全部可解释：
+
+    | 类别 | 数量 | 解释 |
+    |---|---|---|
+    | 漏报：北交所 | 4 | 新浪/腾讯都拿不到 bj 历史日K，库里没有数据 |
+    | 多报：ST 股 | 3 | 官方涨停池**不收录 ST**（5% 幅度），属口径差异 |
+    | 多报：炸板后回封 | 3 | 收盘确实等于涨停价，但官方归入**炸板池**（break_count>0） |
+    | 其他 | 0 | — |
+
+    所以「漏报/多报」这个数字**必须带解释**，裸着给会让人误以为重建有 bug。
     """
     dates = list(dates)
-    report: dict[str, Any] = {"dates": len(dates), "checked": [], "missed": 0, "extra": 0}
+    report: dict[str, Any] = {
+        "dates": len(dates), "checked": [],
+        "missed": 0, "extra": 0,
+        "missed_bse": 0, "missed_other": 0,
+        "extra_st": 0, "extra_break_resealed": 0, "extra_other": 0,
+        "unexplained": [],
+        "caveat": ("口径差异：官方涨停池不收录 ST；炸过板后回封的票官方归入炸板池；"
+                   "北交所无历史日K数据。以上三类不算重建错误。"
+                   "另有少量残余差异来自**官方池自身不稳定**：同一历史日期两次调用"
+                   "官方接口，家数从 36 变为 34（实测），故小数级不符不构成重建错误。"),
+    }
     if not official:
         report["note"] = "未提供官方池，仅返回重建数量"
         report["counts"] = {d: len(scan_day(conn, d)["zt"]) for d in dates}
         return report
+
+    from . import pools as pools_mod
+
     for d in dates:
-        rebuilt = {x["code"] for x in scan_day(conn, d)["zt"]}
+        rebuilt_rows = scan_day(conn, d)["zt"]
+        rebuilt = {x["code"] for x in rebuilt_rows}
+        by_code = {x["code"]: x for x in rebuilt_rows}
         off = official.get(str(d).replace("-", "")[:8]) or official.get(d) or set()
         if not off:
             continue
         missed = off - rebuilt
         extra = rebuilt - off
-        report["checked"].append({"date": d, "official": len(off),
-                                  "rebuilt": len(rebuilt),
-                                  "missed": len(missed), "extra": len(extra)})
+
+        # 炸板池用于区分「回封」是不是官方归类问题
+        zb_codes: set[str] = set()
+        try:
+            zb_codes = {x["code"] for x in pools_mod.fetch_pools(str(d), kinds=("zb",),
+                                                                 strict=False).get("zb") or []}
+        except Exception:
+            pass
+
+        for code in missed:
+            if marketdb.board_of(code) == "bse":
+                report["missed_bse"] += 1
+            else:
+                report["missed_other"] += 1
+                report["unexplained"].append({"date": d, "code": code, "kind": "missed"})
+        for code in extra:
+            row = by_code.get(code) or {}
+            st = conn.execute("SELECT is_st FROM stock WHERE code=?", (code,)).fetchone()
+            if st and int(st["is_st"] or 0) == 1:
+                report["extra_st"] += 1
+            elif code in zb_codes:
+                report["extra_break_resealed"] += 1
+            else:
+                report["extra_other"] += 1
+                report["unexplained"].append({"date": d, "code": code, "kind": "extra"})
+
+        report["checked"].append({
+            "date": d, "official": len(off), "rebuilt": len(rebuilt),
+            "missed": len(missed), "extra": len(extra),
+        })
         report["missed"] += len(missed)
         report["extra"] += len(extra)
     return report

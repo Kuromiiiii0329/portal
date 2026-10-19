@@ -168,15 +168,19 @@ def build_panel(
     dropped = {"no_kline": 0, "no_tech": 0, "no_yuzi": 0, "no_return": 0,
                "limit_up_open": 0}
     for i, d in enumerate(days, 1):
+        # ★ scan_range 的 key 是 ISO 日期（2026-01-06），这里必须先归一成 8 位，
+        #   否则 f"{d[:4]}-{d[4:6]}-{d[6:8]}" 会拼出 "2026-0:1-" 这种垃圾，
+        #   之后按日期匹配那一行永远失败 → 整个面板 0 行（实测踩到，120 天全 drop）。
+        d8 = str(d).replace("-", "").replace("/", "")[:8]
+        iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
         zt = scan_res[d]["zt"]
         codes = [x["code"] for x in zt]
-        klines = datafeed.load_many(codes, date8=d, lookback=180)
+        klines = datafeed.load_many(codes, date8=d8, lookback=180)
         for x in zt:
             df = klines.get(x["code"])
             if df is None or len(df) == 0:
                 dropped["no_kline"] += 1
                 continue
-            iso = f"{d[:4]}-{d[4:6]}-{d[6:8]}"
             pos = df.index[df["date"].astype(str).str[:10] == iso]
             if len(pos) == 0:
                 dropped["no_kline"] += 1
@@ -193,7 +197,7 @@ def build_panel(
             if yz is None:
                 dropped["no_yuzi"] += 1
                 continue
-            fwd = core.forward_return_after(df, d, horizon, code=x["code"])
+            fwd = core.forward_return_after(df, d8, horizon, code=x["code"])
             if fwd is None:
                 dropped["no_return"] += 1
                 continue
@@ -250,6 +254,8 @@ class WeightEval:
     buy_winrate: float | None = None
     excess_pp: float | None = None
     t_stat: float | None = None
+    ic: float | None = None
+    cutoff: float | None = None
     note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -262,6 +268,8 @@ class WeightEval:
             "buy_mean_pct": self.buy_mean_pct,
             "buy_median_pct": self.buy_median_pct,
             "buy_winrate": self.buy_winrate,
+            "cutoff": self.cutoff,
+            "ic": self.ic,
             "excess_pp": self.excess_pp,
             "t_stat": self.t_stat,
             "note": self.note,
@@ -278,8 +286,40 @@ def combined_score(rows: list[dict], tech_w: float, yuzi_w: float) -> np.ndarray
     return (t * tech_w + y * yuzi_w) / total
 
 
+def _rank(x: np.ndarray) -> np.ndarray:
+    """平均秩（处理并列），用于 Spearman。避免引入 scipy 依赖。"""
+    order = x.argsort(kind="mergesort")
+    ranks = np.empty(len(x), dtype=float)
+    ranks[order] = np.arange(1, len(x) + 1, dtype=float)
+    # 并列取平均秩
+    uniq, inv, counts = np.unique(x, return_inverse=True, return_counts=True)
+    if len(uniq) < len(x):
+        sums = np.zeros(len(uniq))
+        np.add.at(sums, inv, ranks)
+        ranks = (sums / counts)[inv]
+    return ranks
+
+
+def spearman(a: np.ndarray, b: np.ndarray) -> float | None:
+    if len(a) < 5 or len(b) != len(a):
+        return None
+    ra, rb = _rank(np.asarray(a, float)), _rank(np.asarray(b, float))
+    sa, sb = ra.std(), rb.std()
+    if sa <= 0 or sb <= 0:
+        return None
+    return float(((ra - ra.mean()) * (rb - rb.mean())).mean() / (sa * sb))
+
+
 def evaluate(rows: list[dict], tech: float, yuzi: float,
-             *, buy_threshold: float = BUY_THRESHOLD) -> WeightEval:
+             *, select: str = "quantile", quantile: float = 0.2,
+             buy_threshold: float = BUY_THRESHOLD) -> WeightEval:
+    """评估一个权重组合。
+
+    为什么默认按**分位**选股而不是固定阈值 70：
+    代理分的绝对水平没有校准到真实 analyzer 的分布上（技术代理分上限约 74，
+    游资代理分上限约 66），固定 70 分几乎选不出样本 —— 那样测的就不是权重，
+    而是阈值。按分位选「分数最高的 20%」测的是**排序能力**，这才是权重该负责的事。
+    """
     if not rows:
         return WeightEval(tech, yuzi, 0, None, None, note="空面板")
     rets = np.array([float(r["ret_pct"]) for r in rows])
@@ -289,8 +329,18 @@ def evaluate(rows: list[dict], tech: float, yuzi: float,
         tech=tech, yuzi=yuzi, n=len(rows),
         mean_pct=round(all_mean, 3),
         median_pct=round(float(np.median(rets)), 3),
+        ic=round(spearman(score, rets), 4) if spearman(score, rets) is not None else None,
     )
-    mask = score >= buy_threshold
+
+    if select == "quantile":
+        q = min(max(quantile, 0.01), 0.9)
+        cutoff = float(np.quantile(score, 1.0 - q))
+        mask = score >= cutoff
+    else:
+        cutoff = buy_threshold
+        mask = score >= buy_threshold
+    ev.cutoff = round(cutoff, 2)
+
     if int(mask.sum()) >= 3:
         sel = rets[mask]
         ev.buy_n = int(len(sel))
@@ -301,22 +351,24 @@ def evaluate(rows: list[dict], tech: float, yuzi: float,
         sd = float(np.std(sel, ddof=1))
         ev.t_stat = round(float(np.mean(sel) / (sd / math.sqrt(len(sel)))), 2) if sd > 0 else None
     elif int(mask.sum()) > 0:
-        ev.note = f"买入组只有 {int(mask.sum())} 条，不足 3 条，不做统计"
+        ev.note = f"选中只有 {int(mask.sum())} 条，不足 3 条，不做统计"
     else:
-        ev.note = f"阈值 {buy_threshold} 下没有任何样本被选中（权重对这个面板没有区分度）"
+        ev.note = f"cutoff {ev.cutoff} 下没有任何样本（权重对该面板没有区分度）"
     return ev
 
 
 def grid_search(rows: list[dict], grid: Iterable[float] = TECH_WEIGHT_GRID,
-                *, buy_threshold: float = BUY_THRESHOLD) -> list[WeightEval]:
-    """扫权重网格。返回按「买入组超额」降序的结果（仍要看样本量与 t 值）。"""
-    out = [evaluate(rows, t, round(1.0 - t, 4), buy_threshold=buy_threshold) for t in grid]
+                *, select: str = "quantile", quantile: float = 0.2,
+                buy_threshold: float = BUY_THRESHOLD) -> list[WeightEval]:
+    """扫权重网格。按「选中组超额」降序，同时给 IC —— 两者都要看。"""
+    out = [evaluate(rows, t, round(1.0 - t, 4), select=select, quantile=quantile,
+                    buy_threshold=buy_threshold) for t in grid]
     out.sort(key=lambda e: (e.excess_pp if e.excess_pp is not None else -9e9), reverse=True)
     return out
 
 
 def walk_forward(rows: list[dict], *, split_ratio: float = 0.6,
-                 buy_threshold: float = BUY_THRESHOLD) -> dict[str, Any]:
+                 select: str = "quantile", quantile: float = 0.2) -> dict[str, Any]:
     """训练/测试切分：前半段挑权重，后半段验证。
 
     这是防止「全样本挑最优」的唯一办法 —— 那等于抽卡。
@@ -327,19 +379,20 @@ def walk_forward(rows: list[dict], *, split_ratio: float = 0.6,
     cut = int(len(rows) * split_ratio)
     train, test = rows[:cut], rows[cut:]
 
-    train_res = grid_search(train, buy_threshold=buy_threshold)
+    train_res = grid_search(train, select=select, quantile=quantile)
     best = train_res[0]
     if best.excess_pp is None:
-        return {"ok": False, "note": "训练集里没有任何权重组合能选出买入组",
+        return {"ok": False, "note": "训练集里没有任何权重组合能选出样本",
                 "train_rows": len(train), "test_rows": len(test)}
 
-    test_ev = evaluate(test, best.tech, best.yuzi, buy_threshold=buy_threshold)
-    baseline = evaluate(test, 0.5, 0.5, buy_threshold=buy_threshold)
+    test_ev = evaluate(test, best.tech, best.yuzi, select=select, quantile=quantile)
+    baseline = evaluate(test, 0.5, 0.5, select=select, quantile=quantile)
 
     return {
         "ok": True,
         "train_rows": len(train), "test_rows": len(test),
         "split_ratio": split_ratio,
+        "selection": f"{select} {quantile:.0%}" if select == "quantile" else f"score>={quantile}",
         "best_on_train": best.to_dict(),
         "same_on_test": test_ev.to_dict(),
         "balanced_baseline_on_test": baseline.to_dict(),
@@ -349,10 +402,10 @@ def walk_forward(rows: list[dict], *, split_ratio: float = 0.6,
 
 def _verdict(best: WeightEval, test: WeightEval, baseline: WeightEval) -> str:
     if test.buy_n < 30:
-        return (f"测试集买入组仅 {test.buy_n} 条（<30），不做任何结论 —— "
+        return (f"测试集选中组仅 {test.buy_n} 条（<30），不做任何结论 —— "
                 f"样本量不够，权重之争没有答案")
     if test.excess_pp is None:
-        return "测试集选不出买入组，权重无法验证"
+        return "测试集选不出样本，权重无法验证"
     if test.excess_pp > 0 and (test.t_stat or 0) > 2:
         return (f"训练集选出的权重在测试集上仍有 +{test.excess_pp}pp 超额"
                 f"（t={test.t_stat}），可以作为候选，但仍需过 G1–G5")
@@ -388,21 +441,22 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(meta, ensure_ascii=False, indent=2))
         return 1
 
-    full = [e.to_dict() for e in grid_search(rows, buy_threshold=args.buy_threshold)]
-    wf = walk_forward(rows, buy_threshold=args.buy_threshold)
+    full = [e.to_dict() for e in grid_search(rows, select="quantile", quantile=0.2)]
+    wf = walk_forward(rows, select="quantile", quantile=0.2)
     out = {"meta": meta, "grid": full, "walk_forward": wf,
            "current_weights_for_reference": CURRENT_WEIGHTS}
     if args.json:
         print(json.dumps(out, ensure_ascii=False, indent=2))
     else:
         print(json.dumps(meta, ensure_ascii=False, indent=2))
-        print(f"\n{'技术权重':>8}{'游资权重':>8}{'买入n':>7}{'买入均值':>9}"
-              f"{'中位':>8}{'胜率':>7}{'超额pp':>9}{'t':>7}")
+        print(f"\n按分位选股（前 20%），比较各权重组合的排序能力：")
+        print(f"{'技术':>6}{'游资':>6}{'选中n':>7}{'选中均值':>10}"
+              f"{'中位':>8}{'胜率':>7}{'超额pp':>9}{'t':>7}{'IC':>8}")
         for e in full:
-            print(f"{e['weights']['technical']:>8.2f}{e['weights']['yuzi']:>8.2f}"
-                  f"{e['buy_n']:>7}{str(e['buy_mean_pct']):>9}"
+            print(f"{e['weights']['technical']:>6.2f}{e['weights']['yuzi']:>6.2f}"
+                  f"{e['buy_n']:>7}{str(e['buy_mean_pct']):>10}"
                   f"{str(e['buy_median_pct']):>8}{str(e['buy_winrate']):>7}"
-                  f"{str(e['excess_pp']):>9}{str(e['t_stat']):>7}")
+                  f"{str(e['excess_pp']):>9}{str(e['t_stat']):>7}{str(e['ic']):>8}")
         print("\n走查验证（训练集挑权重 → 测试集验证）：")
         print(json.dumps(wf, ensure_ascii=False, indent=2))
     return 0

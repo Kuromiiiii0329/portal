@@ -180,13 +180,13 @@ def daily_limit_up(date8: str, *, conn=None) -> list[dict[str, Any]]:
             if not prev or not prev["close"]:
                 continue
             lim = marketdb.limit_pct_at(r["code"], d, is_st=bool(r["is_st"]))
-            up = round(float(prev["close"]) * (1 + lim), 2)
-            up_touch = round(float(prev["close"]) * (1 + lim) + 0.0001, 2)
+            up, down = marketdb.limit_prices(float(prev["close"]), r["code"], d,
+                                             is_st=bool(r["is_st"]))
             if abs(float(r["close"]) - up) < 0.005:
                 out.append({"code": r["code"], "name": r["name"], "close": float(r["close"]),
                             "prev_close": float(prev["close"]), "limit_up": up,
                             "touch_only": False})
-            elif r["high"] and abs(float(r["high"]) - up_touch) < 0.02:
+            elif r["high"] and abs(float(r["high"]) - up) < 0.02:
                 out.append({"code": r["code"], "name": r["name"], "close": float(r["close"]),
                             "prev_close": float(prev["close"]), "limit_up": up,
                             "touch_only": True})
