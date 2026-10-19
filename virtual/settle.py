@@ -460,6 +460,24 @@ def settle_buy(plan_id: str, *, source: Source | None = None,
     if not dry and write:
         _write_fills(plan_id, result, suffix="")
         _append_ledger(plan, result)
+        # 预测账本：把「当时看到什么、下了什么注」和结果一起落盘。
+        # 只写 ledger 会导致无法按信号切片统计 —— 校准需要这份数据。
+        try:
+            from . import predictions as pred_mod
+            pred_mod.record_prediction(
+                plan, gate=gate,
+                features={
+                    "picks": [
+                        {k: p.get(k) for k in
+                         ("code", "name", "pos_120d", "chg5d", "seal_ratio_pct", "lbc")}
+                        for p in (plan.get("picks") or [])
+                    ],
+                    "market": (plan.get("market_features") or {}),
+                },
+            )
+            pred_mod.record_settlement(result)
+        except Exception:
+            pass          # 预测账本失败不该让结算失败
     return result
 
 
@@ -592,6 +610,12 @@ def settle_exit(plan_id: str, *, source: Source | None = None,
 
     if not dry and write:
         _write_fills(plan_id, exit_fills, suffix="_exit")
+        # 平仓后才知道「预测对不对」—— 这里补上二值结果，供命中率 / Brier 校准
+        try:
+            from . import predictions as pred_mod
+            pred_mod.record_settlement(buy, exit_fills=exit_fills)
+        except Exception:
+            pass
     return exit_fills
 
 

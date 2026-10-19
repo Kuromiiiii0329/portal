@@ -440,6 +440,71 @@ def check_first_row_wraparound(n: int = 200) -> Check:
 
 
 # ─────────────────────────────────────────────────────────────
+# C12 · 两套价格体系（真实价判涨停 / 复权价算收益）
+# ─────────────────────────────────────────────────────────────
+def check_two_price_systems() -> Check:
+    c = Check("C12", "两套价格体系：真实价判涨跌停，复权价算收益")
+
+    # 构造：第 100 天除权（10 送 10），真实价腰斩，复权价连续
+    n = 160
+    raw_close = np.full(n, 20.0)
+    raw_close[100:] = 10.0                      # 除权：20 → 10
+    raw_open = raw_close.copy()
+    adj_close = np.full(n, 10.0)                # 前复权：全程连续
+    adj_open = adj_close.copy()
+
+    df = _frame(raw_close, raw_open)
+    df["aclose"] = adj_close
+    df["aopen"] = adj_open
+    df["ahigh"] = np.maximum(adj_open, adj_close) * 1.001
+    df["alow"] = np.minimum(adj_open, adj_close) * 0.999
+
+    c.expect(core.has_adjusted(df), "识别出复权列")
+    c.expect(core.return_cols(df) == (core.ADJ_OPEN, core.ADJ_CLOSE), "收益用复权列")
+
+    # ① 收益：跨除权日必须算成 0%，而不是 −50%
+    _, rets, _, _ = core.collect_samples(df, None, (1,), "600000", cost=0.0)
+    mean = float(np.mean(rets[1]))
+    c.expect(abs(mean) < 1e-9,
+             f"跨除权日的收益用复权价 → {mean:+.6f}（若用真实价会是 −50% 级别的假跌）")
+
+    # 对照组：去掉复权列后，跨除权日的样本**不会静默算错**——
+    # 它会被异常检测拦住并计入 excluded（这是防御性兜底）。
+    # 但代价是丢样本：除权日往往伴随放量，丢掉它本身也是损失。
+    df_raw = df.drop(columns=["aclose", "aopen", "ahigh", "alow"])
+    _, rets_raw, excl_raw, _ = core.collect_samples(df_raw, None, (1,), "600000", cost=0.0)
+    mean_raw = float(np.mean(rets_raw[1])) if rets_raw[1] else 0.0
+    c.expect(mean_raw < -1.0 or excl_raw["anomaly"] > 0,
+             f"去掉复权列后：要么算出假跌（{mean_raw:+.2f}%），要么被异常检测剔除"
+             f"（excluded.anomaly={excl_raw['anomaly']}）—— 两条都是损失，"
+             f"所以必须补复权")
+
+    # ② 异常检测：真实价在除权日有 −50% 跳空，但复权后应判为正常
+    enriched, _, _, _ = core.collect_samples(df, None, (1,), "600000", cost=0.0)
+    mask = core.compute_anomaly_mask(enriched, "600000")
+    c.expect(int(mask.sum()) == 0,
+             f"复权价连续 → 0 行被判异常（实际 {int(mask.sum())}；用真实价会误判）")
+
+    # ③ 涨跌停判定仍用真实价
+    n2 = 40
+    rc = np.full(n2, 10.0)
+    ro = np.full(n2, 10.0)
+    ro[20] = 11.0                                  # 第 20 天开盘 = 昨收 ×1.1（涨停）
+    ac = np.full(n2, 5.0)                          # 复权价被缩放，永远「看起来不涨停」
+    ao = np.full(n2, 5.0)
+    ao[20] = 5.5
+    d2df = _frame(rc, ro)
+    d2df["aclose"], d2df["aopen"] = ac, ao
+    entries = np.zeros(n2, dtype=bool)
+    entries[19] = True                             # 信号第 19 天 → 第 20 天开盘买
+    _, rets2, excl2, _ = core.collect_samples(d2df, entries, (1,), "600000", cost=0.0)
+    c.expect(excl2["limit_up_entry"] == 1,
+             f"用真实价判出「开盘涨停买不进」（剔除 {excl2['limit_up_entry']} 笔）")
+    c.expect(len(rets2[1]) == 0, "这笔没有进统计（不是靠复权价掩过去）")
+    return c
+
+
+# ─────────────────────────────────────────────────────────────
 # 运行器
 # ─────────────────────────────────────────────────────────────
 def _find_kline(root: pathlib.Path, code: str | None = None) -> list[pathlib.Path]:
@@ -465,6 +530,7 @@ def run(include_real: bool = False, code: str | None = None,
         check_backward_compat(),
         check_order_invariance(),
         check_first_row_wraparound(),
+        check_two_price_systems(),
     ]
     if include_real:
         paths = _find_kline(root, code)
