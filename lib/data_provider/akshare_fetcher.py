@@ -2086,7 +2086,7 @@ class AkshareFetcher(BaseFetcher):
                 return None
 
             df = df.copy()
-            for col in ('连板数', '封板资金', '成交额', '换手率', '涨跌幅'):
+            for col in ('连板数', '封板资金', '成交额', '换手率', '涨跌幅', '流通市值', '总市值'):
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             if '首次封板时间' in df.columns:
@@ -2099,6 +2099,8 @@ class AkshareFetcher(BaseFetcher):
 
             rows: List[Dict[str, Any]] = []
             for _, row in df.head(n).iterrows():
+                seal_amount = self._safe_float(row.get('封板资金'))
+                float_cap = self._safe_float(row.get('流通市值'))
                 rows.append({
                     'code': str(row.get('代码', '')).strip(),
                     'name': str(row.get('名称', '')).strip(),
@@ -2106,7 +2108,17 @@ class AkshareFetcher(BaseFetcher):
                     'price': self._safe_float(row.get('最新价')),
                     'amount': self._safe_float(row.get('成交额')),
                     'turnover_rate': self._safe_float(row.get('换手率')),
-                    'seal_amount': self._safe_float(row.get('封板资金')),
+                    'seal_amount': seal_amount,
+                    # 流通市值 + 封单/流通比：判断「次日能不能买到」的核心指标。
+                    # 涨停时卖盘稀少，要成交必须有卖单落在我前面，唯一有效的量化预判
+                    # 就是 封单额 ÷ 流通市值（<1% 可买 / 1-3% 需竞价判断 / >10% 买不到）。
+                    # 原始表里本来就有「流通市值」列，此前只是没有映射出来。
+                    'float_cap': float_cap,
+                    'total_cap': self._safe_float(row.get('总市值')),
+                    'seal_ratio_pct': (
+                        round(seal_amount / float_cap * 100, 3)
+                        if seal_amount and float_cap else None
+                    ),
                     'first_limit_time': str(row.get('首次封板时间', '')).strip(),
                     'last_limit_time': self._normalize_limit_time_value(row.get('最后封板时间')),
                     'break_count': self._safe_int(row.get('炸板次数')),

@@ -327,12 +327,17 @@ def _run_deep_analysis_task(
                 backtest_result = None
                 try:
                     from portal.data_cache import StockDataCache
-                    from portal.backtester import run_backtest
+                    from portal.backtester import is_current_caliber, run_backtest
                     _cache = StockDataCache()
                     backtest_result = _cache.get_backtest(stock_code)
+                    # 旧缓存用的是已废弃的收益口径（无 T+1/无成本/无基准）：
+                    # 口径修好后必须作废重算，否则修了个寂寞。
+                    if backtest_result is not None and not is_current_caliber(backtest_result):
+                        log("♻️ 回测缓存口径已过期，作废重算...")
+                        backtest_result = None
                     if backtest_result is None and df is not None and not df.empty:
                         log("📊 回测数据缺失，现场生成...")
-                        backtest_result = run_backtest(df)
+                        backtest_result = run_backtest(df, code=stock_code)
                         _cache.save_backtest(stock_code, backtest_result)
                         log("✅ 回测数据已生成并缓存")
                 except Exception as _be:
@@ -580,6 +585,8 @@ def _extract_active_patterns(results: list, backtest_result: dict | None, kline_
             "triggered": is_triggered,
             "last_date": last_date,
             "count":     (bt or {}).get("count", 0),
+            "count_used": (bt or {}).get("count_used"),
+            "insufficient": bool((bt or {}).get("insufficient")),
             "stats":     stats,
         })
 
