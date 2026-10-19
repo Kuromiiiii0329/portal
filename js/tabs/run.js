@@ -49,6 +49,16 @@ const DIM_DEFS = {
     },
     defaults: ['key_commodity','industry_chain','competitors','policy'],
   },
+  yuzi: {
+    label: '🔥 游资情绪', color: 'amber',
+    mods: {
+      limit_up_status: '涨停池定位（连板/首封/炸板）',
+      buyability: '可买性（封单÷流通）',
+      emotion_brake: '情绪刹车读数（仅仓位）',
+      dragon_tiger: '龙虎榜净买',
+    },
+    defaults: ['limit_up_status','buyability','emotion_brake'],
+  },
 };
 
 const HISTORY_KEY = 'dsa_run_history';
@@ -62,7 +72,7 @@ export class RunTab {
     this._online         = false;
     this._sse            = null;
     this._report         = null;
-    this._selDims        = new Set(['technical','fundamental','industry']);
+    this._selDims        = new Set(['technical','fundamental','industry','yuzi']);
     this._selMods        = Object.fromEntries(
       // 默认全选：每个维度的全部子模块都勾选
       Object.entries(DIM_DEFS).map(([k,v]) => [k, new Set(Object.keys(v.mods))])

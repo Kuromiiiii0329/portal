@@ -5,18 +5,21 @@ portal/analyzers/__init__.py
 from .technical import TechnicalAnalyzer
 from .fundamental import FundamentalAnalyzer
 from .industry import IndustryAnalyzer
+from .yuzi import YuziAnalyzer
 from .merger import merge_results
 
 ANALYZER_REGISTRY = {
     "technical": TechnicalAnalyzer,
     "fundamental": FundamentalAnalyzer,
     "industry": IndustryAnalyzer,
+    "yuzi": YuziAnalyzer,
 }
 
 __all__ = [
     "TechnicalAnalyzer",
     "FundamentalAnalyzer",
     "IndustryAnalyzer",
+    "YuziAnalyzer",
     "ANALYZER_REGISTRY",
     "merge_results",
 ]

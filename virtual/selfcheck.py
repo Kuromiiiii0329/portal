@@ -574,14 +574,15 @@ def run() -> dict:
 
 
 def _all_checks():
-    """P1 的 S1–S7 + P2 的 T1–T10 + P3 的 U1–U8。
+    """P1 的 S1–S7 + P2 的 T1–T10 + P3 的 U1–U8 + P4 的 V1–V7。
 
     子套件导入失败必须显式暴露，不许静默少跑一批 —— 少跑的检查会让人误以为
     「全绿」。
     """
-    from portal.virtual import selfcheck_p2, selfcheck_p3
+    from portal.virtual import selfcheck_p2, selfcheck_p3, selfcheck_p4
 
-    return (tuple(CHECKS) + tuple(selfcheck_p2.CHECKS) + tuple(selfcheck_p3.CHECKS))
+    return (tuple(CHECKS) + tuple(selfcheck_p2.CHECKS)
+            + tuple(selfcheck_p3.CHECKS) + tuple(selfcheck_p4.CHECKS))
 
 
 def main(argv: list[str] | None = None) -> int:
