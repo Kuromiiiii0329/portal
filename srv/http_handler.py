@@ -111,6 +111,24 @@ class Handler(BaseHTTPRequestHandler):
                 "logs": task.get("logs", []),
             })
 
+        elif path == "/virtual/status":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.status())
+
+        elif path == "/virtual/rules":
+            from urllib.parse import urlparse, parse_qs
+            from srv import virtual_api
+            qs = parse_qs(urlparse(self.path).query)
+            self._send_json(200, virtual_api.rules_list(qs.get("status", [None])[0]))
+
+        elif path == "/virtual/predictions":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.predictions_info())
+
+        elif path == "/virtual/ledger":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.ledger_text())
+
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
@@ -136,6 +154,20 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_market_review(payload)
         elif path == "/env":
             self._handle_set_env(payload)
+        elif path == "/virtual/warmup":
+            from srv import virtual_api
+            days = int(payload.get("days") or 20)
+            self._send_json(200, virtual_api.warmup(days))
+        elif path == "/virtual/evolve":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.evolve(
+                int(payload.get("max_days") or 40),
+                commit=bool(payload.get("commit")),
+                horizon=int(payload.get("horizon") or 1)))
+        elif path == "/virtual/report":
+            from srv import virtual_api
+            self._send_json(200, virtual_api.make_report(
+                open_browser=bool(payload.get("open", True))))
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 

@@ -8,12 +8,14 @@ import { SettingsTab }  from './tabs/settings.js';
 import { RunTab }       from './tabs/run.js';
 import { GuideTab }     from './tabs/guide.js';
 import { ChatTab }      from './tabs/chat.js';
+import { VirtualTab }   from './tabs/virtual.js';
 import { toast }        from './components/toast.js';
 import { modal }        from './components/modal.js';
 
 const TABS = [
   { id: 'run',       icon: '▶',  label: '立即运行', Cls: RunTab },
   { id: 'chat',      icon: '🤖', label: 'AI 对话',  Cls: ChatTab },
+  { id: 'virtual',   icon: '📈', label: '虚拟盘',   Cls: VirtualTab },
   { id: 'watchlist', icon: '☰',  label: '选股',     Cls: WatchlistTab },
   { id: 'settings',  icon: '⚙', label: '设置',     Cls: SettingsTab },
   { id: 'guide',     icon: '?',  label: '说明',     Cls: GuideTab },
