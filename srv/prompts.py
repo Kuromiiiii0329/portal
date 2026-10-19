@@ -6,6 +6,32 @@ Prompt 模板层 —— Agent 综合研判 / 走势预测 prompt 构造。
 """
 from __future__ import annotations
 
+_FORWARD_DAYS = ("1", "3", "5", "10", "20")
+
+
+def _fmt_signal_stats(stats: dict, days: tuple[str, ...] = _FORWARD_DAYS) -> str:
+    """把某个信号的多档持有期统计压成一行文本。
+
+    这里刻意同时给 **中位数** 与 **超额**：
+    只给均值与胜率，是《回测避坑手册》§4.1 点名的最常见骗局 ——
+    「均值正、中位负」意味着少数大赢撑起平均数、多数交易在亏钱。
+    超额则回答「跑赢了什么」——绝对收益在普涨行情里没有信息量。
+    """
+    if not isinstance(stats, dict):
+        return ""
+    parts = []
+    for d in days:
+        s = stats.get(d)
+        if not s or s.get("win_rate") is None:
+            continue
+        piece = f"{d}日 胜率{s['win_rate']}%/均值{s['avg_return']}%"
+        if s.get("median_return") is not None:
+            piece += f"/中位{s['median_return']}%"
+        if s.get("excess_return") is not None:
+            piece += f"/超额{s['excess_return']:+.2f}pp"
+        parts.append(piece)
+    return "  ".join(parts)
+
 
 def build_review_prompt(stock_name: str, stock_code: str, summary_text: str) -> str:
     """构造 Agent 综合研判 prompt（选项B）。数据全在 prompt 里，LLM 只做综合，不取数。"""
@@ -48,13 +74,13 @@ def build_forecast_prompt(stock_name: str, stock_code: str, summary_text: str,
             lines = ["当前触发形态及历史回测胜率（⚡ 表示今日已触发，应重点参考）："]
             for p in triggered:
                 stats = p.get("stats") or {}
-                parts = []
-                for d in ("1", "3", "5", "10", "20"):
-                    s = stats.get(d)
-                    if s and s.get("win_rate") is not None:
-                        parts.append(f"{d}日胜率{s['win_rate']}%/均收益{s['avg_return']}%")
-                stat_str = "  ".join(parts) if parts else "无统计"
-                lines.append(f"  ⚡ {p['name']}（历史触发{p.get('count',0)}次，最近:{p.get('last_date','—')}）：{stat_str}")
+                stat_str = _fmt_signal_stats(stats)
+                flag = "（样本极少，不可据此下结论）" if p.get("insufficient") else ""
+                lines.append(
+                    f"  ⚡ {p['name']}（历史触发{p.get('count',0)}次，"
+                    f"参与统计{p.get('count_used', p.get('count', 0))}次{flag}，"
+                    f"最近:{p.get('last_date','—')}）：{stat_str}"
+                )
             active_str = "\n" + "\n".join(lines) + "\n"
 
     # ── 全量回测摘要（所有信号，作为背景参考）────────────────
@@ -65,17 +91,29 @@ def build_forecast_prompt(stock_name: str, stock_code: str, summary_text: str,
         for sig, v in signals.items():
             if not isinstance(v, dict) or not v.get("stats"):
                 continue
-            stats = v["stats"]
-            parts = []
-            for d in ("1", "3", "5", "10", "20"):
-                s = stats.get(d)
-                if s and s.get("win_rate") is not None:
-                    parts.append(f"{d}日胜率{s['win_rate']}%/均收益{s['avg_return']}%")
-            if parts:
-                lines.append(f"  {sig}（触发{v.get('count',0)}次）：{'  '.join(parts)}")
+            stat_str = _fmt_signal_stats(v["stats"])
+            if not stat_str:
+                continue
+            flag = "（样本极少）" if v.get("insufficient") else ""
+            lines.append(f"  {sig}（触发{v.get('count',0)}次{flag}）：{stat_str}")
         if lines:
             period = backtest_result.get("stock_days", "")
-            backtest_str = f"\n历史信号回测（{period}，共{backtest_result.get('total_days',0)}日）：\n" + "\n".join(lines)
+            cal = backtest_result.get("caliber") or {}
+            caliber_note = ""
+            if cal:
+                caliber_note = (
+                    f"  口径：{cal.get('entry', '')} → {cal.get('exit', '')}；"
+                    f"已扣往返成本 {cal.get('cost_round_trip_pct', 0)}%；"
+                    f"「超额」= 相对该股同持有期无条件收益（零自由度基准）\n"
+                )
+            backtest_str = (
+                f"\n历史信号回测（{period}，共{backtest_result.get('total_days',0)}日）：\n"
+                + caliber_note
+                + "\n".join(lines)
+            )
+            warns = backtest_result.get("warnings") or []
+            if warns:
+                backtest_str += "\n  数据提示：" + "；".join(str(w) for w in warns)
 
     return f"""你是一位 A 股量化技术分析师。以下是 {stock_name}（{stock_code}）的量化分析摘要和近期 K 线数据。
 请基于这些信息，给出**走势预测**（这是模型推理的情景模拟，仅供研究参考，不构成投资建议）。

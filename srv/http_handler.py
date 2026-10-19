@@ -598,7 +598,9 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             from portal.backtester import run_backtest
-            result = run_backtest(df)
+            # 传 code 才能按板块推断涨跌停幅度，从而正确剔除「次日开盘即涨停」的
+            # 买不进样本（不传会按主板 10% 处理，20cm 票会被算成买到了）
+            result = run_backtest(df, code=code)
         except Exception as e:
             logger.exception("backtest error for %s: %s", code, e)
             self._send_json(500, {"ok": False, "error": f"回测执行失败：{e}"})
