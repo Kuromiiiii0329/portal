@@ -268,3 +268,58 @@ python -m portal.premarket midday          # 只在午休窗口可用
 ```
 
 实测一次：`预案核对 10 条、条件分支 3 条、报告 21 KB`。
+---
+
+## GitHub Action：每个交易日自动出报告 + 邮件送达
+
+workflow 文件：[`.github/workflows/daily-reports.yml`](../.github/workflows/daily-reports.yml)
+
+| 时间（CST） | cron（UTC） | 跑什么 |
+|---|---|---|
+| 12:05 | `5 4 * * 1-5` | 午间报告（半日行情 + 预案核对 + 午后判断） |
+| 16:50 | `50 8 * * 1-5` | 晚间报告（全天汇总 + 调仓 + 次日计划 + 复盘） |
+
+晚间放在 16:50 而不是 16:30，是为了等 `market-db.yml`（16:30）先把当日增量写完；
+即使缓存没跟上，workflow 自己也会 `update-today` 补一次（幂等）。
+
+### 发信：完全交给 Action，仓库里没有 SMTP 代码
+
+用的是 [`dawidd6/action-send-mail@v3`](https://github.com/dawidd6/action-send-mail)：
+
+- `html_body: file://.../mail_body.html` —— 正文是 3–6 KB 的紧凑 HTML，手机直接能读
+- `attachments: .../20261020_midday.html` —— 完整报告作为附件存档
+
+正文由 `python -m portal.premarket.mail_summary --kind midday|evening` 生成：
+
+- 退出码 **0** → 有报告，发信
+- 退出码 **3** → 今天没有可发的报告（节假日/任务跳过），**跳过发信，不算失败**
+
+### 需要配置的 Repository secrets
+
+| Secret | 必填 | 说明 |
+|---|---|---|
+| `EMAIL_SENDER` | ✅ | 发件邮箱 |
+| `EMAIL_PASSWORD` | ✅ | 邮箱**授权码**（不是登录密码；QQ/163 需在网页端开启 SMTP 并生成授权码） |
+| `EMAIL_RECEIVERS` | ✅ | 收件人，逗号分隔 |
+| `EMAIL_SMTP_HOST` | — | 默认 `smtp.qq.com`（163 用 `smtp.163.com`，Gmail 用 `smtp.gmail.com` + 端口 587） |
+| `EMAIL_SMTP_PORT` | — | 默认 `465` |
+| `DEEPSEEK_API_KEY` | — | 不配则报告降级为「规则兜底」，报告顶部会标注 |
+| `OPENAI_API_KEY` / `LITELLM_MODEL` | — | 同上，三者配任一即可 |
+
+**secrets 缺失时不会报错**：workflow 会打一条 `::warning::` 并跳过发信，报告仍然作为 artifact 上传。
+
+### 节假日的处理
+
+- 晚间：先看「库里最新交易日 == 今天」；不等就整份跳过（不发信、不失败）
+- 午间：`session_guard` 会核对官方 `legu` 快照是不是**今天 11:30**，不是就抛
+  `SessionError` 并跳过
+
+### 手动触发
+
+Actions 页面 → `daily-reports` → Run workflow → 选 `auto` / `midday` / `evening`。
+
+### 缓存策略（别踩的坑）
+
+- 数据库由 `market-db.yml` 负责写入与缓存维护
+- 报告 workflow 只用 `actions/cache/restore@v4`（**不 save**）——
+  否则每次未命中都会另存一份 1.9 GB，几次就把仓库 10 GB 缓存配额吃光
