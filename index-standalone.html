@@ -1606,6 +1606,9 @@ class RunTab {
               <button id="pm-generate"
                 class="text-xs px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-black">
                 一键运行</button>
+              <button id="pm-midday"
+                class="text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700">
+                一键午报</button>
               <button id="pm-open"
                 class="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
                 打开最新</button>
@@ -1827,11 +1830,13 @@ class RunTab {
   // ── 盘前预案（主页一键生成）──────────────────────────────────────────
   _initPremarket() {
     const gen = this._c.querySelector('#pm-generate');
+    const mid = this._c.querySelector('#pm-midday');
     const openBtn = this._c.querySelector('#pm-open');
     if (!gen) return;
     this._pmTimer = null;
     this._pmBusy = false;
-    gen.addEventListener('click', () => this._pmStart(gen));
+    gen.addEventListener('click', () => this._pmStart(gen, '/premarket/generate'));
+    if (mid) mid.addEventListener('click', () => this._pmStart(mid, '/premarket/midday'));
     openBtn.addEventListener('click', () => this._pmOpen());
     this._pmRefreshMeta();
     this._pmPoll(true);       // 若上次任务还在跑，进来就接着显示
@@ -1848,14 +1853,14 @@ class RunTab {
     } catch (e) { this._t.show(`打开失败：${e}`, 'error'); }
   }
 
-  async _pmStart(btn) {
+  async _pmStart(btn, endpoint = '/premarket/generate') {
     if (!this._online) { this._t.show('需要本地服务在线', 'warning'); return; }
     if (this._pmBusy) { this._t.show('预案任务进行中，请稍候', 'warning'); return; }
     const label = btn.textContent;
     btn.disabled = true;
     btn.textContent = '启动中…';
     try {
-      const r = await fetch(`${SERVER}/premarket/generate`, {
+      const r = await fetch(`${SERVER}${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });

@@ -59,6 +59,11 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--no-fallback", action="store_true", help="没有 LLM 就直接失败")
     g.add_argument("--json", action="store_true", help="输出机器可读 JSON")
 
+    m = sub.add_parser("midday", help="午间报告（半日行情 + 午后判断）")
+    m.add_argument("--force", action="store_true",
+                   help="跳过时段校验（仅调试用，会污染午报口径）")
+    m.add_argument("--json", action="store_true")
+
     r = sub.add_parser("review", help="盘后复盘（按收盘价结算计划）")
     r.add_argument("--date", default=None)
 
@@ -111,6 +116,27 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({k: out["plan"][k] for k in
                               ("plan_date", "trade_date", "proposal_source",
                                "tables_after")}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.cmd == "midday":
+        from portal.premarket import midday
+        try:
+            out = midday.run(write=True)
+        except midday.SessionError as exc:
+            print(json.dumps({"ok": False, "error": str(exc),
+                              "hint": "午报只在 11:25–13:15 且官方快照是今天 11:30 时可生成"},
+                             ensure_ascii=False))
+            return 2
+        except Exception as exc:
+            print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"},
+                             ensure_ascii=False))
+            return 1
+        print(json.dumps({
+            "ok": out["ok"], "report_path": out.get("report_path"),
+            "report_bytes": out.get("report_bytes"),
+            "proposal_source": out.get("proposal_source"),
+            "executed": len((out.get("midday") or {}).get("executed") or []),
+        }, ensure_ascii=False))
         return 0
 
     if args.cmd == "review":

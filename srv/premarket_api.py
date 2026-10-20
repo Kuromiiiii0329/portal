@@ -53,6 +53,16 @@ def start_daily(*, date8: str | None = None, plan_date: str | None = None,
                           "未配置 LLM 时降级为规则兜底，报告顶部会标注。")
 
 
+def start_midday() -> dict[str, Any]:
+    """午报：半日行情 + 预案核对 + 午后判断（12:00 前后运行）。
+
+    时段护栏在 `midday.session_guard`：不在午休窗口、或官方快照不是今天 11:30，
+    都会直接失败 —— 宁可报错，也不许拿旧数据假装午报。
+    """
+    return JOB.start("midday", ["-m", "portal.premarket", "midday", "--json"],
+                     note="仅在午休（11:25–13:15）可用；LLM 通常 30–90 秒。")
+
+
 def start_generate(*, plan_date: str | None = None,
                    trade_date: str | None = None,
                    use_cache: bool = True) -> dict[str, Any]:
@@ -83,14 +93,16 @@ def status() -> dict[str, Any]:
 
 
 def latest_report() -> dict[str, Any]:
-    """返回最新一份预案 HTML 的路径与 mtime。"""
+    """返回最新一份报告（晚间或午间，按修改时间取最新的）。"""
     try:
         from portal.premarket import paths
-        files = sorted(glob.glob(str(paths.REPORTS / "*_premarket.html")))
+        files = list(paths.REPORTS.glob("*_premarket.html")) + \
+            list(paths.REPORTS.glob("*_midday.html"))
         if not files:
-            return _err("还没有生成过预案")
-        p = Path(files[-1])
+            return _err("还没有生成过报告")
+        p = max(files, key=lambda f: f.stat().st_mtime)
         return {"ok": True, "path": str(p), "name": p.name,
+                "kind": "midday" if p.name.endswith("_midday.html") else "evening",
                 "bytes": p.stat().st_size,
                 "mtime": p.stat().st_mtime}
     except Exception as exc:
@@ -121,5 +133,5 @@ def tables() -> dict[str, Any]:
         return _err(f"{type(exc).__name__}: {exc}")
 
 
-__all__ = ["JOB", "start_daily", "start_generate", "start_review", "job_status", "status",
+__all__ = ["JOB", "start_daily", "start_midday", "start_generate", "start_review", "job_status", "status",
            "latest_report", "open_report", "tables"]

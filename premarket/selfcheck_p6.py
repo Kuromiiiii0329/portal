@@ -706,6 +706,136 @@ def check_no_chase_and_execute() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V13 · 午报：时段护栏 + 更紧的额度 + 禁止写经验
+# ─────────────────────────────────────────────────────────────
+def check_midday_guard() -> Check:
+    c = Check("V13", "午报：时段护栏、半日额度、禁止写经验")
+
+    import datetime as dt
+
+    from portal.premarket import midday
+
+    # 时段护栏：7 个用例
+    cases = [
+        (dt.datetime(2026, 10, 20, 12, 0), "2026-10-20 11:30:00", True, "12:00 午休"),
+        (dt.datetime(2026, 10, 20, 11, 35), "2026-10-20 11:30:00", True, "11:35 刚收盘"),
+        (dt.datetime(2026, 10, 20, 15, 30), "2026-10-20 11:30:00", False, "15:30 收盘后"),
+        (dt.datetime(2026, 10, 20, 9, 40), "2026-10-20 11:30:00", False, "9:40 盘中"),
+        (dt.datetime(2026, 10, 18, 12, 0), "2026-10-18 11:30:00", False, "周日"),
+        (dt.datetime(2026, 10, 20, 12, 0), "2026-10-19 15:00:00", False, "快照是昨天的"),
+        (dt.datetime(2026, 10, 20, 12, 0), "2026-10-20 14:00:00", False, "快照非11:30"),
+    ]
+    for now, legu, should_pass, label in cases:
+        try:
+            midday.session_guard(now=now, legu_date=legu)
+            ok = True
+        except midday.SessionError:
+            ok = False
+        c.expect(ok == should_pass, f"{label}：{'通过' if ok else '拒绝'}")
+    c.expect(midday.LUNCH_START == "1125" and midday.LUNCH_END == "1315",
+             "窗口 11:25–13:15")
+
+    def mid_proposal(**kw) -> dict:
+        p = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+        p["pool_actions"] = {"add": [], "update": [], "remove": []}
+        p["info_actions"] = {"add": [], "remove": []}
+        p["lesson_actions"] = {"add": [], "remove": []}
+        p["position_plan"] = {"buy": [], "sell": [], "adjust": []}
+        p.update(kw)
+        return p
+
+    cand = [{"code": "600000", "name": "T", "close": 10.3, "prev_close": 10.0,
+             "limit_up": 11.0, "chg_pct": 3.0}]
+
+    # 单只 15% —— 晚间允许（≤40），午报拒绝（≤10）
+    tbl, _ = _fresh_tables()
+    v = apply_mod.apply_proposal(
+        proposal=mid_proposal(position_plan={"buy": [
+            {"code": "600000", "name": "T", "alloc_pct": 15,
+             "trigger": "收盘买入", "stop_loss": 9.5, "take_profit": 12,
+             "logic": "x"}], "sell": [], "adjust": []}),
+        tables=tbl, plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda c: 10.3, candidates=cand,
+        mode="midday", log=lambda *_: None)
+    c.expect(len(v["planned"]["buy"]) == 0, "午报单只 15% 被拒")
+    c.expect(any("10.0" in r["reason"] or "额度" in r["reason"] for r in v["rejected"]),
+             f"原因提到午报额度：{[r['reason'][:40] for r in v['rejected']][:1]}")
+
+    # 单只 8% —— 允许
+    tbl2, _ = _fresh_tables()
+    v2 = apply_mod.apply_proposal(
+        proposal=mid_proposal(position_plan={"buy": [
+            {"code": "600000", "name": "T", "alloc_pct": 8,
+             "trigger": "收盘买入", "stop_loss": 9.5, "take_profit": 12,
+             "logic": "x"}], "sell": [], "adjust": []}),
+        tables=tbl2, plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda c: 10.3, candidates=cand,
+        mode="midday", log=lambda *_: None)
+    c.expect(len(v2["planned"]["buy"]) == 1, "午报单只 8% 放行")
+
+    # 合计超过 20% —— 需要两只 8% + 8% 才 16，用三只
+    tbl3, _ = _fresh_tables()
+    three = [{"code": "600000", "name": "A", "alloc_pct": 8,
+              "trigger": "收盘买入", "stop_loss": 9.5, "take_profit": 12, "logic": "x"},
+             {"code": "600519", "name": "B", "alloc_pct": 8,
+              "trigger": "收盘买入", "stop_loss": 95, "take_profit": 115, "logic": "x"},
+             {"code": "603906", "name": "C", "alloc_pct": 8,
+              "trigger": "收盘买入", "stop_loss": 18, "take_profit": 24, "logic": "x"}]
+    v3 = apply_mod.apply_proposal(
+        proposal=mid_proposal(position_plan={"buy": three, "sell": [], "adjust": []}),
+        tables=tbl3, plan_date="20261020", trade_date="2026-10-20",
+        latest_close=_fake_close,
+        candidates=[{"code": "600000", "name": "A", "close": 10.3, "chg_pct": 3.0},
+                    {"code": "600519", "name": "B", "close": 100.0, "chg_pct": 1.0},
+                    {"code": "603906", "name": "C", "close": 20.0, "chg_pct": 2.0}],
+        mode="midday", log=lambda *_: None)
+    c.expect(len(v3["planned"]["buy"]) == 2,
+             f"合计 24% 时只放行 2 只（16%），实际 {len(v3['planned']['buy'])}")
+    c.expect(v3["planned"]["planned_total_pct"] <= 20.0 + 1e-9,
+             f"计划合计 {v3['planned']['planned_total_pct']}% ≤ 20%")
+
+    # 午报禁止写经验
+    tbl4, _ = _fresh_tables()
+    v4 = apply_mod.apply_proposal(
+        proposal=mid_proposal(lesson_actions={"add": [
+            {"lesson": "半天数据也能看出情绪退潮至少需要 3 个确认信号",
+             "scenario": "午盘", "result": "失败教训"}], "remove": []}),
+        tables=tbl4, plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda c: 10.0, candidates=[], mode="midday",
+        log=lambda *_: None)
+    c.expect(len(v4["applied"]["lesson_add"]) == 0, "午报不写经验")
+    c.expect(any("午报不写交易经验" in r["reason"] for r in v4["rejected"]),
+             "拒绝原因说明午报不写经验")
+
+    # 观察表：午报最多 3 只
+    tbl5, _ = _fresh_tables()
+    adds = [{"code": f"60{i:04d}", "name": f"T{i}", "tier": "normal",
+             "logic": "x", "reason": "y", "trigger": "突破 10 元",
+             "stop_loss": 9, "take_profit": 12} for i in range(5)]
+    v5 = apply_mod.apply_proposal(
+        proposal=mid_proposal(pool_actions={"add": adds, "update": [], "remove": []}),
+        tables=tbl5, plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda c: 10.0, candidates=[],
+        mode="midday", log=lambda *_: None)
+    c.expect(len(v5["applied"]["pool_add"]) == 3,
+             f"午报观察表最多新增 3 只（实际 {len(v5['applied']['pool_add'])}）")
+
+    # 校验阶段：字段不全的信息条目被丢弃（不进内核拒绝列表）
+    p = midday.validate_midday({
+        "morning_view": {"tone": "分化", "summary": "s",
+                         "reasons": ["上证 +0.39%，成交 9334 亿"]},
+        "info_actions": {"add": [
+            {"content": "半导体上午 0→4 家涨停", "scope": "行业", "level": "中",
+             "expires_on": "2026-10-27"},
+            {"content": "缺 scope 的条目"},
+        ], "remove": []},
+    })
+    c.expect(len(p["info_actions"]["add"]) == 1, "只保留字段齐全的信息")
+    c.expect(p["_dropped"]["info_add"] == 1, f"丢弃 1 条：{p['_dropped']}")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -719,6 +849,7 @@ CHECKS = (
     ("V10", check_event_sourcing),
     ("V11", check_candidates_guard),
     ("V12", check_no_chase_and_execute),
+    ("V13", check_midday_guard),
 )
 
 

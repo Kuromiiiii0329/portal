@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>午间报告 · 2026-10-20</title>
+<style>
+:root{
+--ink:#1c1917; --ink2:#44403c; --sub:#78716c; --line:#e7e5e4; --bg:#faf9f7;
+--card:#ffffff; --up:#e11d48; --down:#059669; --warn:#b45309;
+--accent:#f59e0b; --accent2:#ea580c;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:0 0 36px;background:var(--bg);color:var(--ink);
+font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+.top{background:linear-gradient(120deg,#7c2d12 0%,#b45309 45%,#d97706 100%);
+color:#fff;padding:24px 0 20px;margin-bottom:18px;
+box-shadow:0 6px 24px -12px rgba(180,83,9,.5)}
+.top h1{font-size:22px;margin:0 0 6px;font-weight:700}
+.top .meta{color:#fed7aa;font-size:12px}
+.top .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:13px}
+.chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);
+border-radius:10px;padding:8px 14px;min-width:100px}
+.chip .k{font-size:11px;color:#fed7aa}
+.chip .v{font-size:19px;font-weight:700;margin-top:1px}
+h2{font-size:15px;margin:26px 0 11px;font-weight:700;
+display:flex;align-items:center;gap:9px}
+h2:before{content:"";width:4px;height:16px;border-radius:2px;
+background:linear-gradient(180deg,var(--accent),var(--accent2))}
+h3{font-size:13px;margin:16px 0 8px;color:var(--ink2);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin:10px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:10px 13px;box-shadow:0 1px 2px rgba(28,25,23,.03)}
+.card .k{color:var(--sub);font-size:11.5px}
+.card .v{font-size:18px;font-weight:700;margin-top:2px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);
+border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0;
+box-shadow:0 1px 2px rgba(28,25,23,.03)}
+th,td{padding:8px 11px;text-align:left;border-bottom:1px solid #f5f5f4;
+font-size:12.5px;vertical-align:top}
+th{background:#fafaf9;font-weight:600;color:var(--ink2);white-space:nowrap;font-size:12px}
+tbody tr:hover td{background:#fffdf8}
+tr:last-child td{border-bottom:none}
+.pos{color:var(--up);font-weight:600}
+.neg{color:var(--down);font-weight:600}
+.dim{color:var(--sub)}
+.pill{display:inline-block;padding:1.5px 8px;border-radius:20px;font-size:11px;
+border:1px solid var(--line);background:#fafaf9;white-space:nowrap;color:var(--ink2)}
+.pill.ok{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.pill.no{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.pill.mid{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.note{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
+padding:11px 14px;font-size:12.5px;color:#9a3412;margin:12px 0}
+.err{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;
+padding:11px 14px;font-size:12.5px;color:#991b1b;margin:12px 0}
+.bar{display:flex;height:24px;border-radius:8px;overflow:hidden;border:1px solid var(--line);
+margin:8px 0;background:#fff}
+.bar span{display:flex;align-items:center;justify-content:center;font-size:10.5px;
+color:#fff;font-weight:600}
+.news{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:11px 13px;margin:8px 0}
+.news .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.news .t{font-weight:600;font-size:13px}
+.news .s{font-size:12.5px;color:var(--ink2);margin-top:4px}
+.news .r{font-size:12px;color:var(--sub);margin-top:4px;padding-left:9px;
+border-left:2px solid #fed7aa}
+ul{margin:6px 0 6px 18px;padding:0}
+li{margin:4px 0;font-size:12.5px;color:var(--ink2)}
+.foot{margin-top:30px;color:var(--sub);font-size:11.5px;
+border-top:1px solid var(--line);padding-top:13px;line-height:1.9}
+code{background:#f5f5f4;padding:1px 6px;border-radius:5px;font-size:11.5px}
+</style></head><body>
+
+<div class="top"><div class="wrap">
+  <h1>午间报告 · 2026-10-20</h1>
+  <div class="meta">上午收盘快照（官方统计时点 2026-10-20 11:30:00）
+    ｜ 生成 2026-10-20T12:52:52+08:00</div>
+  <div class="chips"><div class="chip"><div class="k">上午盘面</div><div class="v">分化</div></div><div class="chip"><div class="k">午后倾向</div><div class="v">震荡</div></div><div class="chip"><div class="k">半日成交额</div><div class="v">9,334 亿</div></div><div class="chip"><div class="k">全天外推</div><div class="v">18,668 亿</div></div><div class="chip"><div class="k">风险</div><div class="v">中</div></div><div class="chip"><div class="k">来源</div><div class="v" style="font-size:14px">LLM 分析</div></div></div>
+</div></div>
+<div class="wrap"><div class="note"><b>一句话</b>：上午指数窄幅分化，上证微跌0.085%而科创50涨0.787%，但个股普涨、涨跌家数3721/1503、涨停58家仅1家跌停，赚钱效应明显好于昨日。</div></div>
+
+<div class="wrap"><h2>一、上午概览</h2><h3>指数（上午收盘）</h3><table><thead><tr><th>指数</th><th>上午收</th><th>涨跌</th><th>今开</th><th>最高</th><th>最低</th><th>半日成交额</th></tr></thead><tbody><tr><td>上证指数</td><td>3,727.75</td><td><span class="neg">-0.09%</span></td><td>3,718.44</td><td>3,740.07</td><td>3,711.03</td><td>4,418 亿</td></tr><tr><td>深证成指</td><td>11,838.88</td><td><span class="pos">+0.18%</span></td><td>11,774.39</td><td>11,938.00</td><td>11,729.49</td><td>4,916 亿</td></tr><tr><td>创业板指</td><td>2,753.81</td><td><span class="pos">+0.27%</span></td><td>2,732.68</td><td>2,790.12</td><td>2,717.69</td><td>2,431 亿</td></tr><tr><td>科创50</td><td>1,339.66</td><td><span class="pos">+0.79%</span></td><td>1,319.66</td><td>1,355.20</td><td>1,309.87</td><td>458 亿</td></tr></tbody></table><h3>上午涨跌分布（全市场逐只统计）</h3><div class="bar"><span style="width:0.38%;background:#047857" title="<-7%: 20"></span><span style="width:0.56%;background:#059669" title="-7~-5%: 29"></span><span style="width:4.10%;background:#34d399" title="-5~-2%: 214"></span><span style="width:23.74%;background:#a7f3d0" title="-2~0%: 1240">1240</span><span style="width:41.23%;background:#fecdd3" title="0~2%: 2154">2154</span><span style="width:23.39%;background:#fb7185" title="2~5%: 1222">1222</span><span style="width:3.54%;background:#e11d48" title="5~7%: 185"></span><span style="width:3.06%;background:#9f1239" title=">7%: 160"></span></div><p class="dim" style="font-size:11.5px">左绿右红：<-7% <b>20</b>　-7~-5% <b>29</b>　-5~-2% <b>214</b>　-2~0% <b>1240</b>　0~2% <b>2154</b>　2~5% <b>1222</b>　5~7% <b>185</b>　>7% <b>160</b>　样本 5377 只</p><ul><div class="cards"><div class="card"><div class="k">上涨 / 下跌</div><div class="v">3721 / 1503</div></div><div class="card"><div class="k">上涨占比</div><div class="v">69.20%</div></div><div class="card"><div class="k">涨停（11:30）</div><div class="v">59</div></div><div class="card"><div class="k">炸板（11:30）</div><div class="v">14</div></div><div class="card"><div class="k">炸板率</div><div class="v">19.18%</div></div><div class="card"><div class="k">最高连板</div><div class="v">4 板</div></div><div class="card"><div class="k">活跃度</div><div class="v">68.30%</div></div><div class="card"><div class="k">停牌</div><div class="v">7</div></div></div><li>上证指数半日 -0.085% 收 3727.75，深成指 +0.182%、创业板指 +0.274%、科创50 +0.787%，权重与成长分化</li><li>涨跌家数 3721/1503，up_ratio 69.2%，涨停 58 家、跌停仅 1 家，炸板率 19.18% 低于昨日 31.34%</li><li>半日成交额 9334 亿，按 2 倍外推约 1.87 万亿，较昨日 14373 亿明显放量</li><li>半导体上午涨停 4 家（昨日全天 0 家）、工程机械 3 家（昨日 0 家），新题材冒头；汽车零部从昨日 10 家降至上午 4 家</li></ul><h2>二、题材延续性</h2><h3>昨日强势题材：今天上午还剩下多少</h3><table><thead><tr><th>题材</th><th>昨日全天</th><th>今日上午</th><th>结论</th><th>依据</th></tr></thead><tbody><tr><td>汽车零部</td><td>10</td><td>4</td><td><span class="pill no">熄火</span></td><td>全天 10 家降至上午 4 家，东安动力 3 板、浙江荣泰 2 板尚在但整体收缩，高位分歧兑现</td></tr><tr><td>软件开发</td><td>2</td><td>1</td><td><span class="pill no">熄火</span></td><td>仅吉大正元 4 板 1 家，家数下降，单票高度支撑</td></tr><tr><td>通信设备</td><td>1</td><td>3</td><td><span class="pill ok">延续</span></td><td>日海智能、移远通信、美格智能 3 家涨停，较昨日 1 家扩张，出现集群</td></tr><tr><td>塑料</td><td>4</td><td>1</td><td><span class="pill no">熄火</span></td><td>仅福莱新材 2 板，肯特股份未验证 2 板，首日爆发后收缩</td></tr><tr><td>半导体</td><td>0</td><td>4</td><td><span class="pill mid">新起</span></td><td>银河微电、恒玄科技、博通集成等 4 家涨停，昨日 0 家，新题材冒头但首日无法判断持续性</td></tr><tr><td>工程机械</td><td>0</td><td>3</td><td><span class="pill mid">新起</span></td><td>永达股份、天元智能等 3 家涨停，昨日 0 家，首日爆发</td></tr></tbody></table><h3>涨停家数：昨日全天 vs 今日上午</h3><table><thead><tr><th>题材</th><th>昨日</th><th>上午</th><th>差</th></tr></thead><tbody><tr><td>通用设备</td><td>3</td><td>5</td><td><span class="pos">+2</span></td></tr><tr><td>汽车零部</td><td>10</td><td>4</td><td><span class="neg">-6</span></td></tr><tr><td>元件</td><td>3</td><td>4</td><td><span class="pos">+1</span></td></tr><tr><td>半导体</td><td>0</td><td>4</td><td><span class="pos">+4</span></td></tr><tr><td>照明设备</td><td>1</td><td>3</td><td><span class="pos">+2</span></td></tr><tr><td>消费电子</td><td>1</td><td>3</td><td><span class="pos">+2</span></td></tr><tr><td>通信设备</td><td>1</td><td>3</td><td><span class="pos">+2</span></td></tr><tr><td>工程机械</td><td>0</td><td>3</td><td><span class="pos">+3</span></td></tr><tr><td>化学制品</td><td>2</td><td>2</td><td><span class="neg">+0</span></td></tr><tr><td>计算机设</td><td>1</td><td>2</td><td><span class="pos">+1</span></td></tr></tbody></table><p class="dim" style="font-size:11.5px">今日=上午半天涨停家数；昨日=全天，对比时注意口径不同</p><h2>三、上午消息（9:00–11:30）</h2><p class="dim" style="font-size:11.5px">消息窗口：2026-10-20 09:00 ~ 2026-10-20 12:52（原始快讯 30 条，筛选后 6 条）</p>
+<div class="news">
+  <div class="h"><span class="t">三部门印发氢能综合应用试点管理办法</span>
+    <span class="pill mid">重要性 中</span>
+    <span class="pill pos">利好</span></div>
+  <div class="s">工信部等三部门发布氢能综合应用试点管理办法，从四方面推动氢能产业</div>
+  <div class="s"><b>影响题材</b>：氢能、通用设备
+    　<b>影响个股</b>：京城股份</div>
+  <div class="r">政策文件午间发布，京城股份上午已 3 板涨停，利好大概率已在上午价格中部分反映，午后追买价值低</div>
+</div>
+<div class="news">
+  <div class="h"><span class="t">甲骨文与阿斯利康合作探索AI医疗应用</span>
+    <span class="pill mid">重要性 中</span>
+    <span class="pill pos">利好</span></div>
+  <div class="s">双方探索AI识别临床试验患者、加快医学证据生成，AI医疗应用落地</div>
+  <div class="s"><b>影响题材</b>：AI医疗、医疗服务
+    　<b>影响个股</b>：迪安诊断</div>
+  <div class="r">消息12:21发布，迪安诊断上午已20%涨停，AI医疗概念上午已反映，午后不宜追高</div>
+</div>
+<div class="news">
+  <div class="h"><span class="t">上海国际航空枢纽战略规划发布</span>
+    <span class="pill mid">重要性 中</span>
+    <span class="pill pos">利好</span></div>
+  <div class="s">上海市政府与民航局联合发布航空枢纽战略规划，深化局市协同</div>
+  <div class="s"><b>影响题材</b>：航空枢纽、航运
+    　<b>影响个股</b>：—</div>
+  <div class="r">12:41发布，上午盘面未见航空航运板块异动，属未反映的新消息，但影响偏主题性、缺乏直接标的</div>
+</div>
+<div class="news">
+  <div class="h"><span class="t">三星下调明年OLED Galaxy A出货目标</span>
+    <span class="pill mid">重要性 中</span>
+    <span class="pill neg">利空</span></div>
+  <div class="s">因存储涨价，三星OLED中端机出货目标从1.2亿降至1亿部</div>
+  <div class="s"><b>影响题材</b>：消费电子、OLED
+    　<b>影响个股</b>：长盈精密、龙旗科技、科森科技</div>
+  <div class="r">12:27发布，消费电子上午已有长盈精密、龙旗科技、科森科技涨停，利空尚未反映，午后消费电子方向需防回落</div>
+</div>
+<div class="news">
+  <div class="h"><span class="t">江苏前三季度外贸增长近3成</span>
+    <span class="pill mid">重要性 低</span>
+    <span class="pill dim">中性</span></div>
+  <div class="s">江苏前三季度进出口5.69万亿增29.8%，9月规模首破8000亿</div>
+  <div class="s"><b>影响题材</b>：外贸、出口链
+    　<b>影响个股</b>：—</div>
+  <div class="r">宏观数据，对个股传导弱，上午盘面未见相关异动</div>
+</div>
+<div class="news">
+  <div class="h"><span class="t">台交所加权指数下跌1%</span>
+    <span class="pill mid">重要性 低</span>
+    <span class="pill dim">中性</span></div>
+  <div class="s">台股午间跌1%至46350点</div>
+  <div class="s"><b>影响题材</b>：半导体
+    　<b>影响个股</b>：—</div>
+  <div class="r">台股与A股半导体联动，但A股半导体上午已走强，该信息对午后影响有限</div>
+</div><h2>四、预案 vs 上午现实</h2><p class="dim" style="font-size:11.5px">对照对象：20261020</p><table><thead><tr><th>核对项</th><th>昨晚怎么说</th><th>上午实际</th><th>结论</th><th>要不要改</th></tr></thead><tbody><tr><td>市场趋势判断：弱势、总仓位上限 20%</td><td>六大指数全部破 MA20、量能萎缩，判弱势，仓位 0-20%</td><td>上证半日仅 -0.085% 未破 3700，个股普涨 69.2%，半日成交额外推约 1.87 万亿较昨日放量，盘面强于&#x27;弱势&#x27;定性</td><td><span class="pill mid">待观察</span></td><td>半天数据不足以推翻弱势定性，但需承认盘面比预期强；仓位上限维持 20% 不因上午普涨而上调，仅允许午后在条件满足时小仓试错</td></tr><tr><td>保隆科技开盘价 31.80-32.60 区间核对</td><td>9:25 核对开盘价，超出则放弃</td><td>保隆科技未出现在上午涨停池/涨幅≥5% 候选池，预案买入标的本身未进入今日候选</td><td><span class="pill no">推翻</span></td><td>该买入计划作废，不再跟踪保隆科技开盘区间</td></tr><tr><td>万丰奥威开盘价 10.50-11.00 区间核对</td><td>9:25 核对开盘价，超出则放弃</td><td>万丰奥威未出现在候选池，预案买入标的未进入今日候选</td><td><span class="pill no">推翻</span></td><td>该买入计划作废</td></tr><tr><td>吉大正元一字涨停或跌破 23.20 作为情绪风向标</td><td>观察是否一字涨停或跌破 23.20</td><td>吉大正元上午 4 板涨停收 26.61，未跌破 23.20，情绪风向标偏正面</td><td><span class="pill ok">成立</span></td><td>情绪风向标维持正面解读，但该股已 4 板且上午涨停，按硬约束午后禁止追买，仅作观察</td></tr><tr><td>肯特股份是否走出 2 板验证塑料题材</td><td>观察肯特股份 2 板验证塑料持续性</td><td>肯特股份未出现在上午涨停池，塑料题材上午仅福莱新材 2 板在列，肯特未验证</td><td><span class="pill mid">待观察</span></td><td>塑料题材持续性未获肯特验证，福莱新材 2 板孤证，午后不参与塑料方向</td></tr><tr><td>上证跌破 3700 且成交额低于 5 日均量则停止新开仓</td><td>跌破 3700 + 缩量则停止一切新开仓</td><td>上证上午最低 3711.03 未破 3700，半日成交额外推放量，两个条件均未触发</td><td><span class="pill ok">成立</span></td><td>停止开仓条件未触发，午后允许在 20% 上限内小仓试错，但单只≤10%</td></tr><tr><td>收盘前总仓位不超过 20%</td><td>总仓位上限 20%</td><td>当前空仓，仓位 0%</td><td><span class="pill ok">成立</span></td><td>维持 20% 上限，午后买入合计不超过 20%</td></tr><tr><td>题材判断：汽车零部高位发酵需防分歧</td><td>5 日序列 1/1/0/14/10，高位发酵防分歧，需验证 2 板</td><td>汽车零部上午涨停 4 家，较昨日全天 10 家明显收缩，东安动力 3 板、浙江荣泰 2 板仍在，但整体家数下降</td><td><span class="pill ok">成立</span></td><td>高位分歧判断成立，汽车零部午后不追高，仅观察东安动力 3 板能否封住作为情绪参考</td></tr><tr><td>题材判断：软件开发缓慢升温但家数少</td><td>5 日序列 1/0/1/1/2，家数少缺乏集群</td><td>软件开发上午仅吉大正元 4 板 1 家在列，家数仍少，但龙头高度在</td><td><span class="pill ok">成立</span></td><td>判断维持，软件开发仅吉大正元单票逻辑，不参与</td></tr><tr><td>题材判断：通信设备无集群无连续性</td><td>5 日序列 1/0/0/1/1，仅单票订单逻辑</td><td>通信设备上午涨停 3 家（日海智能、移远通信、美格智能），较昨日 1 家扩张，出现集群迹象</td><td><span class="pill no">推翻</span></td><td>通信设备上午家数从 1 增至 3，集群性比预期强，但均为上午涨停按硬约束不可追买，仅列入午后观察，不修改买入计划</td></tr></tbody></table><h2>五、持仓上午表现</h2><div class="cards"><div class="card"><div class="k">总资产</div><div class="v">100.00</div></div><div class="card"><div class="k">可用</div><div class="v">100.00</div></div><div class="card"><div class="k">持仓市值</div><div class="v">0.00</div></div><div class="card"><div class="k">仓位</div><div class="v">0.0%</div></div><div class="card"><div class="k">盘中盈亏</div><div class="v"><span class="dim">+0.00%</span></div></div><div class="card"><div class="k">累计</div><div class="v"><span class="dim">+0.00%</span></div></div></div><h3>持仓（按上午收盘价）</h3><p class="dim">（空仓 —— 午后无持仓风险）</p><h2>六、午后判断</h2><h3>午后条件分支（若…则…否则…）</h3><table><thead><tr><th>若</th><th>则</th><th>否则</th></tr></thead><tbody><tr><td><b>若上证午后站回 3737（MA5）且半日成交额外推维持 1.8 万亿以上</b></td><td>维持空仓观望，不追高，仅允许候选池中非涨停回踩标的按观察表条件小仓试错</td><td>若上证回落跌破 3711（上午低点）且成交额萎缩，则完全停止新开仓</td></tr><tr><td><b>若吉大正元 4 板午后封住不开板且涨停家数维持 55 家以上</b></td><td>情绪偏暖，可按观察表条件执行单只≤10% 试错</td><td>若吉大正元炸板或涨停家数跌破 40 家，则放弃一切新开仓</td></tr><tr><td><b>若半导体、工程机械新起题材午后出现 2 板梯队</b></td><td>仅记录观察，不参与（首日题材按经验需次日验证）</td><td>若新题材午后回落炸板率上升，则确认上午为脉冲</td></tr></tbody></table><div class="note"><b>量能判断</b>：半日 9334 亿按 2 倍外推约 1.87 万亿，较昨日 14373 亿放量约 30%，但外推为估计值，需午后实测确认；若午后缩量明显则放量判断不成立</div><h3>午后盯什么</h3><ul><li>吉大正元 4 板午后是否封住不开板，作为市场情绪风向标</li><li>上证是否守住 3711 上午低点、成交额午后是否维持放量</li><li>半导体、工程机械新起题材午后是否出现 2 板梯队</li><li>消费电子方向（长盈精密、龙旗科技、科森科技）是否受三星下调出货目标利空影响回落</li><li>涨停家数午后是否维持 50 家以上、炸板率是否上升</li></ul><h3>风险提示</h3><ul><li>半天数据不足以判断趋势反转，上午普涨可能是超跌反弹，午后追高风险大</li><li>预案中的保隆科技、万丰奥威买入计划已作废，当前无有效买入标的，空仓是合理状态</li><li>候选池全部为上午涨停或涨幅≥7% 标的，按硬约束午后均不可买入，实际可操作空间极小</li><li>三星下调 OLED 出货目标利空尚未反映在消费电子上午涨停价中，午后该方向有回落风险</li><li>半日成交额外推为估计值，若午后显著缩量则&#x27;放量&#x27;判断被推翻，需相应收紧仓位</li></ul><h2>七、午后调仓</h2><p class="dim">上午无调仓（维持原持仓或空仓）。</p><h3>调仓后持仓（午后持有）</h3><p class="dim">（午后空仓）</p>
+<div class="foot">
+午间报告只反映<b>上午 11:30 的半日数据</b>；成交额为半日实测，全天数字是 2 倍线性外推（估计值）。<br>
+数字由程序计算，判断由 LLM 提供并经内核校验。<b>不构成投资建议</b>，市场有风险。
+</div>
+</div></body></html>
