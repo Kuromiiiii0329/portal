@@ -98,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
                          ensure_ascii=False))
         return 1
     iso, d8 = _latest(conn)
-    if args.date:
+    # validate 没有 --date（它跑多日），别用 args.date 一把抓
+    if getattr(args, "date", None):
         d8 = args.date
         iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
     if not iso:
