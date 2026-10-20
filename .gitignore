@@ -38,6 +38,7 @@ data/virtual/reports/
 # The four tables, the plan JSONs and the HTML reports ARE committed — they are the
 # audit trail the user asked to be able to inspect later.
 data/premarket/cache/
+data/premarket/reports/*_mail.html
 
 # Backtest market database: rebuildable from the network and measured in hundreds of MB.
 # Never commit it. Rebuild with: python -m portal.virtual.marketdb build

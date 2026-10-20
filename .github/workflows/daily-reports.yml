@@ -1,0 +1,243 @@
+name: daily-reports
+
+# 每个交易日自动出两份报告，并**通过 Actions 里的发信 Action 邮件送达**
+#
+#   12:05（CST）  午间报告 —— 半日行情 + 预案核对 + 午后判断
+#   16:50（CST）  晚间报告 —— 全天汇总 + 调仓 + 次日计划 + 复盘
+#
+# GitHub cron 用 UTC，北京 = UTC+8：
+#   12:05 CST = 04:05 UTC
+#   16:50 CST = 08:50 UTC（比 market-db 的 16:30 晚 20 分钟，等它先跑完当日增量）
+#
+# 发信方式：**完全交给 `dawidd6/action-send-mail`**。
+# 仓库里没有任何 SMTP 代码，也不保存邮箱密码 —— 全部走 Repository secrets。
+
+on:
+  schedule:
+    - cron: "5 4 * * 1-5"     # 12:05 CST 午报
+    - cron: "50 8 * * 1-5"    # 16:50 CST 晚间
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto=按时间 / midday=强制午报 / evening=强制晚间"
+        type: choice
+        options: [auto, midday, evening]
+        default: auto
+
+concurrency:
+  group: daily-reports
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # ★ 必须设北京时区：session_guard 用本地墙钟判断是否午休，
+  #   runner 默认 UTC，不设这个午报永远不在窗口内。
+  TZ: Asia/Shanghai
+  PYTHONIOENCODING: utf-8
+  PYTHONUNBUFFERED: "1"
+  PORTAL_MARKET_DB: ${{ github.workspace }}/portal/data/market.db
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # 检出到 portal/ 子目录：代码里用 `from portal.xxx import`，
+      # 要求「仓库根 = portal 的父目录」。
+      - uses: actions/checkout@v4
+        with:
+          path: portal
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: portal/requirements-marketdb.txt
+
+      # 只 restore、不 save：数据库由 market-db.yml 负责写入与缓存维护。
+      # 若这里也用 actions/cache@v4，每次未命中都会另存一份 1.9 GB，
+      # 几次就把仓库 10 GB 的缓存配额吃光。
+      - name: Restore market.db (read-only)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            portal/data/market.db
+            portal/data/market.db-wal
+            portal/data/market.db-shm
+          key: marketdb-${{ github.run_id }}
+          restore-keys: |
+            marketdb-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r portal/requirements-marketdb.txt
+          pip install "litellm>=1.40"
+
+      - name: Resolve mode
+        id: mode
+        run: |
+          set -e
+          IN="${{ github.event.inputs.mode || 'auto' }}"
+          CRON="${{ github.event.schedule }}"
+          MODE="$IN"
+          if [ "$IN" = "auto" ]; then
+            if [ "$CRON" = "5 4 * * 1-5" ]; then MODE=midday; else MODE=evening; fi
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "决定：$MODE（cron=$CRON）"
+
+      # 晚间需要「今天」的日K。缓存里的库可能还停在昨天，就地补一次增量
+      # （UPDATE 幂等，重复跑无副作用）。节假日写不进任何行，下一步会跳过。
+      - name: Ensure today's bars (evening only)
+        if: steps.mode.outputs.mode == 'evening'
+        continue-on-error: true
+        run: |
+          if [ ! -f "$PORTAL_MARKET_DB" ]; then
+            python -m portal.virtual.marketdb init
+          fi
+          python -m portal.virtual.marketdb update-today || true
+
+      # 用「库里最新交易日 == 今天」判断今天是否真的开市。
+      # 节假日两者不等 → 整份跳过（不发信、不算失败）。
+      - name: Trading day check
+        id: td
+        run: |
+          set -e
+          TODAY=$(date +%Y%m%d)
+          LATEST=$(python -c "from portal.virtual import marketdb as M; c = M.connect(); print((M.latest_trade_date(c) or '').replace('-', '') if c else '')" 2>/dev/null || echo "")
+          echo "today=$TODAY latest=$LATEST"
+          if [ "${{ steps.mode.outputs.mode }}" = "midday" ]; then
+            # 午报自己有时段护栏（会核对官方快照是不是今天 11:30），这里放行
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$LATEST" ] && [ "$LATEST" = "$TODAY" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::库里最新交易日 [$LATEST] ≠ 今天 [$TODAY]，今天非交易日，跳过"
+          fi
+
+      - name: Run midday report
+        if: steps.td.outputs.run == 'true' && steps.mode.outputs.mode == 'midday'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
+        run: |
+          python -m portal.premarket midday --json | tee /tmp/report.json
+
+      - name: Run evening report
+        if: steps.td.outputs.run == 'true' && steps.mode.outputs.mode == 'evening'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
+        run: |
+          python -m portal.premarket daily --json | tee /tmp/report.json
+
+      # 生成邮件正文（3–6 KB 紧凑 HTML）+ 主题 + 附件路径。
+      # 退出码 3 = 今天没有可发的报告 → send=false，不算失败。
+      # ★ 条件里带 run=='true'：否则节假日会拿上一次的报告再发一遍。
+      - name: Build mail body
+        id: mail
+        if: steps.td.outputs.run == 'true'
+        run: |
+          set +e
+          KIND="${{ steps.mode.outputs.mode }}"
+          python -m portal.premarket.mail_summary \
+            --kind "$KIND" \
+            --out "${{ github.workspace }}/mail_body.html" \
+            --subject-out /tmp/subject.txt \
+            --attachment-out /tmp/attachment.txt > /tmp/mail.json 2>&1
+          RC=$?
+          cat /tmp/mail.json || true
+          if [ "$RC" = "0" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "subject=$(cat /tmp/subject.txt)" >> "$GITHUB_OUTPUT"
+            echo "attachment=$(cat /tmp/attachment.txt)" >> "$GITHUB_OUTPUT"
+          elif [ "$RC" = "3" ]; then
+            echo "send=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::今天没有可发的报告，跳过发信"
+          else
+            echo "send=false" >> "$GITHUB_OUTPUT"
+            echo "::error::生成邮件正文失败（exit $RC）"
+          fi
+
+      # ★ 唯一的发信环节。需要的 Repository secrets：
+      #   EMAIL_SENDER       发件邮箱（如 you@qq.com）
+      #   EMAIL_PASSWORD     邮箱**授权码**（不是登录密码）
+      #   EMAIL_RECEIVERS    收件人，逗号分隔
+      #   EMAIL_SMTP_HOST    可选，默认 smtp.qq.com
+      #   EMAIL_SMTP_PORT    可选，默认 465
+      #
+      # 先检查 secrets 是否齐备 —— 没配就明确提示并跳过，
+      # 而不是让 nodemailer 抛一串难懂的认证错误。
+      - name: Check mail secrets
+        id: secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.EMAIL_SENDER }}" ]    && MISSING="$MISSING EMAIL_SENDER"
+          [ -z "${{ secrets.EMAIL_PASSWORD }}" ]  && MISSING="$MISSING EMAIL_PASSWORD"
+          [ -z "${{ secrets.EMAIL_RECEIVERS }}" ] && MISSING="$MISSING EMAIL_RECEIVERS"
+          if [ -n "$MISSING" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::缺少邮件 secrets：$MISSING —— 本次跳过发信（报告仍会作为 artifact 上传）"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send mail
+        id: send
+        if: |
+          steps.td.outputs.run == 'true' &&
+          steps.mail.outputs.send == 'true' &&
+          steps.secrets.outputs.ok == 'true'
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SMTP_HOST || 'smtp.qq.com' }}
+          server_port: ${{ secrets.EMAIL_SMTP_PORT || '465' }}
+          secure: true
+          username: ${{ secrets.EMAIL_SENDER }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: ${{ steps.mail.outputs.subject }}
+          to: ${{ secrets.EMAIL_RECEIVERS }}
+          from: ${{ secrets.EMAIL_SENDER }}
+          html_body: file://${{ github.workspace }}/mail_body.html
+          attachments: ${{ steps.mail.outputs.attachment }}
+          priority: normal
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.mode.outputs.mode }}-report-${{ github.run_id }}
+          path: |
+            portal/data/premarket/reports/*.html
+            portal/data/premarket/plans/*.json
+            mail_body.html
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## ${{ steps.mode.outputs.mode }} 报告"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| 交易日检查 | run=${{ steps.td.outputs.run }} |"
+            echo "| 发信 | send=${{ steps.mail.outputs.send }} / outcome=${{ steps.send.outcome }} |"
+            echo "| 主题 | ${{ steps.mail.outputs.subject }} |"
+            echo "| 午报任务 | ${{ steps.midday.outcome }} |"
+            echo "| 晚间任务 | ${{ steps.evening.outcome }} |"
+            echo ""
+            echo "> 节假日自动跳过（库里最新交易日 ≠ 今天）。"
+            echo "> 午报只在 11:25–13:15 且官方快照为今天 11:30 时生成。"
+            echo "> 发信失败不会让 job 变红（continue-on-error），请看上面 outcome。"
+          } >> "$GITHUB_STEP_SUMMARY"

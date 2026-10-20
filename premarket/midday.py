@@ -189,8 +189,20 @@ def collect_midday(*, progress: Callable[[str], None] = print,
     quotes: list[dict] = []
     try:
         conn = M.connect()
-        codes = [c for c in M.universe(conn) if M.board_of(c) != "bse"]
-        conn.close()
+        codes = [c for c in M.universe(conn) if M.board_of(c) != "bse"] if conn else []
+        if conn:
+            conn.close()
+        if not codes:
+            # CI 首次运行可能还没有 market.db。这时退回到 akshare 的代码表，
+            # 否则午报会因为拿不到代码列表而整份作废（数据其实完全够用）。
+            import akshare as ak
+            codes = [str(r.get("code")).strip()
+                     for r in collect_mod._rows(ak.stock_info_a_code_name())
+                     if str(r.get("code") or "").strip()]
+            out.setdefault("caveats", []).append(
+                "本地 market.db 不可用，股票列表改从 akshare 获取（不影响半日行情）。")
+            if progress:
+                progress(f"  market.db 缺失，改用 akshare 代码表 {len(codes)} 只")
         if progress:
             progress(f"  批量取 {len(codes)} 只半日行情…")
         for i in range(0, len(codes), 50):
