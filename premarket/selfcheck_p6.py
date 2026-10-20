@@ -1085,6 +1085,81 @@ def check_discuss_loop() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V17 · 因子库总表与入库档案（自动维护）
+# ─────────────────────────────────────────────────────────────
+def check_catalog() -> Check:
+    c = Check("V17", "因子库总表：字段完整、方向一致性、入库档案可生成")
+
+    from portal.premarket.factors import catalog as C
+
+    # 1) 生成总表（幂等，不依赖网络）
+    r = C.write_catalog()
+    c.expect(r.get("ok"), f"总表生成成功（{r.get('factors')} 因子 / "
+                          f"{r.get('plays')} 战法）")
+    c.expect(Path(r["doc"]).exists(), "Markdown 总表已落盘")
+    c.expect(Path(r["json"]).exists(), "JSON 快照已落盘")
+
+    cat = C.build_rows()
+    need = {"id", "name", "kind", "source", "plays", "stats", "score",
+            "usage", "scenario", "verdict", "status"}
+    missing = need - set(cat["factors"][0]) if cat["factors"] else set()
+    c.expect(not missing, f"因子行字段完整（缺 {sorted(missing)}）")
+
+    # 2) 战法行要能反查出依赖因子
+    with_evidence = [p for p in cat["plays"] if p["evidence"]]
+    c.expect(len(with_evidence) >= 3,
+             f"{len(with_evidence)} 个战法记录了依赖因子")
+
+    # 3) 方向一致性：direction=low + 正 IC → 必须提示需反转
+    miss = C._verdict({"ic_mean": 0.10, "ic_ir": 0.5, "coverage": 0.9},
+                      [{"name": "x", "buyable": True}], False, "low")
+    c.expect("反转" in miss, f"方向相反时提示反转：{miss[:46]}")
+    okv = C._verdict({"ic_mean": -0.10, "ic_ir": 0.5, "coverage": 0.9},
+                     [{"name": "x", "buyable": True}], False, "low")
+    c.expect(okv.startswith("可用"), f"方向一致时判可用：{okv[:40]}")
+
+    # 4) 没回测 / 已下线 要说实话
+    c.expect("尚未回测" in C._verdict(None, [], False, "high"), "无数据时如实标注")
+    c.expect("已下线" in C._verdict({}, [], True, "high"), "下线状态如实标注")
+
+    # 5) 评分口径与讨论循环一致
+    from portal.premarket.factors import meeting as M
+    st = {"ic_mean": 0.05, "ic_ir": 0.30, "coverage": 1.0}
+    c.expect(abs(C.score(st) - M.score(st)) < 1e-9,
+             f"评分口径一致（{C.score(st)} vs {M.score(st)}）")
+
+    # 6) 入库档案能生成，且含讨论过程表
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "f_demo.md"
+        rec = C.write_admission_record(
+            prop={"id": "demo", "name": "演示因子", "kind": "numeric",
+                  "hypothesis": "测试假设", "description": "说明",
+                  "code": "def compute(panel):\n    return {}\n",
+                  "plays": [{"id": "p1", "name": "演示战法", "buyable": True,
+                             "why": "因为", "conditions": ["demo >= 1"]}]},
+            bt={"stats": {"ic_mean": 0.05, "ic_ir": 0.4, "coverage": 0.9,
+                          "long_short_pct": 0.3, "ic_pos_ratio": 0.6,
+                          "n_days": 10},
+                "score": 0.045},
+            history=[{"round": 1, "id": "demo", "ic": 0.01, "ir": 0.1,
+                      "coverage": 0.8, "score": 0.008, "verdict": "improve",
+                      "decision": "improve", "issues": ["IC 太低"],
+                      "next_change": "加长窗口"},
+                     {"round": 2, "id": "demo", "ic": 0.05, "ir": 0.4,
+                      "coverage": 0.9, "score": 0.045, "verdict": "accept",
+                      "decision": "accept", "issues": [],
+                      "next_change": ""}],
+            rounds_cap=8, path=path)
+        text = Path(rec).read_text(encoding="utf-8")
+        c.expect(Path(rec).exists(), "档案文件已生成")
+        for kw in ("讨论核心", "最终回测结果", "讨论过程", "源码"):
+            c.expect(kw in text, f"档案含「{kw}」")
+        c.expect("| 1 |" in text and "| 2 |" in text, "档案记录了多轮过程")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -1102,6 +1177,7 @@ CHECKS = (
     ("V14", check_factor_library),
     ("V15", check_factor_contract),
     ("V16", check_discuss_loop),
+    ("V17", check_catalog),
 )
 
 

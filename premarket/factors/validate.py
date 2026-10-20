@@ -222,6 +222,14 @@ def run_all(*, days: int = 20, horizon: int = 1, conn=None,
             log(f"  {fid:<20} IC={r.get('ic_mean')}  IR={r.get('ic_ir')}  "
                 f"覆盖={r.get('coverage')}  {'✓' if r.get('ok') else '✗ ' + r.get('reason', '')}")
         results.sort(key=lambda x: -abs(x.get("ic_mean") or 0))
+        # ★ 回写缓存，让因子库总表能显示真实回测数字
+        try:
+            from .catalog import save_stats
+            save_stats({r["id"]: r for r in results if r.get("id")})
+            from .catalog import write_catalog
+            write_catalog(quiet=True)
+        except Exception:
+            pass
         return results
     finally:
         if own and conn is not None:

@@ -11,6 +11,7 @@ portal/premarket/factors/__main__.py — 因子库命令行
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import datetime
 import json
 import sys
@@ -84,6 +85,9 @@ def main(argv: list[str] | None = None) -> int:
 
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
     l.add_argument("--tail", type=int, default=20)
+
+    cat = sub.add_parser("catalog", help="生成/查看因子库总表")
+    cat.add_argument("--show", action="store_true", help="打印前 20 行")
 
     mem = sub.add_parser("memory", help="查看完整会议记录与经验库")
     mem.add_argument("--tail", type=int, default=1, help="看最近几条会议记录")
@@ -208,6 +212,21 @@ def main(argv: list[str] | None = None) -> int:
             for rid in out.get("retired") or []:
                 print(f"  ✗ {rid}")
         return 0 if out.get("ok") else 1
+
+    if args.cmd == "catalog":
+        from . import catalog
+        r = catalog.write_catalog()
+        if not r.get("ok"):
+            print(json.dumps(r, ensure_ascii=False))
+            return 1
+        print(f"✅ 因子库总表：{r['factors']} 个因子 / {r['plays']} 个战法")
+        print(f"   {r['doc']}")
+        print(f"   {r['json']}")
+        if args.show:
+            print()
+            print("\n".join(Path(r["doc"]).read_text(encoding="utf-8")
+                            .splitlines()[:24]))
+        return 0
 
     if args.cmd == "memory":
         from . import memory

@@ -536,6 +536,17 @@ def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
         # ── 收尾：入库或清理 ──
         if accepted:
             log(f"\n🎉 入库 {accepted['prop'].get('id')}（第 {accepted['round']} 轮）")
+            # ★ 两件事：把这次讨论的完整过程写成档案；把回测数字存进缓存
+            try:
+                from . import catalog
+                rec = catalog.write_admission_record(
+                    prop=accepted["prop"], bt=accepted["bt"],
+                    history=history, rounds_cap=rounds_cap)
+                catalog.save_stats({accepted["prop"]["id"]:
+                                    accepted["bt"].get("stats") or {}})
+                log(f"   📄 入库档案：{rec}")
+            except Exception as exc:
+                log(f"   ⚠️ 写入库档案失败：{type(exc).__name__}: {exc}")
         else:
             for h in history:
                 if h.get("id"):
@@ -567,6 +578,14 @@ def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
                        "lessons": len(fresh)})
         log(f"🧠 经验库：本次 +{len(fresh)} 条（当前 "
             f"{memory.stats()['lessons_active']} 条有效）")
+        try:
+            from . import catalog
+            r = catalog.write_catalog(quiet=True)
+            if r.get("ok"):
+                log(f"📚 因子库总表已刷新（{r['factors']} 因子 / "
+                    f"{r['plays']} 战法）")
+        except Exception:
+            pass
         return meeting
     finally:
         if own and conn is not None:
@@ -618,6 +637,12 @@ def weekly(*, conn=None, days: int = 5, asof: str | None = None,
                            "id": r["id"], "reason": why, "stats": r})
         ledger_append({"event": "weekly", "date": iso,
                        "checked": len(res), "retired": retired})
+        try:
+            from . import catalog
+            catalog.save_stats({r["id"]: r for r in res if r.get("id")})
+            catalog.write_catalog(quiet=True)
+        except Exception as exc:
+            log(f"   ⚠️ 刷新因子库总表失败：{type(exc).__name__}: {exc}")
         return {"ok": True, "date": iso, "checked": len(res),
                 "retired": retired, "results": res}
     finally:

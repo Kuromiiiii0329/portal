@@ -591,3 +591,12 @@ python -m portal.premarket.factors weekly --days 5               # 周检
 python -m portal.premarket.factors ledger                        # 看历史
 python -m portal.premarket.factors check                         # 库自检 + 当日命中
 ```
+---
+
+## 相关文档
+
+- [**因子实验室操作手册**](factor-lab.md) —— 怎么开始 agent 因子探索、
+  回测逻辑、讨论循环、经验库、入库档案、因子库总表，全部在这一份里。
+- [因子库总表](factor-library.md) —— 自动生成，记录每个因子的战法归属、
+  回测数字、使用情况、适用场景、评分与综合评价。
+- [因子入库档案](factors/) —— 每个通过回测的因子各有一份讨论过程记录。
