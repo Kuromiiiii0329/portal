@@ -190,11 +190,18 @@ def evaluate(panel: Panel, factors: dict[str, Factor] | None = None,
     factors = factors or load_factors()
     want = list(ids) if ids else list(factors)
     out: dict[str, dict[str, Any]] = {}
+    # 第一轮：代码因子
     for fid in want:
         f = factors.get(fid)
         if not f:
             raise FactorError(f"没有因子 {fid}")
-        out[fid] = f.run(panel)
+        if f.compute:
+            out[fid] = f.run(panel)
+    # 第二轮：表达式因子（可引用第一轮结果 → 组合因子）
+    for fid in want:
+        f = factors.get(fid)
+        if f is not None and not f.compute:
+            out[fid] = f.run(panel, env=dict(out))
     return out
 
 

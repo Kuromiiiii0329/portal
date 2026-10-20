@@ -69,6 +69,19 @@ def main(argv: list[str] | None = None) -> int:
     k = sub.add_parser("check", help="自检因子库：加载/编译/当日命中")
     k.add_argument("--date", default=None)
 
+    d = sub.add_parser("discover", help="开因子会议：提议→批评→回测→入库")
+    d.add_argument("--max", type=int, default=3, help="最多提议几个")
+    d.add_argument("--days", type=int, default=10, help="回测天数")
+    d.add_argument("--dry-run", action="store_true", help="只提议+评审，不落盘")
+    d.add_argument("--json", action="store_true")
+
+    w = sub.add_parser("weekly", help="阶段验证：复验已入库因子，退化的下线")
+    w.add_argument("--days", type=int, default=5)
+    w.add_argument("--json", action="store_true")
+
+    l = sub.add_parser("ledger", help="查看因子会议与入库历史")
+    l.add_argument("--tail", type=int, default=20)
+
     v = sub.add_parser("validate", help="因子统计检验（慢）")
     v.add_argument("--days", type=int, default=20)
     v.add_argument("--id", default=None, help="只测某个因子")
@@ -143,6 +156,63 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"      · {e}")
         if args.json:
             print(json.dumps(cands, ensure_ascii=False, indent=1)[:4000])
+        return 0
+
+    if args.cmd == "discover":
+        from .meeting import run_meeting
+        conn = _conn()
+        if conn is None:
+            print(json.dumps({"ok": False, "error": "market.db 不可用"},
+                             ensure_ascii=False))
+            return 1
+        out = run_meeting(conn=conn, max_n=args.max, days=args.days,
+                          dry_run=args.dry_run)
+        conn.close()
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=1))
+        else:
+            print(f"\n提议 {out.get('proposed')} 个，入库 {out.get('accepted')} 个")
+            for r in out.get("results") or []:
+                print(f"  {'✓' if r.get('ok') else '✗'} {r.get('id'):<22}"
+                      f"{r.get('stage') or 'gate':<10}{str(r.get('reason'))[:70]}")
+        return 0 if out.get("ok") else 1
+
+    if args.cmd == "weekly":
+        from .meeting import weekly
+        conn = _conn()
+        if conn is None:
+            print(json.dumps({"ok": False, "error": "market.db 不可用"},
+                             ensure_ascii=False))
+            return 1
+        out = weekly(conn=conn, days=args.days)
+        conn.close()
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=1))
+        else:
+            print(f"复验 {out.get('checked')} 个，下线 {len(out.get('retired') or [])} 个")
+            for rid in out.get("retired") or []:
+                print(f"  ✗ {rid}")
+        return 0 if out.get("ok") else 1
+
+    if args.cmd == "ledger":
+        from .meeting import ledger_read
+        rows = ledger_read()[-args.tail:]
+        for r in rows:
+            ev = r.get("event")
+            if ev == "proposed":
+                ids = [p.get("id") for p in (r.get("proposals") or [])]
+                print(f"{r['at']}  提议 {ids}")
+            elif ev == "reviewed":
+                for k, v in (r.get("reviews") or {}).items():
+                    print(f"{r['at']}  评审 {k}: {v.get('verdict')}")
+            elif ev == "gated":
+                print(f"{r['at']}  {'入库' if r.get('ok') else '淘汰'} "
+                      f"{r.get('id')}: {str(r.get('reason'))[:60]}")
+            elif ev == "weekly":
+                print(f"{r['at']}  周检 复验{r.get('checked')} "
+                      f"下线{r.get('retired')}")
+            else:
+                print(f"{r['at']}  {ev} {json.dumps(r, ensure_ascii=False)[:90]}")
         return 0
 
     if args.cmd == "check":

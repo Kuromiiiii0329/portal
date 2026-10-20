@@ -424,3 +424,71 @@ python -m portal.premarket.factors validate --days 20   # 统计检验（慢，�
 候选池结构变化时**必须**把 `premarket/collect.py` 的 `CACHE_SCHEMA` 加 1，
 否则旧缓存会被静默复用（踩过两次）。另外：任一数据源失败、或战法没跑出来，
 采集结果**不会**写缓存 —— 避免一次失败被永久固化。
+
+---
+
+## 因子自我迭代：agent 开会 → 内核回测 → 入库 → 周检
+
+### 三类因子，同一套接口
+
+| 类型 | 写法 | 安全性 | 表达力 |
+|---|---|---|---|
+| 内置代码因子 | `def compute(panel)` | 人手写，可信 | 强 |
+| **A 表达式因子** | `EXPR = "vol_ratio * close_pos / 100"` | 白名单 AST，可证安全 | 弱（只能组合已有因子） |
+| **B 代码因子** | `def compute(panel)` 由 agent 生成 | 语法白名单 + 子进程超时 | 强 |
+
+A 类可以引用已有因子的值（`evaluate()` 先算代码因子，再算表达式因子），
+所以"组合因子"不需要写代码。
+
+### B 类代码因子的两道闸
+
+1. **语法白名单**（`factors/sandbox.py`）—— 只放行算术/比较/`for`/`if`/字典列表操作，
+   属性仅允许 `get/items/keys/values/append/split/...` 与 Panel 只读字段。
+   禁止 `import`、`class`、`while`、`lambda`、`try`、`with`、`global`、
+   任何以 `_` 开头的属性或名字（挡 `__class__` 一类逃逸）、
+   以及 `eval/exec/open/getattr/compile/__import__` 等内建。
+2. **子进程 + 超时**（45 秒）—— 死循环、崩溃、内存暴涨都只影响子进程。
+   子进程只拿 600 只样本，跑不出全网级开销。
+
+### 开会流程（`python -m portal.premarket.factors discover`）
+
+```
+提议者（LLM）   → 提出最多 N 个候选（表达式或代码 + 可带 PLAYS）
+批评者（LLM）   → 逐条挑：追高？未来函数？过拟合？重复？可算？有经济含义？
+内核（代码）    → 语法白名单 → 子进程试跑 → 覆盖率 → IC/IR 统计检验
+                 → 通过写 discovered/，不通过写 _retired/
+```
+
+**最终裁决永远是内核，不是 LLM。** 入库门槛写在 `meeting.py` 顶部：
+
+```python
+MIN_IC = 0.02        # |信息系数|
+MIN_IR = 0.20        # IC / IC 标准差（稳定性）
+MIN_COVERAGE = 0.50  # 全市场覆盖率
+```
+
+内核还会独立拦两类东西（不依赖批评者）：
+
+- **追高类**：因子或战法里出现涨停/连板/封板/追涨等字样，或 `chg_today >= 7~10`
+- **重复类**：id 与现有因子冲突，或表达式就是一个已有因子名 / 原始字段搬运
+
+### 周检（`python -m portal.premarket.factors weekly`）
+
+用最近几个交易日复验**已入库的发现型因子**，IC 或 IR 掉出门槛就移到
+`_retired/` 并从库里下线。每周六由 `factor-lab.yml` 自动跑。
+
+### 审计
+
+每次提议 / 评审 / 入库 / 淘汰 / 周检都写进
+`portal/data/premarket/factors_ledger.jsonl`（append-only）。
+`python -m portal.premarket.factors ledger` 查看历史。
+
+### 常用命令
+
+```bash
+python -m portal.premarket.factors discover --max 3 --days 10   # 开一次会（会调 LLM）
+python -m portal.premarket.factors discover --dry-run            # 只提议+评审，不落盘
+python -m portal.premarket.factors weekly --days 5               # 周检
+python -m portal.premarket.factors ledger                        # 看历史
+python -m portal.premarket.factors check                         # 库自检 + 当日命中
+```

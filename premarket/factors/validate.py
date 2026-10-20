@@ -189,8 +189,11 @@ def run_all(*, days: int = 20, horizon: int = 1, conn=None,
             if d in cache:
                 return cache[d]
             # 用该日的历史行情充当"今日截面"（离线回放，不看未来）
+            # ★ 必须带 open/high/low：close_pos、gap_pct 这类因子只靠它们算，
+            #   少取一列就会让整个因子"覆盖率为 0"（踩过）。
             bars = conn.execute(
-                """SELECT code, close, volume, amount FROM day WHERE date = ?""",
+                """SELECT code, open, high, low, close, volume, amount
+                   FROM day WHERE date = ?""",
                 (d,)).fetchall()
             quotes = []
             for b in bars:
@@ -199,8 +202,9 @@ def run_all(*, days: int = 20, horizon: int = 1, conn=None,
                        ORDER BY date DESC LIMIT 1""", (b["code"], d)).fetchone()
                 if not prev or not prev["close"]:
                     continue
-                quotes.append({"code": b["code"], "close": b["close"],
-                               "prev_close": prev["close"],
+                quotes.append({"code": b["code"], "open": b["open"],
+                               "high": b["high"], "low": b["low"],
+                               "close": b["close"], "prev_close": prev["close"],
                                "volume": b["volume"], "amount": b["amount"]})
             p = build_panel(conn, quotes, d, history_days=40)
             cache[d] = p

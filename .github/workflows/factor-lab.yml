@@ -1,0 +1,144 @@
+name: factor-lab
+
+# 因子实验室：每周给因子库做体检，必要时由 agent 开会产出新因子
+#
+#   周六 10:00（CST）= 02:00 UTC  周检：复验已入库的发现型因子，退化的下线
+#   手动触发                      开会：提议 → 批评 → 回测 → 入库/淘汰
+#
+# 注意：开会会消耗 LLM token 且要跑回测（10 个交易日 × 全市场），一次约 3-8 分钟。
+# 默认**只做周检**，开会留给手动触发 —— 避免每周固定烧钱，也便于你盯着结果。
+
+on:
+  schedule:
+    - cron: "0 2 * * 6"        # 周六 10:00 CST 周检
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "weekly=周检（默认） / meeting=开一次因子会议"
+        type: choice
+        options: [weekly, meeting]
+        default: weekly
+      max_proposals:
+        description: "开会时最多提议几个因子"
+        default: "2"
+      days:
+        description: "回测天数"
+        default: "10"
+
+concurrency:
+  group: factor-lab
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TZ: Asia/Shanghai
+  PYTHONIOENCODING: utf-8
+  PYTHONUNBUFFERED: "1"
+  PORTAL_MARKET_DB: ${{ github.workspace }}/portal/data/market.db
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # 与 daily-reports 用同一个 environment：LLM key 也在里面
+    environment: EMAIL_SENDER
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: portal
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: portal/requirements-marketdb.txt
+
+      # 只读缓存，不新存（避免把 1.9 GB 的库复制多份）
+      - name: Restore market.db (read-only)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            portal/data/market.db
+            portal/data/market.db-wal
+            portal/data/market.db-shm
+          key: marketdb-${{ github.run_id }}
+          restore-keys: |
+            marketdb-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r portal/requirements-marketdb.txt
+          pip install "litellm>=1.40"
+
+      - name: Ensure today's bars
+        continue-on-error: true
+        run: |
+          if [ ! -f "$PORTAL_MARKET_DB" ]; then
+            python -m portal.virtual.marketdb init
+          fi
+          python -m portal.virtual.marketdb update-today || true
+
+      - name: Library self-check
+        continue-on-error: true
+        run: python -m portal.premarket.factors check
+
+      - name: Weekly re-validation
+        if: ${{ (github.event.inputs.action || 'weekly') == 'weekly' }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
+        run: |
+          python -m portal.premarket.factors weekly \
+            --days "${{ github.event.inputs.days || '5' }}" | tee /tmp/weekly.txt
+
+      - name: Factor meeting
+        if: ${{ github.event.inputs.action == 'meeting' }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
+        run: |
+          python -m portal.premarket.factors discover \
+            --max "${{ github.event.inputs.max_proposals || '2' }}" \
+            --days "${{ github.event.inputs.days || '10' }}" | tee /tmp/meeting.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: factor-lab-${{ github.run_id }}
+          path: |
+            portal/premarket/factors/discovered/*.py
+            portal/premarket/factors/discovered/_retired/*.py
+            portal/data/premarket/factors_ledger.jsonl
+            /tmp/weekly.txt
+            /tmp/meeting.txt
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## 因子实验室"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| 动作 | ${{ github.event.inputs.action || 'weekly' }} |"
+            echo ""
+            echo "### 库状态"
+            echo '```'
+            python -m portal.premarket.factors list | tail -3
+            python -m portal.premarket.factors playbooks | head -1
+            echo '```'
+            echo "### 本次记录"
+            echo '```'
+            python -m portal.premarket.factors ledger --tail 8 || true
+            echo '```'
+            echo ""
+            echo "> 新增/淘汰的因子文件与 ledger 见 artifact。"
+            echo "> 入库门槛：|IC| ≥ 0.02、|IR| ≥ 0.20、覆盖率 ≥ 50%，且不得含追高/打板条件。"
+          } >> "$GITHUB_STEP_SUMMARY"

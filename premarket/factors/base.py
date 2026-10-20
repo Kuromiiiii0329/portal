@@ -177,18 +177,49 @@ class Factor:
     def kind(self) -> str:
         return self.meta["kind"]
 
-    def run(self, panel: Panel) -> dict[str, Any]:
+    def run(self, panel: Panel, *, env: dict[str, dict[str, Any]] | None = None
+            ) -> dict[str, Any]:
+        """算一个因子。
+
+        - 代码因子：直接调 `compute(panel)`
+        - 表达式因子（A 类）：逐只股票求值，可用名字 = 其它因子的值（env）+
+          当日标量（close / prev_close / chg_today / volume / amount_yi /
+          limit_up / open / high / low）
+        """
         if self.compute:
             return self.compute(panel)
-        # 发现型因子：表达式只允许引用内置字段
-        base = {
+        if not self.expr:
+            raise FactorError(f"因子 {self.id} 既没有 compute 也没有 expr")
+
+        scalars = {
             "close": panel.close, "prev_close": panel.prev_close,
             "chg_today": panel.chg, "volume": panel.volume,
             "amount_yi": panel.amount_yi, "limit_up": panel.limit_up,
+            "open": panel.open_today, "high": panel.high_today,
+            "low": panel.low_today,
         }
-        raise FactorError(
-            f"表达式型因子需要显式列名，{self.id} 未声明 base 字段；"
-            f"请用 meta['expr_base'] 指定（{list(base)}）")
+        env = env or {}
+        tree = compile_expr(self.expr, allowed_names=set(env) | set(scalars))
+
+        out: dict[str, Any] = {}
+        for code in panel.codes():
+            row: dict[str, Any] = {}
+            for k, series in scalars.items():
+                if code in series:
+                    row[k] = series[code]
+            for k, series in env.items():
+                if code in series:
+                    row[k] = series[code]
+            if "close" not in row:
+                continue
+            try:
+                v = eval_expr(tree, row)
+            except Exception:
+                continue
+            v = safe(v)
+            if v is not None:
+                out[code] = round(v, 4)
+        return out
 
 
 def make_factor(meta: dict[str, Any], compute=None, expr: str | None = None) -> Factor:
