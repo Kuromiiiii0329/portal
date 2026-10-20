@@ -97,6 +97,67 @@ def _rows(panel: Panel, vals: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
     return rows
 
 
+def select_panel(panel: Panel, *, factors=None, plays=None,
+                 log=lambda *_: None, cap: int | None = None,
+                 respect_chase_ban: bool = True) -> list[dict]:
+    """从已构建好的 Panel 里选股（回测与实盘共用这一套判定）。
+
+    与 `screen()` 的区别：不碰数据库、不做采集，只吃 Panel。
+    回测里每天复用同一个 Panel，所以这里必须是纯函数式的。
+    """
+    factors = factors if factors is not None else load_factors()
+    plays = plays if plays is not None else PB.load_all()
+    try:
+        vals = evaluate(panel, factors)
+        exprs = PB.compiled(factor_ids=set(factors), plays=plays)
+    except Exception as exc:
+        log(f"  因子库加载失败：{type(exc).__name__}: {exc}")
+        return []
+    rows = _rows(panel, vals)
+    out: list[dict] = []
+    for pid, conds in exprs.items():
+        pb = PB.get(pid, plays) or {"id": pid, "name": pid, "buyable": False}
+        try:
+            PB.check_no_chase(pb)
+        except Exception as exc:
+            log(f"  战法 {pid} 被拒：{exc}")
+            continue
+        hits = []
+        for code, row in rows.items():
+            chg = panel.chg.get(code)
+            up = panel.limit_up.get(code)
+            px = panel.close.get(code)
+            if respect_chase_ban:
+                if up and px and px >= up - 0.005:
+                    continue
+                if chg is not None and chg >= 7.0:
+                    continue
+            ok, evidence = PB.match(pid, row, conds)
+            if not ok:
+                continue
+            metrics = {k: row.get(k) for k in (pb.get("evidence") or [])}
+            setup = [f"{k}={PB.fmt_value(metrics.get(k))}"
+                     for k in (pb.get("evidence") or [])]
+            hits.append({
+                "code": code, "name": panel.names.get(code),
+                "close": round(px, 2) if px else None,
+                "chg_pct": round(chg, 2) if chg is not None else None,
+                "playbook": pid, "playbook_cn": pb.get("name"),
+                "buyable": bool(pb.get("buyable")), "why": pb.get("why"),
+                "setup": setup, "conditions": evidence, "metrics": metrics,
+                "amount_yi": (round(row["amount_yi"], 2)
+                              if row.get("amount_yi") is not None else None),
+            })
+        for fid, desc in reversed(PB.sort_spec(pb)):
+            hits.sort(key=lambda x, f=fid: (
+                x["metrics"].get(f) is None,
+                -(x["metrics"].get(f) or 0) if desc
+                else (x["metrics"].get(f) if x["metrics"].get(f) is not None
+                      else float("inf"))))
+        out.extend(hits[:cap] if cap else hits)
+    return out
+
+
 def screen(conn, quotes: Iterable[dict], asof_iso: str,
            *, log=lambda *_: None) -> tuple[list[dict], str | None]:
     """跑全部买入战法（内置 + 因子文件贡献的）。返回 (候选列表, 不可用原因)。"""
@@ -186,6 +247,6 @@ def group_by_playbook(cands: list[dict]) -> dict[str, list[dict]]:
     return out
 
 
-__all__ = ["screen", "observe_pool", "group_by_playbook", "playbook_names",
+__all__ = ["screen", "select_panel", "observe_pool", "group_by_playbook", "playbook_names",
            "buyable_playbooks", "PER_PLAYBOOK_CAP", "LIMIT_UP_CAP",
            "MIN_HISTORY_DAYS", "_limit_pct", "TOL_LIMIT"]
