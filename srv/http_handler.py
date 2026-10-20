@@ -213,6 +213,9 @@ class Handler(BaseHTTPRequestHandler):
                 plan_date=payload.get("plan_date"),
                 trade_date=payload.get("trade_date"),
                 use_cache=bool(payload.get("use_cache", True))))
+        elif path == "/premarket/midday":
+            from srv import premarket_api
+            self._send_json(200, premarket_api.start_midday())
         elif path == "/premarket/review":
             from srv import premarket_api
             self._send_json(200, premarket_api.start_review(

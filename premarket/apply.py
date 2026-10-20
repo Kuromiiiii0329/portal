@@ -83,6 +83,11 @@ AUTO_TARGET_RATIO = 1.10
 #: 靠提示词约束模型是不可靠的，必须由内核拦。
 MAX_CHASE_PCT = 7.0
 
+#: 午报专用额度（半日信息不足以支撑大决策，所以比晚间更紧）
+MIDDAY_MAX_SINGLE_PCT = 10.0
+MIDDAY_MAX_TOTAL_BUY_PCT = 20.0
+MIDDAY_MAX_POOL_ADDS = 3
+
 
 def _chase_guard(code: str, cand: dict | None) -> str | None:
     """返回拒绝原因或 None。只拦「买入」，不影响观察表收录。"""
@@ -124,17 +129,22 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
                    trade_date: str, prices: dict[str, float] | None = None,
                    latest_close: Callable[[str], float | None] | None = None,
                    candidates: list[dict] | None = None,
+                   mode: str = "evening",
                    log: Callable[[str], None] = print) -> dict[str, Any]:
     """把提议落到四张表。返回 {applied, rejected, planned}。
 
     `latest_close` 可注入：测试里给一个固定价格表，避免依赖真实 market.db。
     `candidates` 是当日候选池（带价格）。给了就启用「选股必须在池内」的校验 ——
     这条挡的是 LLM 编造代码（实测它编过一个 603197 保隆科技）。
+    `mode`：`evening`（默认，全额度）| `midday`（更紧的额度，且禁止写经验表）——
+    半天数据不足以支撑大决策，这条同样由内核强制。
     """
     prices = prices or {}
     ref = latest_close or _latest_close
     universe = {str(c.get("code")): c
                 for c in (candidates or []) if c.get("code")}
+    max_pool_adds = (MIDDAY_MAX_POOL_ADDS if mode == "midday"
+                     else store.MAX_NEW_PER_DAY)
     rej = Rejections()
     applied: dict[str, list] = {
         "pool_add": [], "pool_update": [], "pool_remove": [],
@@ -149,6 +159,9 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
     for item in pa.get("add") or []:
         code = str(item.get("code", "")).strip()
         try:
+            if len(applied["pool_add"]) >= max_pool_adds:
+                raise ValidationError(
+                    f"{mode} 模式下观察表当日最多新增 {max_pool_adds} 只，已达上限")
             if universe and code not in universe:
                 raise ValidationError(
                     f"{code} 不在当日候选池（池内 {len(universe)} 只）。"
@@ -238,7 +251,10 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
 
     # ── 经验 ────────────────────────────────────────────
     la = proposal.get("lesson_actions") or {}
-    for item in la.get("add") or []:
+    if mode == "midday" and ((la.get("add") or []) or (la.get("remove") or [])):
+        rej.add("lesson_add", "-",
+                "午报不写交易经验：半天数据不足以沉淀规律，留到晚间复盘（策略约束）")
+    for item in ([] if mode == "midday" else (la.get("add") or [])):
         try:
             fields = {k: item.get(k) for k in
                       ("lesson", "scenario", "result", "evidence")}
@@ -260,9 +276,9 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
         except ValidationError as exc:
             rej.add("lesson_remove", rid or "?", str(exc))
 
-    # ── 持仓计划（只进预案，不成交）──────────────────────
+    # ── 持仓计划（只校验，不成交；成交由 pipeline/execute_changes 负责）──
     planned = _plan_positions(proposal.get("position_plan") or {}, tables, rej,
-                              ref, universe)
+                              ref, universe, mode)
 
     # ── 全局一致性 ──────────────────────────────────────
     try:
@@ -288,11 +304,16 @@ def apply_proposal(*, proposal: dict, tables: Tables, plan_date: str,
 
 def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
                     ref: Callable[[str], float | None],
-                    universe: dict[str, dict] | None = None) -> dict[str, Any]:
+                    universe: dict[str, dict] | None = None,
+                    mode: str = "evening") -> dict[str, Any]:
     """校验买卖计划（只校验、不成交）。"""
     held = tables.positions.alive()
     buys, sells, adjusts = [], [], []
     total = 0.0
+    max_single = (MIDDAY_MAX_SINGLE_PCT if mode == "midday"
+                  else account_mod.MAX_SINGLE_PCT)
+    max_total = (MIDDAY_MAX_TOTAL_BUY_PCT if mode == "midday"
+                 else account_mod.MAX_TOTAL_PCT)
 
     for item in pp.get("buy") or []:
         code = str(item.get("code", "")).strip()
@@ -301,8 +322,9 @@ def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
         except (TypeError, ValueError):
             rej.add("buy", code or "?", "alloc_pct 必须是数字")
             continue
-        if not (0 < alloc <= account_mod.MAX_SINGLE_PCT):
-            rej.add("buy", code, f"仓位 {alloc}% 超出 (0, {account_mod.MAX_SINGLE_PCT}]")
+        if not (0 < alloc <= max_single):
+            rej.add("buy", code,
+                    f"仓位 {alloc}% 超出 (0, {max_single}]（{mode} 额度）")
             continue
         if code in held:
             rej.add("buy", code, "已在持仓中，不能重复买入")
@@ -321,6 +343,11 @@ def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
                             ref(code) or (cand or {}).get("close"))
         if bad:
             rej.add("buy", code, bad)
+            continue
+        if total + alloc > max_total + 1e-9:
+            rej.add("buy", code,
+                    f"当日买入合计将达 {total + alloc:.1f}%，"
+                    f"超过 {mode} 上限 {max_total}%")
             continue
         total += alloc
         buys.append({"code": code, "name": item.get("name"), "alloc_pct": alloc,
