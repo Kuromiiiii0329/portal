@@ -91,6 +91,15 @@ def main(argv: list[str] | None = None) -> int:
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
     l.add_argument("--tail", type=int, default=20)
 
+    pf = sub.add_parser("profile", help="因子前向收益画像（3/5/10/20/30 日）")
+    pf.add_argument("--id", default=None, help="只算某个因子")
+    pf.add_argument("--days", type=int, default=None,
+                    help="回看交易日数（默认全部历史）")
+    pf.add_argument("--top", type=float, default=0.20,
+                    help="取截面前/后百分之多少作为信号（默认 0.2）")
+    pf.add_argument("--out", default=None, help="markdown 输出路径")
+    pf.add_argument("--json", action="store_true")
+
     ar = sub.add_parser("archive", help="查看归档的废弃因子")
     ar.add_argument("--json", action="store_true")
     ar.add_argument("--migrate", action="store_true",
@@ -226,6 +235,30 @@ def main(argv: list[str] | None = None) -> int:
             for rid in out.get("retired") or []:
                 print(f"  ✗ {rid}")
         return 0 if out.get("ok") else 1
+
+    if args.cmd == "profile":
+        from .profile import forward_profile, render_markdown
+        conn = _conn()
+        if conn is None:
+            print(json.dumps({"ok": False, "error": "market.db 不可用"},
+                             ensure_ascii=False))
+            return 1
+        prof = forward_profile(conn, factor_ids=[args.id] if args.id else None,
+                               top_pct=args.top, max_days=args.days)
+        conn.close()
+        if not prof.get("ok"):
+            print(json.dumps(prof, ensure_ascii=False))
+            return 1
+        md = render_markdown(prof)
+        if args.out:
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text(md, encoding="utf-8")
+            print(f"✅ 已写入 {args.out}")
+        if args.json:
+            print(json.dumps(prof, ensure_ascii=False, indent=1))
+        else:
+            print(md)
+        return 0
 
     if args.cmd == "archive":
         from . import archive
