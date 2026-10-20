@@ -1016,6 +1016,75 @@ def check_factor_contract() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V16 · 因子讨论循环：强制回测、内核否决权、回溯、轮次上限
+# ─────────────────────────────────────────────────────────────
+def check_discuss_loop() -> Check:
+    c = Check("V16", "讨论循环：内核否决优先、回溯、轮次上限、经验注入")
+
+    from portal.premarket.factors import meeting as M
+    from portal.premarket.factors import memory
+
+    # 1) 轮次上限写在代码里，默认 8
+    c.expect(M.MAX_DISCUSS_ROUNDS == 8,
+             f"MAX_DISCUSS_ROUNDS={M.MAX_DISCUSS_ROUNDS}")
+
+    # 2) 评分：有预测力 × 稳定 × 覆盖
+    good = {"ic_mean": 0.06, "ic_ir": 0.40, "coverage": 0.95}
+    weak = {"ic_mean": 0.01, "ic_ir": 0.40, "coverage": 0.95}
+    unstable = {"ic_mean": 0.06, "ic_ir": 0.02, "coverage": 0.95}
+    c.expect(M.score(good) > M.score(weak), "IC 越高分越高")
+    c.expect(M.score(good) > M.score(unstable), "IR 越低分越低")
+    c.expect(M.score({"ic_mean": 0.06, "ic_ir": 0.4, "coverage": 0.1})
+             < M.score(good), "覆盖率低分低")
+
+    # 3) 内核判据：agent 说 accept 也不算数
+    ok_stats = {"ok": True, "ic_mean": 0.05, "ic_ir": 0.35, "coverage": 0.9}
+    bad_stats = {"ok": True, "ic_mean": 0.001, "ic_ir": 0.01, "coverage": 0.9}
+    c.expect(M._gate_ok(ok_stats)[0] is True, "达标样本判定通过")
+    c.expect(M._gate_ok(bad_stats)[0] is False, "不达标样本判定失败")
+    c.expect(M._gate_ok({})[0] is False, "没有回测数据即失败")
+
+    # 4) decide()：内核未达标 + 评审 accept → 改判 improve
+    d, why = M.decide({"ok": False, "score": 0.01}, "accept", None)
+    c.expect(d == "improve", f"内核否决优先（得到 {d}：{why}）")
+
+    # 5) decide()：内核达标 + 评审 accept → accept
+    d2, _ = M.decide({"ok": True, "score": 0.05}, "accept", None)
+    c.expect(d2 == "accept", f"达标且评审确认 → accept（得到 {d2}）")
+
+    # 6) decide()：内核达标 + 评审 improve → 也入库（数字优先）
+    d3, _ = M.decide({"ok": True, "score": 0.05}, "improve", None)
+    c.expect(d3 == "accept", f"达标即入库（得到 {d3}）")
+
+    # 7) decide()：give_up 优先于回溯
+    d4, _ = M.decide({"ok": False, "score": 0.001}, "give_up",
+                     {"score": 0.1})
+    c.expect(d4 == "give_up", f"give_up 优先（得到 {d4}）")
+
+    # 8) decide()：明显低于历史最佳 → backtrack
+    d5, _ = M.decide({"ok": False, "score": 0.05}, "improve", {"score": 0.10})
+    c.expect(d5 == "backtrack", f"改坏了要回溯（得到 {d5}）")
+    #   仅略低（>80%）不回溯，继续改进
+    d6, _ = M.decide({"ok": False, "score": 0.09}, "improve", {"score": 0.10})
+    c.expect(d6 == "improve", f"略低不回溯（得到 {d6}）")
+
+    # 9) 经验库可读且能渲染进提示词
+    ls = memory.lessons()
+    c.expect(isinstance(ls, list), f"经验库可读（{len(ls)} 条）")
+    block = memory.prompt_block()
+    c.expect(bool(block) == bool(ls), "经验非空时提示词块非空")
+    if ls:
+        c.expect("历史经验" in block, "提示词块带标题")
+    # 10) 完整会议记录保留源码与批评意见
+    tr = memory.transcripts(20)
+    if tr:
+        last = tr[-1]
+        c.expect("proposals" in last or "history" in last,
+                 f"记录含候选内容（{sorted(last)[:4]}）")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -1032,6 +1101,7 @@ CHECKS = (
     ("V13", check_midday_guard),
     ("V14", check_factor_library),
     ("V15", check_factor_contract),
+    ("V16", check_discuss_loop),
 )
 
 

@@ -1,0 +1,12 @@
+{"op": "add", "id": "L92219bd3c2", "key": "no_duplicate_id", "at": "2026-10-20T20:44:28+08:00", "kind": "rule", "text": "因子 id 不能与现有因子重名；先看清单再起名。", "source": "kernel", "tags": ["rejected"], "note": "chg_today"}
+{"op": "add", "id": "L7318c09c49", "key": "no_duplicate_expr", "at": "2026-10-20T20:44:28+08:00", "kind": "rule", "text": "不要提出与已有因子等价的表达式：直接写 chg_today / vol_ratio 这类已有因子名，或只搬运 close/volume 等原始字段，都会被判重复。要提就必须是新的组合或加工。", "source": "kernel", "tags": ["rejected"], "note": "chase_bad"}
+{"op": "add", "id": "Lb3ed8f5a61", "key": "sandbox_syntax", "at": "2026-10-20T20:44:28+08:00", "kind": "rule", "text": "代码因子只能写算术、for、if、字典/列表操作；禁止 import/class/while/lambda/try/with/global，禁止任何以 _ 开头的属性，禁止 while 死循环。", "source": "kernel", "tags": ["rejected"], "note": "evil_syntax"}
+{"op": "add", "id": "L0df6775215", "key": "llm:L938bade54c", "at": "2026-10-20T20:44:28+08:00", "kind": "rule", "text": "先确认因子是否与现有因子等价，再动手写代码", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "L5fb15bf960", "key": "llm:L7a09e54341", "at": "2026-10-20T20:44:28+08:00", "kind": "rule", "text": "含涨停语义的因子不要提交，浪费一次回测", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "evidence", "id": "L92219bd3c2", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": "chg_today"}
+{"op": "evidence", "id": "L7318c09c49", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": "chase_bad"}
+{"op": "evidence", "id": "Lb3ed8f5a61", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": "evil_syntax"}
+{"op": "evidence", "id": "L0df6775215", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": ""}
+{"op": "evidence", "id": "L5fb15bf960", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": ""}
+{"op": "add", "id": "L749238290b", "key": "llm:L335571dec1", "at": "2026-10-20T20:51:40+08:00", "kind": "rule", "text": "短窗口反转在 A 股噪声大，优先试长窗口", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "evidence", "id": "L749238290b", "at": "2026-10-20T20:51:45+08:00", "delta": 1, "note": ""}

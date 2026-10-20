@@ -427,7 +427,106 @@ python -m portal.premarket.factors validate --days 20   # 统计检验（慢，�
 
 ---
 
-## 因子自我迭代：agent 开会 → 内核回测 → 入库 → 周检
+## 因子自我迭代：代码驱动的讨论循环
+
+### 一句话
+
+**回测由代码强制跑，agent 只能读着真实数字说话。** 每一轮都必须先出数字，
+再评审，再决定改进 / 回溯 / 入库。agent 的 accept 不算数，内核的门槛才是否决权。
+
+### 循环（`python -m portal.premarket.factors discover`）
+
+```
+第 1 轮   提出推演
+         ↓
+         ★ 强制代码回测（沙箱 → 子进程试跑 → 10 日截面 IC/IR/覆盖率/多空价差）
+         ↓
+         回测数字 + 源码 → agent review + feedback
+         ↓
+   ┌──── accept   → 入库，结束
+   ├──── improve  → 按意见改一处 → 下一轮（回到"强制回测"）
+   ├──── backtrack→ 回到历史最佳变体，换方向再来
+   └──── give_up  → 提前结束
+         ↓
+   到轮次上限仍未通过 → 如实报告失败，清理落盘文件
+```
+
+### 轮次上限：写在代码里，默认 8
+
+`portal/premarket/factors/meeting.py` 顶部：
+
+```python
+MAX_DISCUSS_ROUNDS = 8      # ← 你想改就改这里
+```
+
+也可以用 `--max-rounds N` 临时覆盖。到上限没通过就结束，不会无限烧 token。
+
+### 决策优先级（`decide()`，可单测）
+
+| 情况 | 决策 | 说明 |
+|---|---|---|
+| 内核未达标 + 评审 accept | **improve** | 内核否决优先，评审说了不算 |
+| 内核达标 + 评审 accept | accept | 入库 |
+| 内核达标 + 评审 improve | accept | 数字优先，意见写入经验 |
+| 评审 give_up | give_up | 提前结束 |
+| 得分 < 历史最佳 × 0.80 | backtrack | 改坏了，回退到最佳变体 |
+| 其余 | improve | 继续 |
+
+评分公式（用于回溯判断，不是入库判据）：
+
+```
+score = |IC| × min(1, |IR| / 0.30) × 覆盖率
+```
+
+### 入库门槛（内核判据）
+
+```python
+MIN_IC = 0.02        # |信息系数|
+MIN_IR = 0.20        # 稳定性
+MIN_COVERAGE = 0.50  # 全市场覆盖率
+```
+
+另外两条**不经过讨论**的硬规则：追高/打板语义直接拒，与已有因子重复直接拒。
+
+### 经验沉淀与自我进化
+
+三层存储，职责分开：
+
+| 文件 | 内容 |
+|---|---|
+| `data/premarket/factors_ledger.jsonl` | 事件流水（每轮决策、入库、周检） |
+| `data/premarket/factors_memory.jsonl` | **完整会议记录**：候选源码 + 逐轮回测数字 + 评审意见 |
+| `data/premarket/factor_lessons.jsonl` | **提炼出的经验**（append-only，带 evidence 计数） |
+
+闭环：
+
+```
+开会 → 记录全过程 → 提炼经验（内核规则 + LLM 归纳）
+     → 下次开会的提示词里自动注入「历史经验（被拒 N 次）」
+     → agent 行为改变 → 再记录
+```
+
+经验来源两类：
+- **内核规则**（确定性）：每种拒绝原因对应一条可复用教训，被拒几次就累加几次
+- **LLM 归纳**（`source="llm"`）：从整场会议提炼方法论层面的规律
+
+查看：
+
+```bash
+python -m portal.premarket.factors lessons     # 经验库（含被拒次数）
+python -m portal.premarket.factors memory      # 完整会议记录
+python -m portal.premarket.factors ledger      # 事件流水
+```
+
+### 周检
+
+`factor-lab.yml` 每周六 10:00 复验已入库的发现型因子，IC/IR 掉出门槛就移到
+`_retired/` 并下线。开会是手动触发，避免每周固定烧 token。
+
+---
+
+## 因子自我迭代（旧版说明，保留以便对照）
+
 
 ### 三类因子，同一套接口
 

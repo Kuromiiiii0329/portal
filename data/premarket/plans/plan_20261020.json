@@ -2,390 +2,179 @@
   "plan_date": "20261020",
   "trade_date": "2026-10-19",
   "data_date": "20261019",
-  "generated_at": "2026-10-20T01:40:06+08:00",
-  "proposal_source": "llm",
+  "generated_at": "2026-10-20T20:06:41+08:00",
+  "proposal_source": "rule_fallback",
   "proposal": {
     "market_view": {
       "trend": "弱势",
       "position_range_pct": [
-        0.0,
-        20.0
+        10.0,
+        30.0
       ],
-      "confidence": 78.0,
+      "confidence": 30.0,
       "reasons": [
-        "六大指数全部 above_ma20=false：上证 -2.84%、深成 -8.31%、创业板 -12.22%，创业板 5 日 -7.34%、20 日 -17.33%，成长端领跌",
-        "全市场成交 14373.4 亿，较 5 日均量 -8.03%、较 20 日均量 -16.6%，量能持续萎缩，反弹缺乏承接",
-        "涨跌家数 2199/2864，up_ratio 42.19%，涨停 50 家但跌停 27 家、炸板率 31.34%，赚钱效应偏弱",
-        "创业板指连续 6 日下跌（streak_days=6, streak_dir=跌），趋势未止跌；北向净买额为 0 不可用（caveats），不据此判断资金方向",
-        "经验表 L384406f826/L46d83e2178 明确：六指数破 MA20 且创业板 5 日跌幅超 7% 时总仓位上限 25%、单日新开仓 ≤3 只且合计 ≤20%，本预案取更保守的 20% 上限"
+        "上证指数 +0.12%，5日 -1.72%，成交额 6999.7亿",
+        "上涨 3433 家 / 下跌 1662 家，上涨占比 65.8%",
+        "炸板率 31.34%，最高连板 3 板"
       ]
     },
     "sector_priority": [
       {
         "name": "汽车零部",
-        "logic": "政策催化直接 + 涨停集群最大 + 龙头封单最强，是当前唯一具备持续性的主线",
-        "strength": 82.0,
-        "evidence": "今日涨停 10 家、boards_sum 15、max_boards 2；5 日序列 1/1/0/14/10 连续两日双位数；保隆科技封单 3.32 亿、万丰奥威 1.99 亿、东安动力 1.28 亿",
-        "fund_flow": "龙虎榜保隆科技净买 10220.1 万、万丰奥威净买 12700 万、东安动力/长春一东/文灿股份均上榜，板块内多股获席位验证",
-        "catalyst": "汽车零部件保税再制造新业态在海南落地（重要信息 If1999e4ce3）",
-        "sustainability": "5 日序列 1/1/0/14/10，从 0 跳增至 14 后维持 10 家，处于高位发酵但未进一步扩张，需防高位分歧；经验 L8ffcc3fad6 要求对跳增题材次日验证 2 板",
-        "leader": "保隆科技",
-        "leader_status": "2 板，板块内封单最高 3.32 亿，龙虎榜净买 10220.1 万，地位明确"
-      },
-      {
-        "name": "软件开发",
-        "logic": "市场最高连板所在方向，但板块涨停家数仅 2 家，属个股高度而非板块效应",
-        "strength": 55.0,
-        "evidence": "今日涨停 2 家、boards_sum 4、max_boards 3；吉大正元 3 板为全市场最高连板，封单 2.01 亿；索辰科技 20% 首板",
-        "fund_flow": "吉大正元封单 2.01 亿，索辰科技封单 0.69 亿并上龙虎榜，资金集中在龙头",
-        "catalyst": "无直接政策催化，属连板高度博弈",
-        "sustainability": "5 日序列 1/0/1/1/2，缓慢升温但家数太少，缺乏集群支撑，高度标的一旦断板板块即降温",
-        "leader": "吉大正元",
-        "leader_status": "3 板，全市场最高连板，封单 2.01 亿，但为唯一高度标的，孤立性强"
-      },
-      {
-        "name": "通信设备",
-        "logic": "个股订单催化强、封单最大，但板块未形成涨停集群，属单票逻辑",
-        "strength": 50.0,
-        "evidence": "今日涨停 1 家；亨通光电首板封单 3.99 亿为候选池最大；5 日序列 1/0/0/1/1",
-        "fund_flow": "亨通光电封单 3.99 亿，为候选池最高，但无龙虎榜席位数据",
-        "catalyst": "高速光模块组件订单排到 2027 年底（重要信息 I92cc3bc803）",
-        "sustainability": "5 日序列 1/0/0/1/1，无集群、无连续性，仅靠单票订单逻辑支撑，持续性待观察",
-        "leader": "亨通光电",
-        "leader_status": "首板，封单 3.99 亿最强，但无连板高度，龙头地位未确立"
+        "logic": "涨停 10 家、最高 2 板",
+        "strength": 80.0,
+        "evidence": "涨停池行业聚合",
+        "fund_flow": "",
+        "catalyst": "",
+        "sustainability": "",
+        "leader": "",
+        "leader_status": ""
       },
       {
         "name": "塑料",
-        "logic": "今日新爆发方向（0→4），符合经验 L8ffcc3fad6 的观察条件，但无龙头、无连板",
-        "strength": 40.0,
-        "evidence": "今日涨停 4 家、boards_sum 4、max_boards 1；5 日序列 0/0/0/0/4，单日跳增",
-        "fund_flow": "肯特股份封单 0.91 亿、天洋新材 0.81 亿、沃特股份 0.73 亿、福莱新材 0.67 亿，封单均偏小",
-        "catalyst": "无明确政策催化，属资金试探性扩散",
-        "sustainability": "5 日序列 0/0/0/0/4，首日爆发，按经验 L8ffcc3fad6 次日须验证 2 板，当前无法判断持续性",
-        "leader": "肯特股份",
-        "leader_status": "首板 20%，封单 0.91 亿，板块内最高但无连板，龙头未确立"
+        "logic": "涨停 4 家、最高 1 板",
+        "strength": 32.0,
+        "evidence": "涨停池行业聚合",
+        "fund_flow": "",
+        "catalyst": "",
+        "sustainability": "",
+        "leader": "",
+        "leader_status": ""
+      },
+      {
+        "name": "通用设备",
+        "logic": "涨停 3 家、最高 2 板",
+        "strength": 24.0,
+        "evidence": "涨停池行业聚合",
+        "fund_flow": "",
+        "catalyst": "",
+        "sustainability": "",
+        "leader": "",
+        "leader_status": ""
+      },
+      {
+        "name": "家居用品",
+        "logic": "涨停 3 家、最高 1 板",
+        "strength": 24.0,
+        "evidence": "涨停池行业聚合",
+        "fund_flow": "",
+        "catalyst": "",
+        "sustainability": "",
+        "leader": "",
+        "leader_status": ""
+      },
+      {
+        "name": "电力",
+        "logic": "涨停 3 家、最高 1 板",
+        "strength": 24.0,
+        "evidence": "涨停池行业聚合",
+        "fund_flow": "",
+        "catalyst": "",
+        "sustainability": "",
+        "leader": "",
+        "leader_status": ""
       }
     ],
-    "news_analysis": [
-      {
-        "title": "高盛上调 2026 年底铜价预测至 14700 美元/吨",
-        "importance": "中",
-        "impact": "利好",
-        "summary": "海外投行上调铜价目标约 7%，强化有色铜的中期价格中枢预期",
-        "affected_themes": [
-          "有色铜",
-          "小金属"
-        ],
-        "affected_stocks": [],
-        "reasoning": "铜价预期上修直接改善铜矿/铜加工企业盈利预期，但候选池中无铜标的，仅作为题材观察，不构成买入依据"
-      },
-      {
-        "title": "汽车零部件保税再制造新业态在海南落地",
-        "importance": "中",
-        "impact": "利好",
-        "summary": "保税再制造是汽车零部的新业务增量，政策直接对应板块",
-        "affected_themes": [
-          "汽车零部"
-        ],
-        "affected_stocks": [
-          "603197",
-          "002085",
-          "600178"
-        ],
-        "reasoning": "政策催化叠加板块 5 日涨停序列 1/1/0/14/10 连续两日双位数，是当前唯一有持续性的主线，保隆科技封单 3.32 亿为板块最高"
-      },
-      {
-        "title": "高速光模块组件订单排到 2027 年底",
-        "importance": "中",
-        "impact": "利好",
-        "summary": "光模块产业链订单能见度拉长至 2027 年底，通信设备链景气延续",
-        "affected_themes": [
-          "通信设备"
-        ],
-        "affected_stocks": [
-          "600487"
-        ],
-        "reasoning": "亨通光电首板封单 3.99 亿为候选池最大，直接对应订单催化，但板块 5 日涨停序列 1/0/0/1/1 未形成集群，仅个股逻辑"
-      },
-      {
-        "title": "苹果 10 月 28 日发布会推触控屏 MacBookPro",
-        "importance": "中",
-        "impact": "利好",
-        "summary": "苹果新品发布会临近，触控屏 MacBook 带来消费电子链事件催化",
-        "affected_themes": [
-          "消费电子",
-          "元件"
-        ],
-        "affected_stocks": [
-          "603626",
-          "300852"
-        ],
-        "reasoning": "事件窗口在 10-28，距今 7 个交易日，属于可交易的事件预期，但元件板块 5 日序列 9/2/5/0/3 波动大、持续性不足，仅观察"
-      },
-      {
-        "title": "纳斯达克 100 涨幅扩大至 2%，SK 海力士、英特尔涨超 6%",
-        "importance": "低",
-        "impact": "利好",
-        "summary": "隔夜美股科技与存储链走强，对 A 股科技情绪有正向映射",
-        "affected_themes": [
-          "计算机设",
-          "元件"
-        ],
-        "affected_stocks": [
-          "301666"
-        ],
-        "reasoning": "外盘科技走强仅提供情绪面支撑，A 股创业板 5 日 -7.34% 趋势向下，情绪传导力度有限，不构成加仓理由"
-      },
-      {
-        "title": "LME 金属期货多数收涨",
-        "importance": "低",
-        "impact": "利好",
-        "summary": "基本金属普涨，与铜价上调形成共振",
-        "affected_themes": [
-          "有色铜",
-          "小金属"
-        ],
-        "affected_stocks": [],
-        "reasoning": "与高盛铜价上调同向，但候选池无对应标的，仅记录不交易"
-      }
-    ],
+    "news_analysis": [],
     "review": {
-      "what_worked": [
-        "空仓决策被规则验证：六大指数全部 above_ma20=false、创业板 5 日 -7.34%，经验表 L384406f826 要求总仓位上限 25%，空仓规避了创业板连续 6 日下跌（streak_days=6）的延续风险",
-        "候选池封单排序有效：亨通光电封单 3.99 亿、保隆科技 3.32 亿为池内前二，均对应明确产业催化，封单强度与逻辑强度一致"
-      ],
-      "what_failed": [
-        "无成交、无持仓，不存在执行失败；但需区分：今日空仓是规则不满足（六指数破 MA20 + 创业板 5 日 -7.34% 触发仓位上限）导致的主动空仓，而非犹豫错过，属规则内决策",
-        "观察表 4 只标的均未触发买入，因当日为盘前预案、无盘中执行记录（executed 为空），触发条件未被价格验证，需在下一交易日继续跟踪"
-      ],
-      "theme_verdict": [
-        {
-          "theme": "汽车零部",
-          "verdict": "兑现",
-          "note": "5 日序列 1/1/0/14/10，连续两日双位数涨停，今日 10 家涨停、boards_sum 15，板块效应兑现"
-        },
-        {
-          "theme": "软件开发",
-          "verdict": "待观察",
-          "note": "今日仅 2 家涨停，吉大正元 3 板为孤立高度，5 日序列 1/0/1/1/2 未形成集群，持续性待验证"
-        },
-        {
-          "theme": "塑料",
-          "verdict": "待观察",
-          "note": "5 日序列 0/0/0/0/4 首日爆发，无连板、封单均小于 1 亿，按经验 L8ffcc3fad6 需次日验证 2 板"
-        },
-        {
-          "theme": "通信设备",
-          "verdict": "待观察",
-          "note": "亨通光电首板封单 3.99 亿但板块仅 1 家涨停，5 日序列 1/0/0/1/1 无集群，属单票逻辑"
-        }
-      ]
+      "what_worked": [],
+      "what_failed": [],
+      "theme_verdict": []
     },
     "pool_actions": {
-      "add": [
-        {
-          "code": "600178",
-          "name": "东安动力",
-          "tier": "normal",
-          "logic": "汽车零部 2 板，封单 1.28 亿，龙虎榜有席位验证，板块内强度仅次于保隆科技与万丰奥威",
-          "reason": "板块 5 日序列 1/1/0/14/10 连续双位数，东安动力 2 板封单 1.28 亿且上龙虎榜，作为板块第三顺位观察标的",
-          "trigger": "开盘价在 10.80-11.30 区间且 9:30-9:35 成交额不低于 5000 万时买入；开盘价高于 11.30 或低于 10.80 放弃",
-          "stop_loss": 10.72,
-          "take_profit": 12.41
-        },
-        {
-          "code": "301591",
-          "name": "肯特股份",
-          "tier": "normal",
-          "logic": "塑料板块今日 0→4 首日爆发，肯特股份封单 0.91 亿为板块最高，按经验 L8ffcc3fad6 纳入观察验证 2 板",
-          "reason": "塑料 5 日序列 0/0/0/0/4 单日跳增，肯特股份 20% 首板封单 0.91 亿居板块首位，需观察次日能否走出 2 板确认题材",
-          "trigger": "仅在开盘价低于 47.47 且不低于 44.00、回踩 44.00 上方获支撑、9:30-9:35 成交额不低于 4000 万时买入；一字涨停或开盘低于 44.00 均放弃",
-          "stop_loss": 42.72,
-          "take_profit": 52.22
-        }
-      ],
-      "update": [
-        {
-          "code": "603197",
-          "reason": "维持核心观察，板块龙头地位未变，但大盘弱势下将触发区间收窄至 31.80-32.60，避免高开追入",
-          "tier": "core",
-          "trigger": "开盘价不低于 31.80 且不高于 32.60，9:30-9:35 成交额不低于 1.8 亿时买入；开盘价高于 32.60 或低于 31.80 放弃",
-          "stop_loss": 30.71,
-          "take_profit": 35.56,
-          "status": "tracking"
-        },
-        {
-          "code": "003029",
-          "reason": "3 板高度标的在弱势环境下断板风险高，维持观察但触发条件不变，仅作情绪风向标",
-          "tier": "normal",
-          "trigger": "仅在开盘价低于 24.19 且不低于 23.20、回踩 23.20 上方获支撑、5 分钟成交额不低于 3000 万时买入；一字涨停或开盘低于 23.20 均放弃",
-          "stop_loss": 22.98,
-          "take_profit": 26.61,
-          "status": "tracking"
-        },
-        {
-          "code": "600487",
-          "reason": "封单 3.99 亿为候选池最大，但板块无集群，维持观察并将触发区间下沿上调至 49.00 以过滤弱势低开",
-          "tier": "normal",
-          "trigger": "开盘价在 49.00-51.00 区间且 9:30-9:35 成交额不低于 2.5 亿时买入；开盘价高于 51.00 或低于 49.00 放弃",
-          "stop_loss": 47.74,
-          "take_profit": 55.28,
-          "status": "tracking"
-        },
-        {
-          "code": "002085",
-          "reason": "汽车零部 2 板且龙虎榜净买 12700 万，板块内资金验证第二，维持观察，触发区间不变",
-          "tier": "normal",
-          "trigger": "开盘价在 10.50-11.00 区间且 9:30-9:35 成交额不低于 7000 万时买入；开盘价高于 11.00 或低于 10.50 均放弃",
-          "stop_loss": 10.35,
-          "take_profit": 11.99,
-          "status": "tracking"
-        }
-      ],
+      "add": [],
+      "update": [],
       "remove": []
     },
     "position_plan": {
-      "buy": [
-        {
-          "code": "603197",
-          "name": "保隆科技",
-          "alloc_pct": 8,
-          "trigger": "开盘价不低于 31.80 且不高于 32.60，9:30-9:35 成交额不低于 1.8 亿时买入；开盘价高于 32.60 或低于 31.80 放弃",
-          "stop_loss": 30.71,
-          "take_profit": 35.56,
-          "logic": "汽车零部板块龙头，2 板封单 3.32 亿为板块最高，龙虎榜净买 10220.1 万，政策催化直接对应；单只 8% 符合经验 Lb25451effe 上限"
-        },
-        {
-          "code": "002085",
-          "name": "万丰奥威",
-          "alloc_pct": 6,
-          "trigger": "开盘价在 10.50-11.00 区间且 9:30-9:35 成交额不低于 7000 万时买入；开盘价高于 11.00 或低于 10.50 均放弃",
-          "stop_loss": 10.35,
-          "take_profit": 11.99,
-          "logic": "汽车零部 2 板，龙虎榜净买 12700 万（1 家机构），封单 1.99 亿，板块内资金验证仅次于保隆科技；与保隆合计 14% 不超过单日 20% 上限"
-        }
-      ],
+      "buy": [],
       "sell": [],
       "adjust": []
     },
     "info_actions": {
-      "add": [
-        {
-          "content": "塑料板块5日涨停0/0/0/0/4首日爆发，次日须验证2板",
-          "scope": "行业",
-          "scope_detail": "塑料",
-          "level": "中",
-          "expires_on": "2026-10-26"
-        },
-        {
-          "content": "创业板指连续6日下跌且5日跌7.34%，成长端未止跌",
-          "scope": "大盘",
-          "scope_detail": "创业板指",
-          "level": "高",
-          "expires_on": "2026-10-26"
-        }
-      ],
+      "add": [],
       "remove": []
     },
     "lesson_actions": {
-      "add": [
-        {
-          "lesson": "六指数全部above_ma20=false且创业板5日跌幅超7%时，单日新开仓不超过2只、合计不超过15%",
-          "scenario": "指数全线走弱且成长端领跌的盘前预案",
-          "result": "失败教训",
-          "evidence": "2026-10-19 六指数破MA20、创业板5日-7.34%，本预案取2只合计14%以留安全边际"
-        },
-        {
-          "lesson": "板块5日涨停家数单日跳增（如0→4）且封单均小于1亿时，次日仅观察不买入，须见2板确认",
-          "scenario": "新题材首日爆发的盘前预案",
-          "result": "失败教训",
-          "evidence": "2026-10-19 塑料0→4，肯特股份封单0.91亿为板块最高，无连板"
-        }
-      ],
+      "add": [],
       "remove": []
     },
     "risk_notes": [
-      "创业板指连续 6 日下跌、5 日 -7.34%，若次日继续放量下跌，汽车零部高位板存在补跌风险",
-      "汽车零部 5 日序列 1/1/0/14/10 已连续两日双位数，高位分歧概率上升，保隆科技 2 板若炸板将拖累板块",
-      "全市场成交 14373.4 亿较 20 日均量 -16.6%，量能不足下涨停封单易被砸开，炸板率 31.34% 已偏高",
-      "北向净买额为 0 不可用（caveats），无法验证外资方向，仓位判断仅依赖内资量能与情绪指标",
-      "塑料、软件开发等题材家数少、封单小，若次日无 2 板确认，观察表标的应放弃而非降级买入"
+      "北向成交净买额为 0：沪深港通实时额度已停止披露，该字段不可用于判断资金方向。",
+      "本次为规则兜底（未接入 LLM），只做仓位与题材排序，未生成个股计划"
     ],
     "execution_checklist": [
-      "9:25 集合竞价后核对保隆科技开盘价是否在 31.80-32.60 区间，超出则放弃",
-      "9:25 核对万丰奥威开盘价是否在 10.50-11.00 区间，超出则放弃",
-      "9:30-9:35 统计保隆科技成交额是否达 1.8 亿、万丰奥威是否达 7000 万，未达则放弃",
-      "9:30-9:35 观察吉大正元是否一字涨停或跌破 23.20，作为市场情绪风向标",
-      "9:30-9:35 观察肯特股份是否走出 2 板，验证塑料题材持续性",
-      "盘中若上证指数跌破 3700 且成交额低于 5 日均量，停止一切新开仓",
-      "收盘前核对总仓位是否超过 20%，超过则次日开盘减仓"
-    ]
+      "开盘 30 分钟先看量能与涨跌家数，不追高",
+      "总仓位控制在 10-30%",
+      "无 LLM 时按规则兜底，个股决策请人工复核"
+    ],
+    "_fallback_reason": "BadRequestError: litellm.BadRequestError: DeepseekException - {\"error\":{\"message\":\"Authentication Fails, Your api key: ****8cd3 is invalid (request_id: c8d85b0a-52e9-4d75-abdd-0ed677e82f06)\",\"type\":\"authentication_err"
   },
   "market_digest": {
     "date": "20261019",
     "indices": [
       {
         "name": "上证指数",
-        "close": 3730.92,
-        "chg_pct": 0.394,
-        "amount_yi": 6870.1,
-        "trend": "走弱",
+        "close": 3735.37,
+        "chg_pct": 0.119,
+        "amount_yi": 6999.7,
+        "trend": "震荡",
         "above_ma20": false,
-        "chg_5d_pct": -1.747
+        "chg_5d_pct": -1.723
       },
       {
         "name": "深证成指",
-        "close": 11817.42,
-        "chg_pct": 0.127,
-        "amount_yi": 7505.0,
+        "close": 11801.29,
+        "chg_pct": -0.137,
+        "amount_yi": 7561.4,
         "trend": "走弱",
         "above_ma20": false,
-        "chg_5d_pct": -4.582
+        "chg_5d_pct": -4.472
       },
       {
         "name": "创业板指",
-        "close": 2746.29,
-        "chg_pct": -0.941,
-        "amount_yi": 3563.0,
+        "close": 2739.2,
+        "chg_pct": -0.258,
+        "amount_yi": 3744.9,
         "trend": "走弱",
         "above_ma20": false,
-        "chg_5d_pct": -7.34
+        "chg_5d_pct": -7.408
       },
       {
         "name": "科创50",
-        "close": 1329.19,
-        "chg_pct": -2.168,
-        "amount_yi": 687.0,
+        "close": 1342.42,
+        "chg_pct": 0.996,
+        "amount_yi": 752.7,
         "trend": "走弱",
         "above_ma20": false,
-        "chg_5d_pct": -6.836
+        "chg_5d_pct": -5.939
       },
       {
         "name": "上证50",
-        "close": 2774.3,
-        "chg_pct": 0.215,
-        "amount_yi": 1085.7,
+        "close": 2765.77,
+        "chg_pct": -0.308,
+        "amount_yi": 1219.0,
         "trend": "走弱",
         "above_ma20": false,
-        "chg_5d_pct": -1.6
+        "chg_5d_pct": -1.484
       },
       {
         "name": "中证500",
-        "close": 6800.66,
-        "chg_pct": 0.412,
-        "amount_yi": 2446.1,
-        "trend": "走弱",
+        "close": 6841.44,
+        "chg_pct": 0.6,
+        "amount_yi": 2510.1,
+        "trend": "震荡",
         "above_ma20": false,
-        "chg_5d_pct": -4.122
+        "chg_5d_pct": -3.439
       }
     ],
     "breadth": {
-      "up": 2202,
-      "down": 2861,
-      "flat": 150,
-      "up_ratio_pct": 42.24,
-      "limit_up": 50,
-      "limit_down": 27,
+      "up": 3433,
+      "down": 1662,
+      "flat": 122,
+      "up_ratio_pct": 65.8,
+      "limit_up": 55,
+      "limit_down": 7,
       "pool_zt": 46,
       "pool_zb": 21,
       "pool_dt": 22,
@@ -493,22 +282,22 @@
     ],
     "northbound": [
       {
-        "trade_date": "2026-10-16",
+        "trade_date": "2026-10-20",
         "board": "沪股通",
         "net_buy_yi": 0.0,
         "net_inflow_yi": 0.0,
-        "up": 856,
-        "down": 733,
-        "index_chg_pct": 0.39
+        "up": 933,
+        "down": 681,
+        "index_chg_pct": 0.12
       },
       {
-        "trade_date": "2026-10-16",
+        "trade_date": "2026-10-20",
         "board": "深股通",
         "net_buy_yi": 0.0,
         "net_inflow_yi": 0.0,
-        "up": 959,
-        "down": 868,
-        "index_chg_pct": 0.13
+        "up": 1246,
+        "down": 607,
+        "index_chg_pct": -0.14
       }
     ],
     "lhb_top": [
@@ -564,20 +353,20 @@
     "index_detail": [
       {
         "name": "上证指数（主板）",
-        "close": 3730.92,
-        "chg_pct": 0.394,
-        "ma5": 3744.55,
-        "ma20": 3839.88,
-        "ma60": 3881.69,
-        "vs_ma20_pct": -2.84,
-        "chg_5d_pct": -1.75,
-        "chg_20d_pct": -4.04,
-        "amplitude_pct": 1.39,
+        "close": 3735.37,
+        "chg_pct": 0.119,
+        "ma5": 3731.46,
+        "ma20": 3832.38,
+        "ma60": 3880.68,
+        "vs_ma20_pct": -2.53,
+        "chg_5d_pct": -1.72,
+        "chg_20d_pct": -3.86,
+        "amplitude_pct": 1.01,
         "vol_vs_ma5": 0.88,
-        "streak_days": 2,
+        "streak_days": 3,
         "streak_dir": "涨",
         "above": {
-          "ma5": false,
+          "ma5": true,
           "ma10": false,
           "ma20": false,
           "ma60": false
@@ -585,18 +374,18 @@
       },
       {
         "name": "深证成指",
-        "close": 11817.42,
-        "chg_pct": 0.127,
-        "ma5": 11980.19,
-        "ma20": 12889.09,
-        "ma60": 13582.16,
-        "vs_ma20_pct": -8.31,
-        "chg_5d_pct": -4.58,
-        "chg_20d_pct": -12.28,
-        "amplitude_pct": 1.84,
-        "vol_vs_ma5": 0.92,
+        "close": 11801.29,
+        "chg_pct": -0.137,
+        "ma5": 11869.71,
+        "ma20": 12809.92,
+        "ma60": 13552.02,
+        "vs_ma20_pct": -7.87,
+        "chg_5d_pct": -4.47,
+        "chg_20d_pct": -11.83,
+        "amplitude_pct": 2.09,
+        "vol_vs_ma5": 0.89,
         "streak_days": 1,
-        "streak_dir": "涨",
+        "streak_dir": "跌",
         "above": {
           "ma5": false,
           "ma10": false,
@@ -606,17 +395,17 @@
       },
       {
         "name": "创业板指",
-        "close": 2746.29,
-        "chg_pct": -0.941,
-        "ma5": 2825.39,
-        "ma20": 3128.62,
-        "ma60": 3352.26,
-        "vs_ma20_pct": -12.22,
-        "chg_5d_pct": -7.34,
-        "chg_20d_pct": -17.33,
-        "amplitude_pct": 2.21,
-        "vol_vs_ma5": 0.91,
-        "streak_days": 6,
+        "close": 2739.2,
+        "chg_pct": -0.258,
+        "ma5": 2781.56,
+        "ma20": 3101.3,
+        "ma60": 3340.53,
+        "vs_ma20_pct": -11.68,
+        "chg_5d_pct": -7.41,
+        "chg_20d_pct": -16.63,
+        "amplitude_pct": 3.05,
+        "vol_vs_ma5": 0.9,
+        "streak_days": 7,
         "streak_dir": "跌",
         "above": {
           "ma5": false,
@@ -971,6 +760,718 @@
     },
     "candidates": [
       {
+        "code": "603101",
+        "name": "汇嘉时代",
+        "close": 7.68,
+        "prev_close": 7.79,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -1.41,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-1.41",
+          "ma5_dev=-0.95",
+          "vol_ratio=0.40",
+          "above_ma20=1",
+          "amount_yi=1.18"
+        ]
+      },
+      {
+        "code": "603500",
+        "name": "祥和实业",
+        "close": 10.71,
+        "prev_close": 10.84,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -1.2,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-1.20",
+          "ma5_dev=1.79",
+          "vol_ratio=0.43",
+          "above_ma20=1",
+          "amount_yi=1.26"
+        ]
+      },
+      {
+        "code": "002430",
+        "name": "杭氧股份",
+        "close": 25.28,
+        "prev_close": 24.69,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 2.39,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=2.39",
+          "ma5_dev=-1.01",
+          "vol_ratio=0.43",
+          "above_ma20=1",
+          "amount_yi=3.88"
+        ]
+      },
+      {
+        "code": "605388",
+        "name": "均瑶健康",
+        "close": 6.65,
+        "prev_close": 6.58,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 1.06,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=2",
+          "chg_today=1.06",
+          "ma5_dev=-1.48",
+          "vol_ratio=0.46",
+          "above_ma20=1",
+          "amount_yi=1.05"
+        ]
+      },
+      {
+        "code": "603630",
+        "name": "拉芳家化",
+        "close": 15.14,
+        "prev_close": 15.54,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -2.57,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-2.57",
+          "ma5_dev=-2.31",
+          "vol_ratio=0.49",
+          "above_ma20=1",
+          "amount_yi=1.00"
+        ]
+      },
+      {
+        "code": "600882",
+        "name": "妙可蓝多",
+        "close": 19.5,
+        "prev_close": 19.25,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 1.3,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=1.30",
+          "ma5_dev=0.09",
+          "vol_ratio=0.51",
+          "above_ma20=1",
+          "amount_yi=1.08"
+        ]
+      },
+      {
+        "code": "002074",
+        "name": "国轩高科",
+        "close": 27.82,
+        "prev_close": 27.37,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 1.64,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=1.64",
+          "ma5_dev=-0.41",
+          "vol_ratio=0.58",
+          "above_ma20=1",
+          "amount_yi=10.63"
+        ]
+      },
+      {
+        "code": "301560",
+        "name": "众捷股份",
+        "close": 38.16,
+        "prev_close": 38.32,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -0.42,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-0.42",
+          "ma5_dev=1.85",
+          "vol_ratio=0.61",
+          "above_ma20=1",
+          "amount_yi=1.49"
+        ]
+      },
+      {
+        "code": "002244",
+        "name": "滨江集团",
+        "close": 9.53,
+        "prev_close": 9.64,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -1.14,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-1.14",
+          "ma5_dev=-0.92",
+          "vol_ratio=0.62",
+          "above_ma20=1",
+          "amount_yi=2.23"
+        ]
+      },
+      {
+        "code": "001299",
+        "name": "美能能源",
+        "close": 10.32,
+        "prev_close": 10.54,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -2.09,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-2.09",
+          "ma5_dev=-2.59",
+          "vol_ratio=0.63",
+          "above_ma20=1",
+          "amount_yi=1.17"
+        ]
+      },
+      {
+        "code": "603528",
+        "name": "多伦科技",
+        "close": 6.76,
+        "prev_close": 6.65,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 1.65,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=1.65",
+          "ma5_dev=1.44",
+          "vol_ratio=0.66",
+          "above_ma20=1",
+          "amount_yi=2.10"
+        ]
+      },
+      {
+        "code": "002317",
+        "name": "众生药业",
+        "close": 27.28,
+        "prev_close": 27.94,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": -2.36,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "首板回踩低吸"
+        ],
+        "playbook": "first_board_pullback",
+        "playbook_cn": "首板回踩低吸",
+        "buyable": true,
+        "setup": [
+          "limit_up_10d=1",
+          "chg_today=-2.36",
+          "ma5_dev=2.72",
+          "vol_ratio=0.68",
+          "above_ma20=1",
+          "amount_yi=7.83"
+        ]
+      },
+      {
+        "code": "688271",
+        "name": "联影医疗",
+        "close": 110.0,
+        "prev_close": 105.8,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.97,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "平台突破"
+        ],
+        "playbook": "platform_breakout",
+        "playbook_cn": "平台突破",
+        "buyable": true,
+        "setup": [
+          "box_amp=9.34",
+          "box_break=1",
+          "vol_ratio=162.80",
+          "chg_today=3.97",
+          "amount_yi=7.61"
+        ]
+      },
+      {
+        "code": "002351",
+        "name": "漫步者",
+        "close": 10.26,
+        "prev_close": 9.94,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.22,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "平台突破"
+        ],
+        "playbook": "platform_breakout",
+        "playbook_cn": "平台突破",
+        "buyable": true,
+        "setup": [
+          "box_amp=7.64",
+          "box_break=1",
+          "vol_ratio=2.35",
+          "chg_today=3.22",
+          "amount_yi=1.56"
+        ]
+      },
+      {
+        "code": "002946",
+        "name": "新乳业",
+        "close": 15.85,
+        "prev_close": 15.53,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 2.06,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "平台突破"
+        ],
+        "playbook": "platform_breakout",
+        "playbook_cn": "平台突破",
+        "buyable": true,
+        "setup": [
+          "box_amp=11.85",
+          "box_break=1",
+          "vol_ratio=1.72",
+          "chg_today=2.06",
+          "amount_yi=1.82"
+        ]
+      },
+      {
+        "code": "300896",
+        "name": "爱美客",
+        "close": 98.88,
+        "prev_close": 95.3,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.76,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "平台突破"
+        ],
+        "playbook": "platform_breakout",
+        "playbook_cn": "平台突破",
+        "buyable": true,
+        "setup": [
+          "box_amp=11.99",
+          "box_break=1",
+          "vol_ratio=1.58",
+          "chg_today=3.76",
+          "amount_yi=3.93"
+        ]
+      },
+      {
+        "code": "688271",
+        "name": "联影医疗",
+        "close": 110.0,
+        "prev_close": 105.8,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.97,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=3.97",
+          "chg_5d=2.41",
+          "vol_ratio=162.80",
+          "amount_yi=7.61"
+        ]
+      },
+      {
+        "code": "688213",
+        "name": "思特威-W",
+        "close": 106.0,
+        "prev_close": 99.5,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 6.53,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=6.53",
+          "chg_5d=9.05",
+          "vol_ratio=153.29",
+          "amount_yi=11.45"
+        ]
+      },
+      {
+        "code": "688152",
+        "name": "麒麟信安",
+        "close": 42.21,
+        "prev_close": 40.85,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.33,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=3.33",
+          "chg_5d=-5.59",
+          "vol_ratio=78.50",
+          "amount_yi=2.75"
+        ]
+      },
+      {
+        "code": "688517",
+        "name": "金冠电气",
+        "close": 21.85,
+        "prev_close": 21.18,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.16,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=3.16",
+          "chg_5d=3.16",
+          "vol_ratio=57.76",
+          "amount_yi=2.11"
+        ]
+      },
+      {
+        "code": "002376",
+        "name": "新北洋",
+        "close": 7.32,
+        "prev_close": 6.93,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 5.63,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=5.63",
+          "chg_5d=9.91",
+          "vol_ratio=4.82",
+          "amount_yi=8.94"
+        ]
+      },
+      {
+        "code": "600603",
+        "name": "广汇物流",
+        "close": 5.33,
+        "prev_close": 5.22,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 2.11,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=2.11",
+          "chg_5d=5.96",
+          "vol_ratio=3.59",
+          "amount_yi=2.32"
+        ]
+      },
+      {
+        "code": "603239",
+        "name": "浙江仙通",
+        "close": 15.52,
+        "prev_close": 14.6,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 6.3,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=6.30",
+          "chg_5d=6.67",
+          "vol_ratio=3.38",
+          "amount_yi=2.88"
+        ]
+      },
+      {
+        "code": "002421",
+        "name": "达实智能",
+        "close": 3.35,
+        "prev_close": 3.19,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 5.02,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=5.02",
+          "chg_5d=4.04",
+          "vol_ratio=2.66",
+          "amount_yi=14.05"
+        ]
+      },
+      {
+        "code": "300226",
+        "name": "上海钢联",
+        "close": 18.39,
+        "prev_close": 17.7,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 3.9,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=3.90",
+          "chg_5d=5.75",
+          "vol_ratio=1.97",
+          "amount_yi=3.30"
+        ]
+      },
+      {
+        "code": "002543",
+        "name": "万和电气",
+        "close": 8.39,
+        "prev_close": 8.03,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 4.48,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=4.48",
+          "chg_5d=10.98",
+          "vol_ratio=1.94",
+          "amount_yi=3.63"
+        ]
+      },
+      {
+        "code": "600281",
+        "name": "华阳新材",
+        "close": 5.14,
+        "prev_close": 5.02,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 2.39,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=2.39",
+          "chg_5d=13.47",
+          "vol_ratio=1.93",
+          "amount_yi=3.87"
+        ]
+      },
+      {
+        "code": "301608",
+        "name": "博实结",
+        "close": 57.37,
+        "prev_close": 53.73,
+        "limit_up": null,
+        "limit_down": null,
+        "chg_pct": 6.77,
+        "boards": null,
+        "industry": null,
+        "seal_yi": null,
+        "sources": [
+          "温和趋势放量"
+        ],
+        "playbook": "gentle_trend",
+        "playbook_cn": "温和趋势放量",
+        "buyable": true,
+        "setup": [
+          "ma_bull=1",
+          "chg_today=6.78",
+          "chg_5d=7.90",
+          "vol_ratio=1.68",
+          "amount_yi=3.46"
+        ]
+      },
+      {
         "code": "003029",
         "name": "吉大正元",
         "close": 24.19,
@@ -984,7 +1485,11 @@
         "sources": [
           "强势",
           "涨停"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "002889",
@@ -1001,7 +1506,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "603197",
@@ -1018,7 +1527,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "002085",
@@ -1035,7 +1548,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "600178",
@@ -1052,7 +1569,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "002724",
@@ -1069,7 +1590,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "600148",
@@ -1086,7 +1611,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "603278",
@@ -1103,7 +1632,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "600860",
@@ -1120,7 +1653,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "603348",
@@ -1137,7 +1674,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "000576",
@@ -1154,7 +1695,11 @@
           "强势",
           "涨停",
           "龙虎榜"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       },
       {
         "code": "600487",
@@ -1169,599 +1714,166 @@
         "seal_yi": 3.99,
         "sources": [
           "涨停"
-        ]
-      },
-      {
-        "code": "600267",
-        "name": "海正药业",
-        "close": 12.06,
-        "prev_close": 10.96,
-        "limit_up": 12.06,
-        "limit_down": 9.86,
-        "chg_pct": 10.04,
-        "boards": 1,
-        "industry": "化学制药",
-        "seal_yi": 2.34,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "301666",
-        "name": "大普微-UW",
-        "close": 328.51,
-        "prev_close": 273.76,
-        "limit_up": 328.51,
-        "limit_down": 219.01,
-        "chg_pct": 20.0,
-        "boards": 1,
-        "industry": "计算机设",
-        "seal_yi": 1.96,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "002368",
-        "name": "太极股份",
-        "close": 12.75,
-        "prev_close": 11.59,
-        "limit_up": 12.75,
-        "limit_down": 10.43,
-        "chg_pct": 10.01,
-        "boards": 1,
-        "industry": "IT服务Ⅱ",
-        "seal_yi": 1.12,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "301313",
-        "name": "凡拓数创",
-        "close": 39.0,
-        "prev_close": 32.5,
-        "limit_up": 39.0,
-        "limit_down": 26.0,
-        "chg_pct": 20.0,
-        "boards": 1,
-        "industry": "数字媒体",
-        "seal_yi": 1.06,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "603859",
-        "name": "能科科技",
-        "close": 38.82,
-        "prev_close": 35.29,
-        "limit_up": 38.82,
-        "limit_down": 31.76,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "IT服务Ⅱ",
-        "seal_yi": 1.01,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "002164",
-        "name": "宁波东力",
-        "close": 14.69,
-        "prev_close": 13.35,
-        "limit_up": 14.69,
-        "limit_down": 12.02,
-        "chg_pct": 10.04,
-        "boards": 1,
-        "industry": "通用设备",
-        "seal_yi": 0.96,
-        "sources": [
-          "强势",
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "301591",
-        "name": "肯特股份",
-        "close": 47.47,
-        "prev_close": 39.56,
-        "limit_up": 47.47,
-        "limit_down": 31.65,
-        "chg_pct": 19.99,
-        "boards": 1,
-        "industry": "塑料",
-        "seal_yi": 0.91,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "002929",
-        "name": "润建股份",
-        "close": 46.4,
-        "prev_close": 42.18,
-        "limit_up": 46.4,
-        "limit_down": 37.96,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "通信服务",
-        "seal_yi": 0.89,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "603119",
-        "name": "浙江荣泰",
-        "close": 45.87,
-        "prev_close": 41.7,
-        "limit_up": 45.87,
-        "limit_down": 37.53,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "汽车零部",
-        "seal_yi": 0.88,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "603330",
-        "name": "天洋新材",
-        "close": 9.43,
-        "prev_close": 8.57,
-        "limit_up": 9.43,
-        "limit_down": 7.71,
-        "chg_pct": 10.04,
-        "boards": 1,
-        "industry": "塑料",
-        "seal_yi": 0.81,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "002886",
-        "name": "沃特股份",
-        "close": 24.01,
-        "prev_close": 21.83,
-        "limit_up": 24.01,
-        "limit_down": 19.65,
-        "chg_pct": 9.99,
-        "boards": 1,
-        "industry": "塑料",
-        "seal_yi": 0.73,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "688507",
-        "name": "索辰科技",
-        "close": 143.3,
-        "prev_close": 119.42,
-        "limit_up": 143.3,
-        "limit_down": 95.54,
-        "chg_pct": 20.0,
-        "boards": 1,
-        "industry": "软件开发",
-        "seal_yi": 0.69,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "603188",
-        "name": "亚邦股份",
-        "close": 5.56,
-        "prev_close": 5.05,
-        "limit_up": 5.56,
-        "limit_down": 4.55,
-        "chg_pct": 10.1,
-        "boards": 1,
-        "industry": "化学制品",
-        "seal_yi": 0.68,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "605488",
-        "name": "福莱新材",
-        "close": 28.17,
-        "prev_close": 25.61,
-        "limit_up": 28.17,
-        "limit_down": 23.05,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "塑料",
-        "seal_yi": 0.67,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "603626",
-        "name": "科森科技",
-        "close": 22.21,
-        "prev_close": 20.19,
-        "limit_up": 22.21,
-        "limit_down": 18.17,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "消费电子",
-        "seal_yi": 0.62,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "603693",
-        "name": "江苏新能",
-        "close": 13.53,
-        "prev_close": 12.3,
-        "limit_up": 13.53,
-        "limit_down": 11.07,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "电力",
-        "seal_yi": 0.59,
-        "sources": [
-          "强势",
-          "涨停"
-        ]
-      },
-      {
-        "code": "003021",
-        "name": "兆威机电",
-        "close": 67.22,
-        "prev_close": 61.11,
-        "limit_up": 67.22,
-        "limit_down": 55.0,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "电机Ⅱ",
-        "seal_yi": 0.59,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "002343",
-        "name": "慈文传媒",
-        "close": 10.26,
-        "prev_close": 9.33,
-        "limit_up": 10.26,
-        "limit_down": 8.4,
-        "chg_pct": 9.97,
-        "boards": 1,
-        "industry": "影视院线",
-        "seal_yi": 0.56,
-        "sources": [
-          "强势",
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "601778",
-        "name": "晶科科技",
-        "close": 3.58,
-        "prev_close": 3.25,
-        "limit_up": 3.58,
-        "limit_down": 2.93,
-        "chg_pct": 10.15,
-        "boards": 1,
-        "industry": "电力",
-        "seal_yi": 0.55,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "600686",
-        "name": "金龙汽车",
-        "close": 10.35,
-        "prev_close": 9.41,
-        "limit_up": 10.35,
-        "limit_down": 8.47,
-        "chg_pct": 9.99,
-        "boards": 1,
-        "industry": "商用车",
-        "seal_yi": 0.55,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "603286",
-        "name": "日盈电子",
-        "close": 42.74,
-        "prev_close": 38.85,
-        "limit_up": 42.74,
-        "limit_down": 34.97,
-        "chg_pct": 10.01,
-        "boards": 1,
-        "industry": "汽车零部",
-        "seal_yi": 0.54,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "001211",
-        "name": "双枪科技",
-        "close": 28.74,
-        "prev_close": 26.13,
-        "limit_up": 28.74,
-        "limit_down": 23.52,
-        "chg_pct": 9.99,
-        "boards": 1,
-        "industry": "家居用品",
-        "seal_yi": 0.5,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "300798",
-        "name": "锦鸡股份",
-        "close": 9.2,
-        "prev_close": 7.67,
-        "limit_up": 9.2,
-        "limit_down": 6.14,
-        "chg_pct": 19.95,
-        "boards": 1,
-        "industry": "化学制品",
-        "seal_yi": 0.48,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "600032",
-        "name": "浙江新能",
-        "close": 7.79,
-        "prev_close": 7.08,
-        "limit_up": 7.79,
-        "limit_down": 6.37,
-        "chg_pct": 10.03,
-        "boards": 1,
-        "industry": "电力",
-        "seal_yi": 0.48,
-        "sources": [
-          "涨停"
-        ]
-      },
-      {
-        "code": "600329",
-        "name": "达仁堂",
-        "close": 40.92,
-        "prev_close": 37.2,
-        "limit_up": 40.92,
-        "limit_down": 33.48,
-        "chg_pct": 10.0,
-        "boards": 1,
-        "industry": "中药Ⅱ",
-        "seal_yi": 0.43,
-        "sources": [
-          "强势",
-          "涨停"
-        ]
-      },
-      {
-        "code": "300852",
-        "name": "四会富仕",
-        "close": 76.94,
-        "prev_close": 64.12,
-        "limit_up": 76.94,
-        "limit_down": 51.3,
-        "chg_pct": 19.99,
-        "boards": 1,
-        "industry": "元件",
-        "seal_yi": 0.42,
-        "sources": [
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "002626",
-        "name": "金达威",
-        "close": 18.38,
-        "prev_close": 16.71,
-        "limit_up": 18.38,
-        "limit_down": 15.04,
-        "chg_pct": 9.99,
-        "boards": 1,
-        "industry": "食品加工",
-        "seal_yi": 0.42,
-        "sources": [
-          "强势",
-          "涨停",
-          "龙虎榜"
-        ]
-      },
-      {
-        "code": "001323",
-        "name": "慕思股份",
-        "close": 20.21,
-        "prev_close": 18.37,
-        "limit_up": 20.21,
-        "limit_down": 16.53,
-        "chg_pct": 10.02,
-        "boards": 1,
-        "industry": "家居用品",
-        "seal_yi": 0.41,
-        "sources": [
-          "涨停"
-        ]
+        ],
+        "playbook": "limit_up_chase",
+        "playbook_cn": "涨停/连板（仅观察）",
+        "buyable": false,
+        "setup": []
       }
     ],
-    "candidates_note": "只含当日涨停/强势/龙虎榜的票，带前收与涨跌停价；模型选股必须来自这里",
+    "candidates_note": "可买 28 只（A/B/C 战法）+ 仅观察 15 只（涨停家族，内核禁买）。模型选股必须来自这里。",
+    "candidates_buyable_n": 28,
+    "candidates_observe_n": 15,
     "news": [
       {
-        "t": "2026-10-20 01:16",
+        "t": "2026-10-20 20:05",
         "src": "财联社",
-        "text": "财联社10月20日电，美联储周一隔夜逆回购协议（RRP）使用规模为3.3亿美元。"
+        "text": "【电报解读】新央企！国资委宣布组建“国家数据集团”，机构看好制度驱动叠加AI催化下，2026年有望迎来数据要素价值释放年，这家公司的数据资产"
       },
       {
-        "t": "2026-10-20 01:16",
+        "t": "2026-10-20 20:05",
+        "src": "财联社",
+        "text": "10月20日周二《新闻联播》要闻20条"
+      },
+      {
+        "t": "2026-10-20 20:02",
+        "src": "财联社",
+        "text": "财联社10月20日电，Salesforce将以每股47.50美元现金收购Braze，总共计价约56.6亿美元。"
+      },
+      {
+        "t": "2026-10-20 20:00",
+        "src": "财联社",
+        "text": "财联社10月20日电，匈牙利央行将基础利率保持在5.50%，符合预期。"
+      },
+      {
+        "t": "2026-10-20 20:00",
         "src": "东方财富",
-        "text": "美联储周一隔夜逆回购协议（RRP）使用规模为3.3亿美元"
+        "text": "匈牙利央行将基础利率保持在5.50%"
       },
       {
-        "t": "2026-10-20 01:13",
+        "t": "2026-10-20 20:00",
         "src": "财联社",
-        "text": "财联社10月20日电，Netflix电影部门主席Dan Lin宣布离职。"
+        "text": "美国准备每年向BAE系统公司采购2.5万套导弹制导系统"
       },
       {
-        "t": "2026-10-20 01:13",
+        "t": "2026-10-20 19:59",
+        "src": "财联社",
+        "text": "财联社10月20日电，摩根士丹利将西部数据目标价从676美元下调至643美元。"
+      },
+      {
+        "t": "2026-10-20 19:59",
         "src": "东方财富",
-        "text": "Netflix电影部门主席Dan Lin宣布离职"
+        "text": "摩根士丹利下调西部数据目标价"
       },
       {
-        "t": "2026-10-20 00:59",
+        "t": "2026-10-20 19:59",
+        "src": "财联社",
+        "text": "瑞银证券首席中国经济学家宋宇：经济增长修复，政策重心转向稳预期和稳增长"
+      },
+      {
+        "t": "2026-10-20 19:58",
         "src": "东方财富",
-        "text": "泽连斯基称前线乌军“星链”和“星盾”的使用仍受限"
+        "text": "宁德时代：前三季度净利润645.3亿 同比增长31.6%"
       },
       {
-        "t": "2026-10-20 00:57",
+        "t": "2026-10-20 19:58",
         "src": "财联社",
-        "text": "OpenAI面临社交媒体式安全诉讼浪潮"
+        "text": "宁德时代：前三季度净利润同比增长31.6% 业务规模增长带动收入增加"
       },
       {
-        "t": "2026-10-20 00:53",
+        "t": "2026-10-20 19:57",
         "src": "财联社",
-        "text": "重仅1克 我国科学家研制世界最轻无线介观显微镜"
+        "text": "俄总统新闻秘书：希望近期安排美总统特使与普京会面"
       },
       {
-        "t": "2026-10-20 00:52",
-        "src": "财联社",
-        "text": "LME金属期货多数收涨"
-      },
-      {
-        "t": "2026-10-20 00:48",
-        "src": "财联社",
-        "text": "财联社10月20日电，丰业银行预计加拿大央行下周将加息25个基点。"
-      },
-      {
-        "t": "2026-10-20 00:48",
+        "t": "2026-10-20 19:56",
         "src": "东方财富",
-        "text": "丰业银行预计加拿大央行下周将加息25个基点"
+        "text": "瑞银证券首席中国经济学家宋宇：经济增长修复 政策重心转向稳预期和稳增长"
       },
       {
-        "t": "2026-10-20 00:48",
+        "t": "2026-10-20 19:55",
         "src": "财联社",
-        "text": "财联社10月20日电，甲骨文称美国朱庇特数据中心园区的建设进展迅速，现场施工稳步推进。"
+        "text": "财联社10月20日电，据港交所文件，深圳宏芯宇电子股份有限公司通过港交所上市聆讯。"
       },
       {
-        "t": "2026-10-20 00:45",
+        "t": "2026-10-20 19:50",
         "src": "财联社",
-        "text": "胡塞武装称过去48小时对沙特实施六次军事行动"
+        "text": "阳光股份：子公司服务器租赁服务费总价上调74.48%至11.04亿元"
       },
       {
-        "t": "2026-10-20 00:39",
-        "src": "财联社",
-        "text": "阿卜耶伊一市场遭遇无人机袭击 至少73人死亡"
-      },
-      {
-        "t": "2026-10-20 00:35",
-        "src": "财联社",
-        "text": "苹果宣布10月28日举行发布会 将推出触控屏MacBookPro"
-      },
-      {
-        "t": "2026-10-20 00:34",
-        "src": "财联社",
-        "text": "财联社10月20日电，高盛将2026年底铜价预测从每吨13,735美元上调至14,700美元，2027年铜均价预测从每吨13,800美元上调"
-      },
-      {
-        "t": "2026-10-20 00:34",
+        "t": "2026-10-20 19:50",
         "src": "东方财富",
-        "text": "高盛将2026年底铜价预测从每吨13,735美元上调至14,700美元"
+        "text": "阳光股份：子公司服务器租赁合同金额上调74.48%至11.04亿元"
       },
       {
-        "t": "2026-10-20 00:30",
+        "t": "2026-10-20 19:50",
         "src": "财联社",
-        "text": "俄罗斯确诊5例猴痘病例"
+        "text": "山西多管齐下推进复工复产 煤炭稳产稳供成效显现"
       },
       {
-        "t": "2026-10-20 00:04",
-        "src": "财联社",
-        "text": "财联社10月20日电，摩根大通预计未来10至15年60/40股债组合年回报率为7%。"
-      },
-      {
-        "t": "2026-10-20 00:04",
+        "t": "2026-10-20 19:49",
         "src": "东方财富",
-        "text": "摩根大通预计未来10至15年60/40股债组合年回报率为7%"
+        "text": "鲁比奥称美乌关系非常紧张"
       },
       {
-        "t": "2026-10-20 00:02",
-        "src": "财联社",
-        "text": "财联社10月20日电，Cognizant与谷歌云扩大合作联盟，加速企业智能体转型。"
-      },
-      {
-        "t": "2026-10-20 00:02",
+        "t": "2026-10-20 19:48",
         "src": "东方财富",
-        "text": "Cognizant与谷歌云扩大合作联盟 加速企业智能体转型"
+        "text": "兆丰股份：控股子公司预中标机器人创新服务平台项目"
       },
       {
-        "t": "2026-10-19 23:56",
-        "src": "财联社",
-        "text": "财联社10月19日电，伊朗称“别无选择”，只能主张对霍尔木兹海峡的控制权。可为“友好国家”提供霍尔木兹海峡通行便利。"
-      },
-      {
-        "t": "2026-10-19 23:56",
+        "t": "2026-10-20 19:46",
         "src": "东方财富",
-        "text": "伊朗称“别无选择” 只能主张对霍尔木兹海峡的控制权"
+        "text": "江波龙：公司已推出多款支持PCIe、SATA协议的高速企业级eSSD产品"
       },
       {
-        "t": "2026-10-19 23:51",
-        "src": "财联社",
-        "text": "财联社10月19日电，宜家法国公司将裁减多达303个岗位，同时增加100个新职位。"
-      },
-      {
-        "t": "2026-10-19 23:44",
-        "src": "财联社",
-        "text": "财联社10月19日电，施耐德电气已启动规模约60亿欧元的增资计划，用于为其收购美国工业软件公司PTC的交易提供部分资金。"
-      },
-      {
-        "t": "2026-10-19 23:35",
-        "src": "财联社",
-        "text": "欧洲主要股指收盘集体下跌"
-      },
-      {
-        "t": "2026-10-19 23:32",
-        "src": "财联社",
-        "text": "财联社10月19日电，美国财政部拍卖三个月期国债，得标利率4.095%，投标倍数2.77；拍卖六个月期国债，得标利率4.220%，投标倍数2"
-      },
-      {
-        "t": "2026-10-19 23:32",
+        "t": "2026-10-20 19:44",
         "src": "东方财富",
-        "text": "美国财政部拍卖三个月期国债"
+        "text": "国家数据集团有限公司组建成立 位列央企名录第28位"
       },
       {
-        "t": "2026-10-19 23:30",
-        "src": "财联社",
-        "text": "纳斯达克100指数涨幅扩大至2% SK海力士、英特尔等涨超6%"
-      },
-      {
-        "t": "2026-10-19 23:28",
+        "t": "2026-10-20 19:43",
         "src": "东方财富",
-        "text": "Lombard Odier认为美元进一步走强"
+        "text": "津膜科技：拟募资不超1.06亿元 用于高性能膜生产车间智能化升级改造项目等"
+      },
+      {
+        "t": "2026-10-20 19:43",
+        "src": "东方财富",
+        "text": "美光科技携手铟泰公司投资纽约关键矿产加工"
+      },
+      {
+        "t": "2026-10-20 19:41",
+        "src": "东方财富",
+        "text": "Xiaomi MiMo-V2.6-Pro上线WorkBuddy"
+      },
+      {
+        "t": "2026-10-20 19:41",
+        "src": "东方财富",
+        "text": "北化股份：第三季度归母净利润8231.34万元 同比增长0.81%"
+      },
+      {
+        "t": "2026-10-20 19:37",
+        "src": "财联社",
+        "text": "【机构调研】高毛利产品持续放量叠加高价值客户扩容双重共振，这家网络安全服务商订单盈利质量持续提升"
+      },
+      {
+        "t": "2026-10-20 19:37",
+        "src": "东方财富",
+        "text": "贝达药业：BPI-585771临床试验申请获受理"
+      },
+      {
+        "t": "2026-10-20 19:36",
+        "src": "东方财富",
+        "text": "大族数控：前三季度净利润同比增长214.03%"
+      },
+      {
+        "t": "2026-10-20 19:36",
+        "src": "财联社",
+        "text": "近期生猪品种价格波动较大 大商所发布市场风险提示函"
+      },
+      {
+        "t": "2026-10-20 19:35",
+        "src": "东方财富",
+        "text": "比音勒芬：第三季度归母净利润2.56亿元 同比增长24.72%"
       }
     ],
     "caveats": [
@@ -1776,112 +1888,15 @@
     "planned_total_pct": 0.0
   },
   "applied": {
-    "pool_add": [
-      {
-        "code": "600178",
-        "name": "东安动力",
-        "tier": "normal",
-        "reason": "板块 5 日序列 1/1/0/14/10 连续双位数，东安动力 2 板封单 1.28 亿且上龙虎榜，作为板块第三顺位观察标的",
-        "stop_loss": 10.72,
-        "take_profit": 12.41,
-        "price_source": "llm"
-      },
-      {
-        "code": "301591",
-        "name": "肯特股份",
-        "tier": "normal",
-        "reason": "塑料 5 日序列 0/0/0/0/4 单日跳增，肯特股份 20% 首板封单 0.91 亿居板块首位，需观察次日能否走出 2 板确认题材",
-        "stop_loss": 42.72,
-        "take_profit": 52.22,
-        "price_source": "llm"
-      }
-    ],
-    "pool_update": [
-      {
-        "code": "603197",
-        "fields": {
-          "tier": "core",
-          "trigger": "开盘价不低于 31.80 且不高于 32.60，9:30-9:35 成交额不低于 1.8 亿时买入；开盘价高于 32.60 或低于 31.80 放弃",
-          "stop_loss": 30.71,
-          "take_profit": 35.56,
-          "status": "tracking"
-        },
-        "reason": "维持核心观察，板块龙头地位未变，但大盘弱势下将触发区间收窄至 31.80-32.60，避免高开追入"
-      },
-      {
-        "code": "003029",
-        "fields": {
-          "tier": "normal",
-          "trigger": "仅在开盘价低于 24.19 且不低于 23.20、回踩 23.20 上方获支撑、5 分钟成交额不低于 3000 万时买入；一字涨停或开盘低于 23.20 均放弃",
-          "stop_loss": 22.98,
-          "take_profit": 26.61,
-          "status": "tracking"
-        },
-        "reason": "3 板高度标的在弱势环境下断板风险高，维持观察但触发条件不变，仅作情绪风向标"
-      },
-      {
-        "code": "600487",
-        "fields": {
-          "tier": "normal",
-          "trigger": "开盘价在 49.00-51.00 区间且 9:30-9:35 成交额不低于 2.5 亿时买入；开盘价高于 51.00 或低于 49.00 放弃",
-          "stop_loss": 47.74,
-          "take_profit": 55.28,
-          "status": "tracking"
-        },
-        "reason": "封单 3.99 亿为候选池最大，但板块无集群，维持观察并将触发区间下沿上调至 49.00 以过滤弱势低开"
-      },
-      {
-        "code": "002085",
-        "fields": {
-          "tier": "normal",
-          "trigger": "开盘价在 10.50-11.00 区间且 9:30-9:35 成交额不低于 7000 万时买入；开盘价高于 11.00 或低于 10.50 均放弃",
-          "stop_loss": 10.35,
-          "take_profit": 11.99,
-          "status": "tracking"
-        },
-        "reason": "汽车零部 2 板且龙虎榜净买 12700 万，板块内资金验证第二，维持观察，触发区间不变"
-      }
-    ],
+    "pool_add": [],
+    "pool_update": [],
     "pool_remove": [],
-    "info_add": [
-      {
-        "id": "I7a9afc08d2",
-        "content": "塑料板块5日涨停0/0/0/0/4首日爆发，次日须验证2板",
-        "level": "中"
-      },
-      {
-        "id": "If34f524995",
-        "content": "创业板指连续6日下跌且5日跌7.34%，成长端未止跌",
-        "level": "高"
-      }
-    ],
+    "info_add": [],
     "info_remove": [],
-    "lesson_add": [
-      {
-        "id": "L95131e1422",
-        "lesson": "六指数全部above_ma20=false且创业板5日跌幅超7%时，单日新开仓不超过2只、合计不超过15%",
-        "result": "失败教训"
-      },
-      {
-        "id": "L55885230f6",
-        "lesson": "板块5日涨停家数单日跳增（如0→4）且封单均小于1亿时，次日仅观察不买入，须见2板确认",
-        "result": "失败教训"
-      }
-    ],
+    "lesson_add": [],
     "lesson_remove": []
   },
-  "rejected": [
-    {
-      "kind": "buy",
-      "target": "603197",
-      "reason": "603197 今日收盘 32.33 已达涨停价 32.33 —— 禁止打板买入（策略约束）"
-    },
-    {
-      "kind": "buy",
-      "target": "002085",
-      "reason": "002085 今日收盘 10.9 已达涨停价 10.9 —— 禁止打板买入（策略约束）"
-    }
-  ],
+  "rejected": [],
   "account_at_gen": {
     "total_pct": 100.0,
     "cash_pct": 100.0,
@@ -1891,7 +1906,7 @@
     "n_positions": 0
   },
   "tables_after": {
-    "pool": 6,
+    "pool": 1,
     "positions": 0,
     "infos": 8,
     "lessons": 7
@@ -1916,41 +1931,14 @@
     "n_positions": 0
   },
   "review": {
-    "what_worked": [
-      "空仓决策被规则验证：六大指数全部 above_ma20=false、创业板 5 日 -7.34%，经验表 L384406f826 要求总仓位上限 25%，空仓规避了创业板连续 6 日下跌（streak_days=6）的延续风险",
-      "候选池封单排序有效：亨通光电封单 3.99 亿、保隆科技 3.32 亿为池内前二，均对应明确产业催化，封单强度与逻辑强度一致"
-    ],
-    "what_failed": [
-      "无成交、无持仓，不存在执行失败；但需区分：今日空仓是规则不满足（六指数破 MA20 + 创业板 5 日 -7.34% 触发仓位上限）导致的主动空仓，而非犹豫错过，属规则内决策",
-      "观察表 4 只标的均未触发买入，因当日为盘前预案、无盘中执行记录（executed 为空），触发条件未被价格验证，需在下一交易日继续跟踪"
-    ],
-    "theme_verdict": [
-      {
-        "theme": "汽车零部",
-        "verdict": "兑现",
-        "note": "5 日序列 1/1/0/14/10，连续两日双位数涨停，今日 10 家涨停、boards_sum 15，板块效应兑现"
-      },
-      {
-        "theme": "软件开发",
-        "verdict": "待观察",
-        "note": "今日仅 2 家涨停，吉大正元 3 板为孤立高度，5 日序列 1/0/1/1/2 未形成集群，持续性待验证"
-      },
-      {
-        "theme": "塑料",
-        "verdict": "待观察",
-        "note": "5 日序列 0/0/0/0/4 首日爆发，无连板、封单均小于 1 亿，按经验 L8ffcc3fad6 需次日验证 2 板"
-      },
-      {
-        "theme": "通信设备",
-        "verdict": "待观察",
-        "note": "亨通光电首板封单 3.99 亿但板块仅 1 家涨停，5 日序列 1/0/0/1/1 无集群，属单票逻辑"
-      }
-    ]
+    "what_worked": [],
+    "what_failed": [],
+    "theme_verdict": []
   },
   "anchor": {
-    "sha256": "5569255d8a53310672fc764c3bf8b7e277ac3671de6f9a25cd53e0b9bc977fa6",
+    "sha256": "7ef80fe50b8941c9f368efa1c19207123fb86802b99d6e6d7ab762bd8b78f4db",
     "prev": null,
-    "at": "2026-10-20T01:40:06+08:00",
+    "at": "2026-10-20T20:06:41+08:00",
     "note": "锚点 = 预案内容的 sha256，事后可验证未被修改"
   }
 }

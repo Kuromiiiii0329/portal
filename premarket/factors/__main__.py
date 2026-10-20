@@ -69,8 +69,11 @@ def main(argv: list[str] | None = None) -> int:
     k = sub.add_parser("check", help="自检因子库：加载/编译/当日命中")
     k.add_argument("--date", default=None)
 
-    d = sub.add_parser("discover", help="开因子会议：提议→批评→回测→入库")
-    d.add_argument("--max", type=int, default=3, help="最多提议几个")
+    d = sub.add_parser("discover",
+                       help="因子讨论循环：提议→强制回测→评审→改进/回溯→入库")
+    d.add_argument("--max-rounds", type=int, default=None,
+                   help="讨论轮次上限（默认取代码里的 MAX_DISCUSS_ROUNDS=8）")
+    d.add_argument("--max", type=int, default=1, help="每轮提议几个（默认1）")
     d.add_argument("--days", type=int, default=10, help="回测天数")
     d.add_argument("--dry-run", action="store_true", help="只提议+评审，不落盘")
     d.add_argument("--json", action="store_true")
@@ -81,6 +84,14 @@ def main(argv: list[str] | None = None) -> int:
 
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
     l.add_argument("--tail", type=int, default=20)
+
+    mem = sub.add_parser("memory", help="查看完整会议记录与经验库")
+    mem.add_argument("--tail", type=int, default=1, help="看最近几条会议记录")
+    mem.add_argument("--json", action="store_true")
+
+    ls = sub.add_parser("lessons", help="只看经验库")
+    ls.add_argument("--all", action="store_true", help="含已下线的经验")
+    ls.add_argument("--json", action="store_true")
 
     v = sub.add_parser("validate", help="因子统计检验（慢）")
     v.add_argument("--days", type=int, default=20)
@@ -159,22 +170,26 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "discover":
-        from .meeting import run_meeting
+        from .meeting import MAX_DISCUSS_ROUNDS, discuss
         conn = _conn()
         if conn is None:
             print(json.dumps({"ok": False, "error": "market.db 不可用"},
                              ensure_ascii=False))
             return 1
-        out = run_meeting(conn=conn, max_n=args.max, days=args.days,
-                          dry_run=args.dry_run)
+        cap = args.max_rounds or MAX_DISCUSS_ROUNDS
+        out = discuss(conn=conn, max_rounds=cap, days=args.days,
+                      dry_run=args.dry_run)
         conn.close()
         if args.json:
             print(json.dumps(out, ensure_ascii=False, indent=1))
         else:
-            print(f"\n提议 {out.get('proposed')} 个，入库 {out.get('accepted')} 个")
-            for r in out.get("results") or []:
-                print(f"  {'✓' if r.get('ok') else '✗'} {r.get('id'):<22}"
-                      f"{r.get('stage') or 'gate':<10}{str(r.get('reason'))[:70]}")
+            print(f"\n轮次 {out.get('rounds_used')}/{out.get('rounds_cap')}"
+                  f"　入库：{out.get('accepted_id') or '无'}"
+                  f"　最佳 score={out.get('best_score')}")
+            for h in out.get("history") or []:
+                print(f"  第{h.get('round')}轮 {str(h.get('id')):<24}"
+                      f"score={h.get('score')} ic={h.get('ic')} "
+                      f"→ {h.get('decision')}（评审 {h.get('verdict')}）")
         return 0 if out.get("ok") else 1
 
     if args.cmd == "weekly":
@@ -193,6 +208,46 @@ def main(argv: list[str] | None = None) -> int:
             for rid in out.get("retired") or []:
                 print(f"  ✗ {rid}")
         return 0 if out.get("ok") else 1
+
+    if args.cmd == "memory":
+        from . import memory
+        st = memory.stats()
+        if args.json:
+            print(json.dumps({"stats": st,
+                              "transcripts": memory.transcripts(args.tail)},
+                             ensure_ascii=False, indent=1))
+            return 0
+        print(f"会议记录 {st['transcripts']} 份　经验 {st['lessons_active']} 条"
+              f"（规则 {st['rules']} / 观察 {st['observations']}）")
+        print(f"来源分布：{st['by_source']}")
+        for tr in memory.transcripts(args.tail):
+            print(f"\n--- {tr.get('at')}  {tr.get('date')} ---")
+            print(f"  入库：{tr.get('accepted') or '无'}")
+            for p in tr.get("proposals") or []:
+                print(f"  候选 {p.get('id')}: {str(p.get('hypothesis'))[:60]}")
+            for k, v in (tr.get("reviews") or {}).items():
+                print(f"  评审 {k}: {v.get('verdict')} "
+                      f"{'; '.join(v.get('issues') or [])[:70]}")
+            for r in tr.get("results") or []:
+                print(f"  裁决 {r.get('id')}: {'通过' if r.get('ok') else '淘汰'} "
+                      f"{str(r.get('reason'))[:60]}")
+        return 0
+
+    if args.cmd == "lessons":
+        from . import memory
+        rows = memory.lessons(include_retired=args.all)
+        if args.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=1))
+            return 0
+        if not rows:
+            print("经验库为空 —— 先跑一次 discover")
+            return 0
+        print(f"{'次数':>4} {'来源':<8}{'类型':<12}经验")
+        for x in rows:
+            flag = "（已下线）" if x.get("retired") else ""
+            print(f"{x['evidence']:>4} {x['source']:<8}{x['kind']:<12}"
+                  f"{x['text'][:76]}{flag}")
+        return 0
 
     if args.cmd == "ledger":
         from .meeting import ledger_read
