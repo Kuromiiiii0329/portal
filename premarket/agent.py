@@ -406,8 +406,20 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
 {dump({k: v for k, v in market.items() if k != "candidates"})}
 
 【二、可交易候选池（选股**只能**从这里挑，价格直接用给定值）】
-{dump(market.get("candidates") or []) if market.get("candidates") else "（无候选池数据，本次不要新增个股）"}
 说明：{market.get("candidates_note") or ""}
+
+★ 候选池分两类，**只有 `buyable: true` 的能买**：
+- `buyable: true` —— 由因子战法选出，满足具体买点条件，`setup` 里是**实际数值**
+  · first_board_pullback 首板回踩低吸：近期做过龙头的票缩量回踩 5 日线
+  · platform_breakout   平台突破：窄幅箱体放量站上上沿
+  · gentle_trend        温和趋势放量：多头排列 + 温和放量 + 5 日没被拉爆
+- `buyable: false` —— 当日已封涨停（limit_up_chase）。**只能进观察表等回调**，
+  写进 position_plan.buy 会被内核直接拒绝。这不是建议，是硬规则。
+
+请优先从 buyable=true 里选，并在 `logic` 里写清它命中的是哪类买点、
+`setup` 里哪个数字最打动你。若今天可买池为空，就空仓并在复盘里说明原因。
+
+{dump(market.get("candidates") or []) if market.get("candidates") else "（无候选池数据，本次不要新增个股）"}
 
 【三、当前账户（程序计算，初始 100%）】
 {dump(acct_view)}
@@ -433,6 +445,7 @@ def build_prompt(*, snapshot: dict, market: dict, account: dict,
   「今晚就持有」，请只选你愿意以收盘价拿过夜的标的。
 - **禁止追高打板**：候选池里今日已封涨停（收盘 = 涨停价）或今日涨幅 ≥ 7% 的票，
   内核会直接拒绝买入。想参与就等回调，不要写进 buy。
+- **`buyable: false` 的标的一律不能买**（涨停家族），只能写进 pool_actions 观察表。
 - **选股只能来自候选池**。不在候选池里的 code 会被拒绝并记为「疑似编造」，
   因为程序无法校验它的价格，你也无法给出可信的止损止盈。
 - 观察表：当日新增 ≤ 8 只，核心观察（tier=core）合计 ≤ 6 只

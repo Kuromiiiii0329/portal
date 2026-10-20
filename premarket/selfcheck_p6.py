@@ -378,7 +378,7 @@ def check_render() -> Check:
     heads = re.findall(r"<h2>([^<]+)</h2>", h)
     # 一、决策摘要 在顶部深色区块里，不是 <h2>；其余十节是 <h2>
     c.expect(len(heads) == 10, f"10 个 <h2> 章节（实际 {len(heads)}）")
-    for needle in ("二、大盘环境与资金", "四、题材优先级与龙头", "五、财经消息与影响",
+    for needle in ("二、大盘环境与资金", "四、题材优先级与候选池", "五、财经消息与影响",
                    "六、当日持仓与盈亏", "七、调仓（已按收盘价执行）", "八、四张表变动",
                    "十、当日复盘与经验", "十一、风险与执行"):
         c.expect(any(needle in x for x in heads), f"含章节 {needle}")
@@ -836,6 +836,119 @@ def check_midday_guard() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V14 · 因子库：表达式沙箱 / 战法组合 / buyable 内核拦截
+# ─────────────────────────────────────────────────────────────
+def check_factor_library() -> Check:
+    c = Check("V14", "因子库：沙箱、战法组合、仅观察标的不可买")
+
+    from portal.premarket.factors import Panel, evaluate, load_factors
+    from portal.premarket.factors import playbooks as PB
+    from portal.premarket.factors.base import FactorError, compile_expr
+
+    # 1) 沙箱：危险语法必须拦住
+    names = {"vol_ratio", "chg_today"}
+    safe = ["vol_ratio >= 1.5", "chg_today >= 2 and chg_today < 7",
+            "abs(vol_ratio) > 1"]
+    for e in safe:
+        try:
+            compile_expr(e, allowed_names=names)
+        except FactorError as exc:
+            c.expect(False, f"正常表达式被误拦：{e} -> {exc}")
+    bad = ['__import__("os")', "vol_ratio.__class__", 'eval("1")',
+           "vol_ratio[0]", "lambda: 1"]
+    for e in bad:
+        try:
+            compile_expr(e, allowed_names=names)
+            c.expect(False, f"危险表达式未被拦截：{e}")
+        except FactorError:
+            c.expect(True, f"拦截 {e[:22]}")
+
+    # 2) 因子库能加载，且数量 >= 8
+    factors = load_factors(refresh=True)
+    c.expect(len(factors) >= 8, f"内置因子 {len(factors)} 个")
+    c.expect(all(f.compute for f in factors.values()), "内置因子都有 compute")
+
+    # 3) 战法条件能编译；可买战法不得引用追高类因子
+    exprs = PB.compiled(factor_ids=set(factors))
+    c.expect(set(exprs) == set(PB.buyable_ids()),
+             f"战法编译 {sorted(exprs)}")
+    for pb in PB.PLAYBOOKS:
+        if pb.get("buyable"):
+            PB.check_no_chase(pb)          # 抛异常即为失败
+    c.expect(True, "可买战法不含追高/打板条件")
+
+    # 4) 合成一只「温和趋势放量」的票，必须命中 gentle_trend
+    panel = Panel(asof="2026-01-05")
+    code = "600000"
+    hist_close = [10.0 + i * 0.12 for i in range(25)]
+    panel.hist[code] = {
+        "close": hist_close, "high": [x * 1.01 for x in hist_close],
+        "low": [x * 0.99 for x in hist_close],
+        "vol": [1.0e6] * 25,
+    }
+    panel.prev_close[code] = hist_close[-1]
+    panel.close[code] = round(hist_close[-1] * 1.04, 2)
+    panel.volume[code] = 1.8e6
+    panel.amount_yi[code] = 3.0
+    panel.names[code] = "测试股"
+    panel.limit_pct[code] = 10.0
+    panel.chg[code] = (panel.close[code] / panel.prev_close[code] - 1) * 100
+
+    vals = evaluate(panel, factors)
+    row = {fid: series.get(code) for fid, series in vals.items()}
+    ok, _ = PB.match("gentle_trend", row, exprs["gentle_trend"])
+    c.expect(ok, f"温和上涨 4% + 放量 1.8 倍 命中 gentle_trend（{row.get('chg_today'):.2f}%）")
+
+    # 5) 同样条件但涨幅 9%（追高）→ 不得命中
+    panel.close[code] = round(hist_close[-1] * 1.09, 2)
+    panel.chg[code] = 9.0
+    vals2 = evaluate(panel, factors)
+    row2 = {fid: series.get(code) for fid, series in vals2.items()}
+    ok2, _ = PB.match("gentle_trend", row2, exprs["gentle_trend"])
+    c.expect(not ok2, "涨幅 9% 不命中（战法自身也拒绝追高）")
+
+    # 6) 内核：buyable=False 的候选不能买
+    tbl, _ = _fresh_tables()
+    v = apply_mod.apply_proposal(
+        proposal=_mk_buy_proposal("600000", 10), tables=tbl,
+        plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda x: 10.0,
+        candidates=[{"code": "600000", "name": "T", "close": 10.0,
+                     "chg_pct": 0.0, "buyable": False,
+                     "playbook_cn": "涨停/连板（仅观察）"}],
+        log=lambda *_: None)
+    c.expect(len(v["planned"]["buy"]) == 0, "仅观察标的被内核拒绝买入")
+    c.expect(any("仅观察" in r["reason"] or "不能买入" in r["reason"]
+                 for r in v["rejected"]),
+             f"拒绝原因指向战法：{v['rejected'][0]['reason'][:46] if v['rejected'] else '—'}")
+
+    # 7) buyable=True 的同类标的可以买
+    tbl2, _ = _fresh_tables()
+    v2 = apply_mod.apply_proposal(
+        proposal=_mk_buy_proposal("600000", 10), tables=tbl2,
+        plan_date="20261020", trade_date="2026-10-20",
+        latest_close=lambda x: 10.0,
+        candidates=[{"code": "600000", "name": "T", "close": 10.0,
+                     "chg_pct": 0.0, "buyable": True,
+                     "playbook_cn": "温和趋势放量"}],
+        log=lambda *_: None)
+    c.expect(len(v2["planned"]["buy"]) == 1, "可买标的放行")
+    return c
+
+
+def _mk_buy_proposal(code: str, alloc: float) -> dict:
+    p = json.loads(json.dumps(GOOD_PROPOSAL, ensure_ascii=False))
+    p["pool_actions"] = {"add": [], "update": [], "remove": []}
+    p["info_actions"] = {"add": [], "remove": []}
+    p["lesson_actions"] = {"add": [], "remove": []}
+    p["position_plan"] = {"buy": [
+        {"code": code, "name": "T", "alloc_pct": alloc,
+         "trigger": "收盘价买入", "stop_loss": 9.5, "take_profit": 12,
+         "logic": "test"}], "sell": [], "adjust": []}
+    return p
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -850,6 +963,7 @@ CHECKS = (
     ("V11", check_candidates_guard),
     ("V12", check_no_chase_and_execute),
     ("V13", check_midday_guard),
+    ("V14", check_factor_library),
 )
 
 

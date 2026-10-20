@@ -326,6 +326,35 @@ def _themes(market: dict, proposal: dict) -> str:
 # ─────────────────────────────────────────────────────────────
 # 五、财经消息与影响（LLM 分析）
 # ─────────────────────────────────────────────────────────────
+def _cand_block(cands: list[dict]) -> str:
+    """候选池按战法分组（网页版）。"""
+    if not cands:
+        return ""
+    groups: dict[str, list[dict]] = {}
+    for c in cands:
+        groups.setdefault(c.get("playbook") or "other", []).append(c)
+    order = ["first_board_pullback", "platform_breakout", "gentle_trend",
+             "limit_up_chase"]
+    out = ["<h3>候选池（按战法分组，★=可买，○=仅观察）</h3>"]
+    for pid in order + [k for k in groups if k not in order]:
+        items = groups.get(pid)
+        if not items:
+            continue
+        buyable = bool(items[0].get("buyable"))
+        rows = [[_e(c.get("code")), _e(c.get("name") or "—"),
+                 _n(c.get("close")), _pct(c.get("chg_pct")),
+                 _e("；".join(c.get("setup") or [])[:110] or c.get("why") or "")]
+                for c in items[:12]]
+        out.append(
+            f'<h3>{"★" if buyable else "○"} {_e(items[0].get("playbook_cn") or pid)}'
+            f'<span class="dim">（{len(items)} 只）</span></h3>'
+            + _table(["代码", "名称", "收盘", "今日", "命中依据"], rows))
+    n_buy = sum(1 for c in cands if c.get("buyable"))
+    out.append(f'<p class="dim" style="font-size:11.5px">可买 {n_buy} 只 / '
+               f'仅观察 {len(cands) - n_buy} 只。涨停家族只进观察表，内核禁止打板买入。</p>')
+    return "".join(out)
+
+
 def _news(proposal: dict) -> str:
     items = proposal.get("news_analysis") or []
     if not items:
@@ -580,7 +609,8 @@ def render_plan(payload: dict) -> str:
     sections = [
         ("二、大盘环境与资金", _market(market)),
         ("三、市场情绪与宽度", _sentiment(market)),
-        ("四、题材优先级与龙头", _themes(market, proposal)),
+        ("四、题材优先级与候选池",
+         _themes(market, proposal) + _cand_block(market.get("candidates") or [])),
         ("五、财经消息与影响", _news(proposal)),
         ("六、当日持仓与盈亏", _positions(review_ctx, account)),
         ("七、调仓（已按收盘价执行）", _plan(planned, account, review_ctx)),

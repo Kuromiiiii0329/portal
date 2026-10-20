@@ -301,7 +301,7 @@ def _sec_themes(market: dict, proposal: dict) -> str:
     days = trend.get("days") or []
     labels = "/".join(str(d)[4:6] + str(d)[6:8] for d in days[-5:])
     rows = []
-    for i, t in enumerate((market.get("themes") or [])[:12], 1):
+    for i, t in enumerate((market.get("themes") or [])[:8], 1):
         name = t.get("name")
         p = pri.get(name) or {}
         s = series.get(name) or []
@@ -330,12 +330,47 @@ def _sec_themes(market: dict, proposal: dict) -> str:
     return "".join(out)
 
 
+def _cand_block(cands: list[dict]) -> str:
+    """候选池按战法分组。可买的在前，仅观察的在后 —— 一眼看清今天有什么类型的买点。"""
+    if not cands:
+        return ""
+    groups: dict[str, list[dict]] = {}
+    for c in cands:
+        groups.setdefault(c.get("playbook") or "other", []).append(c)
+    order = ["first_board_pullback", "platform_breakout", "gentle_trend",
+             "limit_up_chase"]
+    out = [_h3("候选池（按战法分组，★=可买，○=仅观察）")]
+    for pid in order + [k for k in groups if k not in order]:
+        items = groups.get(pid)
+        if not items:
+            continue
+        pb_name = items[0].get("playbook_cn") or pid
+        buyable = bool(items[0].get("buyable"))
+        head = (f'<div style="margin:10px 0 4px;font-size:12.5px;font-weight:600;'
+                f'color:{_INK}">{"★" if buyable else "○"} {_e(pb_name)}'
+                f'<span style="color:{_SUB};font-weight:400">'
+                f'（{len(items)} 只）</span></div>')
+        rows = []
+        for c in items[:8]:
+            setup = "；".join(c.get("setup") or [])[:110] or _e(c.get("why") or "")
+            rows.append([_e(c.get("code")), _e(c.get("name") or "—"),
+                         _num(c.get("close")), _pct(c.get("chg_pct")),
+                         _e(setup)])
+        out.append(head + _table(["代码", "名称", "收盘", "今日", "命中依据"],
+                                 rows, empty="（无）"))
+    n_buy = sum(1 for c in cands if c.get("buyable"))
+    out.append(f'<div style="font-size:11px;color:{_SUB}">'
+               f'可买 {n_buy} 只 / 仅观察 {len(cands) - n_buy} 只。'
+               f'涨停家族只进观察表，内核禁止打板买入。</div>')
+    return "".join(out)
+
+
 def _sec_news(proposal: dict) -> str:
     news = proposal.get("news_analysis") or []
     if not news:
         return f'<div style="color:{_SUB};font-size:12px">（本日无筛选后的重要消息）</div>'
     out = []
-    for n in news[:6]:
+    for n in news[:5]:
         imp = n.get("importance")
         tone = "no" if imp == "高" else ("mid" if imp == "中" else "mute")
         eff = n.get("impact")
@@ -453,12 +488,12 @@ def _sec_tables(snapshot: dict) -> str:
         empty="（空）")]
     infos = snap.get("infos") or []
     rows = [[_e((i.get("content") or "")[:60]), _e(i.get("scope")),
-             _e(i.get("level")), _e(i.get("expires_on"))] for i in infos[:10]]
+             _e(i.get("level")), _e(i.get("expires_on"))] for i in infos[:6]]
     out.append(_h3(f"重要信息表（{len(infos)} 条）") + _table(
         ["内容", "影响范围", "级别", "有效期至"], rows, empty="（空）"))
     lessons = snap.get("lessons") or []
     rows = [[_e((x.get("lesson") or "")[:70]), _e(x.get("scenario")),
-             _e(x.get("result"))] for x in lessons[:8]]
+             _e(x.get("result"))] for x in lessons[:5]]
     out.append(_h3(f"交易经验表（{len(lessons)} 条）") + _table(
         ["经验", "情境", "结果"], rows, empty="（空）"))
     return "".join(out)
@@ -525,8 +560,9 @@ def render_evening(payload: dict) -> tuple[str, str]:
     body.append(_sec_market(market))          # 指数 + 量能 + 北向 + 龙虎榜
     body.append(_h2("三、市场情绪与宽度"))
     body.append(_sec_sentiment(market))
-    body.append(_h2("四、题材优先级与龙头"))
+    body.append(_h2("四、题材优先级与候选池"))
     body.append(_sec_themes(market, proposal))
+    body.append(_cand_block(market.get("candidates") or []))
     body.append(_h2("五、财经消息与影响"))
     body.append(_sec_news(proposal))
     body.append(_h2("六、当日持仓与盈亏"))

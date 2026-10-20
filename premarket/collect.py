@@ -45,7 +45,9 @@ INDICES = [
 #: 实测加了候选池之后，因为缓存命中，模型收到的候选池是空的，于是它严格遵守
 #: 「无候选池就不要选股」，整份预案一个个股计划都没有 —— 而且日志里只有一行
 #: 「复用缓存」，看不出问题。缓存必须能自证新鲜。
-CACHE_SCHEMA = 3
+#: v4：候选池加入因子战法（playbook / buyable / setup / metrics），
+#:     涨停家族降级为 buyable=False。
+CACHE_SCHEMA = 5
 
 #: 新闻保留窗口（小时）与条数上限
 NEWS_HOURS = 36
@@ -402,6 +404,14 @@ def news(out: dict) -> None:
     out["news_total_seen"] = len(items)
 
 
+def _LOG(msg: str) -> None:
+    """候选池里战法模块的日志出口（没接日志器时直接打印，绝不静默失败）。"""
+    try:
+        print(msg)
+    except Exception:
+        pass
+
+
 def candidates(out: dict, date8: str) -> None:
     """候选池：**带价格的**可交易标的清单，避免 LLM 编造代码。
 
@@ -488,12 +498,59 @@ def candidates(out: dict, date8: str) -> None:
     rows = sorted(universe.values(),
                   key=lambda x: (-(x.get("boards") or 0), -(x.get("seal_yi") or 0),
                                  -(x.get("amount_yi") or 0)))
+    # ── 涨停家族：降级为「只能观察」 ──────────────────────
+    # 实测（2026-10-19）这三个来源给出的 40 只票 **40 只都已封涨停**，
+    # 而内核禁止打板 → 可买 0 只，账户永远不动。所以这里显式标成
+    # buyable=False，只让它们进观察表等回调；真正的买点交给因子战法。
+    from .screen import LIMIT_UP_CAP
     for r in rows:
         r["sources"] = sorted(set(r["sources"]))
-    out["candidates"] = rows[:60]
-    out["candidates_n"] = len(universe)
-    out["candidates_note"] = ("只含当日涨停/强势/龙虎榜的票，带前收与涨跌停价；"
-                              "模型选股必须来自这里")
+        r["playbook"] = "limit_up_chase"
+        r["playbook_cn"] = "涨停/连板（仅观察）"
+        r["buyable"] = False
+        r["why"] = "当日已封涨停：只进观察表等回调，内核禁止打板买入"
+        r["setup"] = []
+        r["metrics"] = {}
+    limit_ups = rows[:LIMIT_UP_CAP]
+
+    # ── A/B/C 战法（因子库）────────────────────────────────
+    screened: list[dict] = []
+    skip_reason: str | None = None
+    iso = f"{date8[:4]}-{date8[4:6]}-{date8[6:8]}"
+    try:
+        from . import screen as screen_mod
+        from portal.virtual import marketdb as M2
+        conn2 = M2.connect()
+        if conn2 is None:
+            skip_reason = "本地 market.db 不可用，A/B/C 战法需要历史K线，已跳过"
+        else:
+            codes = _quote_universe(conn2)
+            quotes: list[dict] = []
+            for i in range(0, len(codes), 50):
+                quotes.extend(M2.fetch_quotes_batch(codes[i:i + 50]))
+            screened, skip_reason = screen_mod.screen(
+                conn2, quotes, iso, log=lambda m: _LOG(m))
+            conn2.close()
+    except Exception as exc:
+        _err(out, "screen_playbooks", exc)
+        skip_reason = f"战法筛选失败：{type(exc).__name__}"
+
+    if skip_reason:
+        out.setdefault("caveats", []).append(skip_reason)
+        # 战法没跑出来 = 候选池缺了「可买」那部分，这份结果不许进缓存
+        out["_degraded"] = True
+
+    for r in screened:
+        r["sources"] = sorted(set(r.get("sources") or []))
+
+    # 可买的排前面：模型注意力有限，先看能买的
+    out["candidates"] = screened + limit_ups
+    out["candidates_n"] = len(universe) + len(screened)
+    out["candidates_buyable_n"] = len(screened)
+    out["candidates_observe_n"] = len(limit_ups)
+    out["candidates_note"] = (
+        f"可买 {len(screened)} 只（A/B/C 战法）+ 仅观察 {len(limit_ups)} 只"
+        f"（涨停家族，内核禁买）。模型选股必须来自这里。")
 
 
 def market_stats(out: dict, date8: str) -> None:
@@ -885,8 +942,20 @@ def collect(date8: str | None = None, *, use_cache: bool = True,
             f"{len(out['errors'])} 个数据源失败，相关结论需谨慎："
             + "、".join(sorted({e['source'].split(':')[0] for e in out['errors']})))
 
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    cache_file.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    # ★ 采集有硬伤时**不许写缓存**。
+    #   实测：某次战法模块抛 NameError，候选池只剩 15 只涨停股，但这份残缺结果被
+    #   正常写进了缓存（schema 也对），之后整天都在复用"可买 0 只"的数据。
+    #   schema 版本只能挡结构变化，挡不住"采到一半失败"被永久固化。
+    degraded = bool(out.get("_degraded")) or bool(out["errors"])
+    if degraded:
+        out["_cache_skipped"] = True
+        if progress:
+            progress("  ⚠️  采集不完整（"
+                     f"{len(out['errors'])} 个数据源失败），本次不写缓存")
+    else:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(json.dumps(out, ensure_ascii=False, indent=2),
+                              encoding="utf-8")
     return out
 
 
@@ -933,10 +1002,15 @@ def summarize(collect_data: dict) -> dict[str, Any]:
              "prev_close": c.get("prev_close"), "limit_up": c.get("limit_up"),
              "limit_down": c.get("limit_down"), "chg_pct": c.get("chg_pct"),
              "boards": c.get("boards"), "industry": c.get("industry"),
-             "seal_yi": c.get("seal_yi"), "sources": c.get("sources")}
+             "seal_yi": c.get("seal_yi"), "sources": c.get("sources"),
+             # 战法归属必须留在归档里，否则事后无法回答「今天为什么买/没买它」
+             "playbook": c.get("playbook"), "playbook_cn": c.get("playbook_cn"),
+             "buyable": c.get("buyable"), "setup": c.get("setup")}
             for c in (collect_data.get("candidates") or [])[:40]
         ],
         "candidates_note": collect_data.get("candidates_note"),
+        "candidates_buyable_n": collect_data.get("candidates_buyable_n"),
+        "candidates_observe_n": collect_data.get("candidates_observe_n"),
         "news": [
             {"t": n["time"][:16], "src": n["src"],
              "text": (n["title"] or n["content"])[:70]}

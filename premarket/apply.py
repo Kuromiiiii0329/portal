@@ -334,6 +334,14 @@ def _plan_positions(pp: dict, tables: Tables, rej: Rejections,
                     f"不在当日候选池（池内 {len(universe)} 只），疑似编造，已拒绝")
             continue
         cand = universe.get(code)
+        # ★ 只观察的标的（涨停家族）不能买。
+        #   这条让「池子里只有涨停股」时内核能说清原因，而不是让模型反复提议、
+        #   再被 chase_guard 以价格形式拦掉 —— 拒绝原因要指向战法本身。
+        if cand is not None and cand.get("buyable") is False:
+            rej.add("buy", code,
+                    f"{code} 属「{cand.get('playbook_cn') or '仅观察'}」战法："
+                    f"只能进观察表等回调，不能买入（策略约束）")
+            continue
         chase = _chase_guard(code, cand)          # ★ 禁止追高打板
         if chase:
             rej.add("buy", code, chase)
