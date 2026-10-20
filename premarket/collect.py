@@ -557,7 +557,7 @@ def market_stats(out: dict, date8: str) -> None:
     prev5 = [amt_by_date[d] for d in dates if d < iso][-5:]
     prev20 = [amt_by_date[d] for d in dates if d < iso][-20:]
     tot = n_up + n_down + n_flat
-    out["market_stats"] = {
+    stats = {
         "date": iso, "n_total": tot,
         "n_up": n_up, "n_down": n_down, "n_flat": n_flat,
         "up_ratio_pct": round(n_up / tot * 100, 2) if tot else None,
@@ -569,7 +569,112 @@ def market_stats(out: dict, date8: str) -> None:
         if prev5 and sum(prev5) else None,
         "source": "market.db 全市场逐日行情（本地计算）",
     }
+
+    # ★ 库不完整时必须换口径，否则报告会拿半个市场冒充全市场。
+    #   实测（GitHub Actions 首次真实运行 2026-10-20）：CI 上没有 market.db 缓存，
+    #   `init` 又只拿到沪市 2318 只（深交所列表接口在境外 IP 上失败），
+    #   于是涨跌分布只覆盖约四成市场，而报告照样写"全市场 2317 只"——
+    #   数字是错的却不显眼，这比报错更危险。
+    try:
+        n_today_rows = conn.execute(
+            "SELECT COUNT(*) FROM day WHERE date = ?", (iso,)).fetchone()[0]
+    except Exception:
+        n_today_rows = 0
+    expected = len(_quote_universe(conn))
+    if n_today_rows < max(800, int(expected * 0.6)):
+        live = _live_market_stats(expected)
+        if live:
+            live["amount_ma5_yi"] = stats["amount_ma5_yi"]
+            live["amount_ma20_yi"] = stats["amount_ma20_yi"]
+            live["amount_vs_ma5_pct"] = (
+                round((live["amount_yi"] / stats["amount_ma5_yi"] - 1) * 100, 2)
+                if live.get("amount_yi") and stats.get("amount_ma5_yi") else None)
+            live["source"] = "腾讯批量行情（库里当日数据不完整，改用实盘重算分布）"
+            stats = live
+            out.setdefault("caveats", []).append(
+                f"本地库当日只覆盖 {n_today_rows}/{expected} 只，"
+                f"涨跌分布已改用实时行情重算；5/20 日均量仍取本地库历史完整部分。")
+    out["market_stats"] = stats
     conn.close()
+
+
+def _quote_universe(conn=None, *, floor: int = 4000) -> list[str]:
+    """全市场代码表：优先 market.db，不完整时退回 akshare 全市场列表。
+
+    `market.db` 在全新环境（CI 首次运行）里可能只有部分市场；
+    `stock_info_a_code_name()`（东财，5575 只）在境外 IP 上更稳。
+    """
+    try:
+        from portal.virtual import marketdb as M
+    except Exception:
+        return []
+    codes: list[str] = []
+    if conn is not None:
+        try:
+            codes = [c for c in M.universe(conn) if M.board_of(c) != "bse"]
+        except Exception:
+            codes = []
+    if len(codes) >= floor:
+        return codes
+    try:
+        import akshare as ak
+        got = [str(r.get("code") or "").strip()
+               for r in _rows(ak.stock_info_a_code_name())]
+        got = [c for c in got if c and M.board_of(c) != "bse"]
+        if len(got) > len(codes):
+            return got
+    except Exception:
+        pass
+    return codes
+
+
+def _live_market_stats(codes: list[str] | None = None) -> dict | None:
+    """用实时/收盘批量行情算涨跌分布。收盘后调用即等于当日全天口径。"""
+    from portal.virtual import marketdb as M
+    codes = codes or _quote_universe()
+    if not codes:
+        return None
+    quotes: list[dict] = []
+    try:
+        for i in range(0, len(codes), 50):
+            quotes.extend(M.fetch_quotes_batch(codes[i:i + 50]))
+    except Exception:
+        return None
+    if not quotes:
+        return None
+    dist = {">7%": 0, "5~7%": 0, "2~5%": 0, "0~2%": 0,
+            "-2~0%": 0, "-5~-2%": 0, "-7~-5%": 0, "<-7%": 0}
+    bricks = ((">7%", 7, 999), ("5~7%", 5, 7), ("2~5%", 2, 5), ("0~2%", 0, 2),
+              ("-2~0%", -2, 0), ("-5~-2%", -5, -2), ("-7~-5%", -7, -5),
+              ("<-7%", -999, -7))
+    up = down = flat = 0
+    amount = 0.0
+    for q in quotes:
+        amount += q.get("amount") or 0
+        p, c = q.get("prev_close"), q.get("close")
+        if not p or not c:
+            continue
+        pct = (c / p - 1) * 100
+        if pct > 0:
+            up += 1
+        elif pct < 0:
+            down += 1
+        else:
+            flat += 1
+        for label, lo, hi in bricks:
+            if lo <= pct < hi:
+                dist[label] += 1
+                break
+    tot = up + down + flat
+    return {
+        "date": quotes[0].get("date"),
+        "n_total": tot, "n_up": up, "n_down": down, "n_flat": flat,
+        "up_ratio_pct": round(up / tot * 100, 2) if tot else None,
+        "distribution": dist,
+        "amount_yi": round(amount / 1e8, 1),
+        "amount_ma5_yi": None, "amount_ma20_yi": None, "amount_vs_ma5_pct": None,
+        "source": "腾讯批量行情（实盘）",
+    }
 
 
 def index_detail(out: dict) -> None:

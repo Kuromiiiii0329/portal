@@ -279,6 +279,31 @@ def fetch_stock_list() -> list[dict[str, Any]]:
                               "listed_date": None, "total_share": None,
                               "float_share": None, "industry": None}
 
+    # ★ 分市场补齐（不是只在"全空"时才兜底）。
+    #   实测（GitHub Actions 2026-10-20 首次运行）：深交所列表接口在境外 IP 上失败，
+    #   而三个 try/except 各自把异常吞掉，于是 `init` 建出只有 2318 只沪市的库，
+    #   后续 `update-today` 也只更新这 2318 只 —— 报告的涨跌分布只覆盖四成市场，
+    #   却照样写着"全市场"。这种"部分成功"比直接失败危险得多。
+    markets = {r.get("market") for r in rows.values()}
+    missing = {"sh", "sz", "bj"} - markets
+    if missing or len(rows) < 4000:
+        try:
+            for r in ak.stock_info_a_code_name().to_dict("records"):
+                code = str(r.get("code") or "").strip()
+                if len(code) != 6 or code in rows:
+                    continue
+                mkt = ("sh" if code[0] in "69"
+                       else ("bj" if code[0] in "48" else "sz"))
+                if mkt not in missing:
+                    continue
+                rows[code] = {"code": code,
+                              "name": str(r.get("name") or "").strip(),
+                              "market": mkt, "listed_date": None,
+                              "total_share": None, "float_share": None,
+                              "industry": None}
+        except Exception:
+            pass
+
     out = []
     for code, r in rows.items():
         if not r.get("market"):
