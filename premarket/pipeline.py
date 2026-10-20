@@ -187,6 +187,7 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
              settle: bool = True,
              use_cache: bool = True, allow_fallback: bool = True,
              write: bool = True,
+             emit_html: bool = True, mail_path: str | None = None,
              log: Callable[[str], None] = print) -> dict[str, Any]:
     """盘后一条龙：结算当日 → 采集 → agent（次日计划 + 复盘）→ 裁决 → 一份报告。
 
@@ -343,34 +344,68 @@ def generate(*, plan_date: str | None = None, trade_date: str | None = None,
     if not write:
         return {"ok": True, "plan": plan, "written": False}
 
-    # 8) 落盘：plan JSON + HTML
+    # 8) 落盘：plan JSON（始终写）+ 网页 HTML（可选）+ 邮件正文 HTML（可选）
     ppath = paths.plan_path(plan8)
     ppath.parent.mkdir(parents=True, exist_ok=True)
     ppath.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # 网页版 HTML 只在**门户手动点击**时生成（用户要求）：GitHub Action 走
+    # emit_html=False，报告内容全部塞进邮件正文，不留 HTML 文件。
     rpath = paths.report_path(plan8)
-    r = render_mod.write_plan({
-        "plan_date": plan8, "trade_date": trade_iso,
-        "plan_date_iso": f"{plan8[:4]}-{plan8[4:6]}-{plan8[6:8]}",
-        "generated_at": plan["generated_at"],
-        "market": market, "proposal": proposal,
-        "applied": verdict["applied"], "rejected": verdict["rejected"],
-        "planned": verdict["planned"], "snapshot": snapshot_after,
-        "account": acct_after,
-        "review_context": {**review_ctx,
-                           "executed": exec_result["executed"],
-                           "skipped": exec_result["skipped"]},
-        "proposal_source": source, "anchor": plan["anchor"],
-    }, rpath)
+    r: dict | None = None
+    if emit_html:
+        r = render_mod.write_plan({
+            "plan_date": plan8, "trade_date": trade_iso,
+            "plan_date_iso": f"{plan8[:4]}-{plan8[4:6]}-{plan8[6:8]}",
+            "generated_at": plan["generated_at"],
+            "market": market, "proposal": proposal,
+            "applied": verdict["applied"], "rejected": verdict["rejected"],
+            "planned": verdict["planned"], "snapshot": snapshot_after,
+            "account": acct_after,
+            "review_context": {**review_ctx,
+                               "executed": exec_result["executed"],
+                               "skipped": exec_result["skipped"]},
+            "proposal_source": source, "anchor": plan["anchor"],
+        }, rpath)
+
+    # 邮件正文：与网页版同一份 payload，但换成邮件安全的渲染（零 <style>）
+    mail: dict | None = None
+    if mail_path:
+        from . import render_mail
+        mail = render_mail.write_mail({
+            "plan_date": plan8, "trade_date": trade_iso,
+            "plan_date_iso": f"{plan8[:4]}-{plan8[4:6]}-{plan8[6:8]}",
+            "generated_at": plan["generated_at"],
+            "market": market, "proposal": proposal,
+            "applied": verdict["applied"], "rejected": verdict["rejected"],
+            "planned": verdict["planned"], "snapshot": snapshot_after,
+            "account": acct_after,
+            "review_context": {**review_ctx,
+                               "executed": exec_result["executed"],
+                               "skipped": exec_result["skipped"]},
+            "proposal_source": source, "anchor": plan["anchor"],
+        }, mail_path, kind="evening")
+        log(f"📧 邮件正文：{mail['bytes']} 字节（{mail['subject']}）")
+        if mail.get("oversize"):
+            log(f"    ⚠️  正文超过 {render_mail.MAX_BYTES} 字节，"
+                f"Gmail 会显示「消息已剪裁」（内容不丢，可点开全文）")
 
     account_mod.save_snapshot(acct_after)
-    log(f"✅ 预案已生成：{rpath.name}（{r['bytes']} 字节）")
+    if r:
+        log(f"✅ 预案已生成：{rpath.name}（{r['bytes']} 字节）")
+    else:
+        log("✅ 预案已生成（仅数据；HTML 按配置跳过）")
     if exec_result["executed"]:
         log(f"   本次调仓已执行 {len(exec_result['executed'])} 笔，"
             f"跳过 {len(exec_result['skipped'])} 笔")
     return {"ok": True, "written": True, "plan": plan,
-            "plan_path": str(ppath), "report_path": str(rpath),
-            "report_bytes": r["bytes"], "proposal_source": source,
+            "plan_path": str(ppath),
+            "report_path": str(rpath) if r else None,
+            "report_bytes": r["bytes"] if r else 0,
+            "mail_path": mail["path"] if mail else None,
+            "mail_bytes": mail["bytes"] if mail else 0,
+            "mail_subject": mail["subject"] if mail else None,
+            "proposal_source": source,
             "applied": verdict["applied"], "rejected": verdict["rejected"],
             "executed": exec_result["executed"],
             "exec_skipped": exec_result["skipped"]}

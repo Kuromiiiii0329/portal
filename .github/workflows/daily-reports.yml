@@ -1,6 +1,6 @@
 name: daily-reports
 
-# 每个交易日自动出两份报告，并**通过 Actions 里的发信 Action 邮件送达**
+# 每个交易日自动出两份报告，**完整内容直接写进邮件正文**（无附件）
 #
 #   12:05（CST）  午间报告 —— 半日行情 + 预案核对 + 午后判断
 #   16:50（CST）  晚间报告 —— 全天汇总 + 调仓 + 次日计划 + 复盘
@@ -9,8 +9,12 @@ name: daily-reports
 #   12:05 CST = 04:05 UTC
 #   16:50 CST = 08:50 UTC（比 market-db 的 16:30 晚 20 分钟，等它先跑完当日增量）
 #
+# 产物分工（用户要求）：
+#   - 网页版 HTML：**只在门户手动点按钮时生成**，CI 传 `--no-html` 不写文件
+#   - 邮件正文 HTML：完整报告（11 节 / 7 节）全部塞进正文，邮件安全渲染，无附件
+#
 # 发信方式：**完全交给 `dawidd6/action-send-mail`**。
-# 仓库里没有任何 SMTP 代码，也不保存邮箱密码 —— 全部走 Repository secrets。
+# 仓库里没有任何 SMTP 代码，也不保存邮箱密码 —— 全部走 Repository / Environment secrets。
 
 on:
   schedule:
@@ -44,10 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # ★ 必须声明 environment，否则读不到 environment 级 secrets。
-    #   实测（2026-10-20 首次真实运行）：用户在 Environments 页面把 `EMAIL_SENDER`
-    #   建成了**环境名**，三个 secret 放在该环境里；job 不声明 environment 时
-    #   secrets.X 全为空，表现为「报告生成成功、发信被静默跳过」。
-    #   声明后环境级 secret 可用；若以后改用仓库级 secret，这行保留也不冲突。
+    #   实测（2026-10-20 首次真实运行）：用户把 `EMAIL_SENDER` 建成了**环境名**，
+    #   三个 secret 放在该环境里；job 不声明 environment 时 secrets.X 全为空，
+    #   表现为「报告生成成功、发信被静默跳过」。
     environment: EMAIL_SENDER
     steps:
       # 检出到 portal/ 子目录：代码里用 `from portal.xxx import`，
@@ -125,6 +128,8 @@ jobs:
             echo "::notice::库里最新交易日 [$LATEST] ≠ 今天 [$TODAY]，今天非交易日，跳过"
           fi
 
+      # ★ --no-html：不写网页版（用户要求 HTML 只在门户手动生成）
+      # ★ --mail   ：完整报告写成邮件安全的 HTML，作为邮件正文
       - name: Run midday report
         if: steps.td.outputs.run == 'true' && steps.mode.outputs.mode == 'midday'
         continue-on-error: true
@@ -133,7 +138,10 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
         run: |
-          python -m portal.premarket midday --json | tee /tmp/report.json
+          rm -f "${{ github.workspace }}/mail_body.html"
+          python -m portal.premarket midday --no-html \
+            --mail "${{ github.workspace }}/mail_body.html" --json \
+            | tee /tmp/report.json
 
       - name: Run evening report
         if: steps.td.outputs.run == 'true' && steps.mode.outputs.mode == 'evening'
@@ -143,45 +151,36 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
         run: |
-          python -m portal.premarket daily --json | tee /tmp/report.json
+          rm -f "${{ github.workspace }}/mail_body.html"
+          python -m portal.premarket daily --no-html \
+            --mail "${{ github.workspace }}/mail_body.html" --json \
+            | tee /tmp/report.json
 
-      # 生成邮件正文（3–6 KB 紧凑 HTML）+ 主题 + 附件路径。
-      # 退出码 3 = 今天没有可发的报告 → send=false，不算失败。
-      # ★ 条件里带 run=='true'：否则节假日会拿上一次的报告再发一遍。
-      - name: Build mail body
+      # 正文就是报告本身，所以只要文件在就发。主题从报告 JSON 里取。
+      - name: Prepare mail
         id: mail
         if: steps.td.outputs.run == 'true'
         run: |
           set +e
-          KIND="${{ steps.mode.outputs.mode }}"
-          python -m portal.premarket.mail_summary \
-            --kind "$KIND" \
-            --out "${{ github.workspace }}/mail_body.html" \
-            --subject-out /tmp/subject.txt \
-            --attachment-out /tmp/attachment.txt > /tmp/mail.json 2>&1
-          RC=$?
-          cat /tmp/mail.json || true
-          if [ "$RC" = "0" ]; then
-            echo "send=true" >> "$GITHUB_OUTPUT"
-            echo "subject=$(cat /tmp/subject.txt)" >> "$GITHUB_OUTPUT"
-            echo "attachment=$(cat /tmp/attachment.txt)" >> "$GITHUB_OUTPUT"
-          elif [ "$RC" = "3" ]; then
+          BODY="${{ github.workspace }}/mail_body.html"
+          if [ ! -s "$BODY" ]; then
             echo "send=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::今天没有可发的报告，跳过发信"
-          else
-            echo "send=false" >> "$GITHUB_OUTPUT"
-            echo "::error::生成邮件正文失败（exit $RC）"
+            echo "::notice::本次没有生成邮件正文（任务被跳过或失败），不发信"
+            exit 0
           fi
+          SUBJECT=$(python -c "
+          import json, sys
+          try:
+              d = json.load(open('/tmp/report.json', encoding='utf-8'))
+          except Exception:
+              print(''); sys.exit(0)
+          print(d.get('mail_subject') or '')
+          ")
+          if [ -z "$SUBJECT" ]; then SUBJECT="A股盘前报告"; fi
+          echo "send=true" >> "$GITHUB_OUTPUT"
+          echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
+          echo "正文 $(wc -c < "$BODY") 字节，主题：$SUBJECT"
 
-      # ★ 唯一的发信环节。需要的 Repository secrets：
-      #   EMAIL_SENDER       发件邮箱（如 you@qq.com）
-      #   EMAIL_PASSWORD     邮箱**授权码**（不是登录密码）
-      #   EMAIL_RECEIVERS    收件人，逗号分隔
-      #   EMAIL_SMTP_HOST    可选，默认 smtp.qq.com
-      #   EMAIL_SMTP_PORT    可选，默认 465
-      #
-      # 先检查 secrets 是否齐备 —— 没配就明确提示并跳过，
-      # 而不是让 nodemailer 抛一串难懂的认证错误。
       - name: Check mail secrets
         id: secrets
         run: |
@@ -191,15 +190,16 @@ jobs:
           [ -z "${{ secrets.EMAIL_RECEIVERS }}" ] && MISSING="$MISSING EMAIL_RECEIVERS"
           if [ -n "$MISSING" ]; then
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            # 用 error 而不是 warning：首次真跑就是被"静默跳过"坑了一次，
-            # 缺 secret 必须在 run 列表上直接可见（但不让 job 变红，
-            # 报告仍要作为 artifact 上传）。同时提示最常见的两种原因。
             echo "::error::缺少邮件 secrets：$MISSING"
             echo "::error::要么放进仓库级 Secrets（Settings → Secrets and variables → Actions → Secrets），要么放进名为 EMAIL_SENDER 的 Environment。环境名不是 secret 名。"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # ★ 唯一的发信环节。正文 = 完整报告，**不带附件**。
+      # 需要的 secrets：
+      #   EMAIL_SENDER / EMAIL_PASSWORD（授权码）/ EMAIL_RECEIVERS
+      #   EMAIL_SMTP_HOST（可选，默认 smtp.qq.com）/ EMAIL_SMTP_PORT（可选，默认 465）
       - name: Send mail
         id: send
         if: |
@@ -218,17 +218,17 @@ jobs:
           to: ${{ secrets.EMAIL_RECEIVERS }}
           from: ${{ secrets.EMAIL_SENDER }}
           html_body: file://${{ github.workspace }}/mail_body.html
-          attachments: ${{ steps.mail.outputs.attachment }}
           priority: normal
 
-      - name: Upload reports
+      # 网页版 HTML 在 CI 里不再生成，所以只归档数据和邮件正文。
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.mode.outputs.mode }}-report-${{ github.run_id }}
+          name: ${{ steps.mode.outputs.mode }}-${{ github.run_id }}
           path: |
-            portal/data/premarket/reports/*.html
             portal/data/premarket/plans/*.json
+            portal/data/premarket/reports/*_midday.json
             mail_body.html
           if-no-files-found: ignore
           retention-days: 30
@@ -247,7 +247,7 @@ jobs:
             echo "| 午报任务 | ${{ steps.midday.outcome }} |"
             echo "| 晚间任务 | ${{ steps.evening.outcome }} |"
             echo ""
+            echo "> 邮件正文 = 完整报告（无附件）；网页版 HTML 只在门户手动生成。"
             echo "> 节假日自动跳过（库里最新交易日 ≠ 今天）。"
             echo "> 午报只在 11:25–13:15 且官方快照为今天 11:30 时生成。"
-            echo "> 发信失败不会让 job 变红（continue-on-error），请看上面 outcome。"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -50,6 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--date", default=None, help="数据日 YYYYMMDD（默认最新交易日）")
     d.add_argument("--plan-date", default=None)
     d.add_argument("--no-cache", action="store_true")
+    d.add_argument("--no-html", action="store_true",
+                   help="不写网页版 HTML（内容走邮件正文；门户按钮不受影响）")
+    d.add_argument("--mail", default=None, metavar="PATH",
+                   help="同时把完整报告写成邮件正文 HTML 到该路径")
     d.add_argument("--json", action="store_true")
 
     g = sub.add_parser("generate", help="只生成预案（不结算昨日计划）")
@@ -57,11 +61,17 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--trade-date", default=None)
     g.add_argument("--no-cache", action="store_true", help="不读采集缓存")
     g.add_argument("--no-fallback", action="store_true", help="没有 LLM 就直接失败")
+    g.add_argument("--no-html", action="store_true")
+    g.add_argument("--mail", default=None, metavar="PATH")
     g.add_argument("--json", action="store_true", help="输出机器可读 JSON")
 
     m = sub.add_parser("midday", help="午间报告（半日行情 + 午后判断）")
     m.add_argument("--force", action="store_true",
                    help="跳过时段校验（仅调试用，会污染午报口径）")
+    m.add_argument("--no-html", action="store_true",
+                   help="不写网页版 HTML（内容走邮件正文）")
+    m.add_argument("--mail", default=None, metavar="PATH",
+                   help="同时把完整报告写成邮件正文 HTML 到该路径")
     m.add_argument("--json", action="store_true")
 
     r = sub.add_parser("review", help="盘后复盘（按收盘价结算计划）")
@@ -83,7 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 out = pipeline.daily(
                     date8=args.date, plan_date=args.plan_date,
-                    use_cache=not args.no_cache, write=True)
+                    use_cache=not args.no_cache, write=True,
+                    emit_html=not args.no_html, mail_path=args.mail)
             except Exception as exc:
                 print(json.dumps({"ok": False,
                                   "error": f"{type(exc).__name__}: {exc}"},
@@ -95,7 +106,8 @@ def main(argv: list[str] | None = None) -> int:
                     plan_date=args.plan_date, trade_date=args.trade_date,
                     settle=False,
                     use_cache=not args.no_cache,
-                    allow_fallback=not args.no_fallback, write=True)
+                    allow_fallback=not args.no_fallback, write=True,
+                    emit_html=not args.no_html, mail_path=args.mail)
             except Exception as exc:
                 print(json.dumps({"ok": False,
                                   "error": f"{type(exc).__name__}: {exc}"},
@@ -110,6 +122,9 @@ def main(argv: list[str] | None = None) -> int:
                 "plan_date": out["plan"]["plan_date"],
                 "trade_date": out["plan"]["trade_date"],
                 "anchor": out["plan"]["anchor"]["sha256"],
+                "mail_path": out.get("mail_path"),
+                "mail_bytes": out.get("mail_bytes"),
+                "mail_subject": out.get("mail_subject"),
             }, ensure_ascii=False))
         else:
             print(f"✅ 预案：{out.get('report_path')}")
@@ -121,7 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "midday":
         from portal.premarket import midday
         try:
-            out = midday.run(write=True)
+            out = midday.run(write=True, emit_html=not args.no_html,
+                             mail_path=args.mail)
         except midday.SessionError as exc:
             print(json.dumps({"ok": False, "error": str(exc),
                               "hint": "午报只在 11:25–13:15 且官方快照是今天 11:30 时可生成"},
@@ -136,6 +152,9 @@ def main(argv: list[str] | None = None) -> int:
             "report_bytes": out.get("report_bytes"),
             "proposal_source": out.get("proposal_source"),
             "executed": len((out.get("midday") or {}).get("executed") or []),
+            "mail_path": out.get("mail_path"),
+            "mail_bytes": out.get("mail_bytes"),
+            "mail_subject": out.get("mail_subject"),
         }, ensure_ascii=False))
         return 0
 

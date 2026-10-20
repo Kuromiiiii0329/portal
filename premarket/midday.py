@@ -660,6 +660,7 @@ def run(*, llm_call: Callable[[str], str] | None = None,
         allow_fallback: bool = True, write: bool = True,
         now: datetime.datetime | None = None,
         market: dict | None = None,
+        emit_html: bool = True, mail_path: str | None = None,
         log: Callable[[str], None] = print) -> dict[str, Any]:
     """生成午报：校验时段 → 采集 → agent（核对预案 + 午后判断）→ 裁决 → 调仓 → 渲染。"""
     paths.ensure_dirs()
@@ -768,7 +769,10 @@ def run(*, llm_call: Callable[[str], str] | None = None,
     out_dir = paths.REPORTS
     out_dir.mkdir(parents=True, exist_ok=True)
     rpath = out_dir / f"{d8}_midday.html"
-    r = render_mid_day.write_midday({
+
+    # 网页版 HTML 只在**门户手动点击**时生成（用户要求）；GitHub Action 传
+    # emit_html=False，内容全部进邮件正文。
+    payload_mid = {
         "data_date": iso, "generated_at": mid["generated_at"],
         "market": market, "proposal": proposal,
         "applied": verdict["applied"], "rejected": verdict["rejected"],
@@ -779,14 +783,32 @@ def run(*, llm_call: Callable[[str], str] | None = None,
         # ★ 必须传下去，否则「预案 vs 上午现实」会显示「无昨晚预案」，
         #   而下面又列出六条核对项 —— 自相矛盾（第一版就是这个 bug）。
         "last_plan_date": mid["last_plan_date"],
-    }, rpath)
+    }
+    r: dict | None = None
+    if emit_html:
+        r = render_mid_day.write_midday(payload_mid, rpath)
+
+    mail: dict | None = None
+    if mail_path:
+        from . import render_mail
+        mail = render_mail.write_mail(payload_mid, mail_path, kind="midday")
+        log(f"📧 邮件正文：{mail['bytes']} 字节（{mail['subject']}）")
+        if mail.get("oversize"):
+            log(f"    ⚠️  正文超过 {render_mail.MAX_BYTES} 字节，Gmail 会显示「消息已剪裁」")
 
     (out_dir / f"{d8}_midday.json").write_text(
         json.dumps(mid, ensure_ascii=False, indent=2), encoding="utf-8")
     account_mod.save_snapshot(acct_after)
-    log(f"✅ 午报已生成：{rpath.name}（{r['bytes']} 字节）")
+    if r:
+        log(f"✅ 午报已生成：{rpath.name}（{r['bytes']} 字节）")
+    else:
+        log("✅ 午报已生成（仅数据；HTML 按配置跳过）")
     return {"ok": True, "written": True, "midday": mid,
-            "report_path": str(rpath), "report_bytes": r["bytes"],
+            "report_path": str(rpath) if r else None,
+            "report_bytes": r["bytes"] if r else 0,
+            "mail_path": mail["path"] if mail else None,
+            "mail_bytes": mail["bytes"] if mail else 0,
+            "mail_subject": mail["subject"] if mail else None,
             "proposal_source": source}
 
 

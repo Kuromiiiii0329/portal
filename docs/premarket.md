@@ -282,17 +282,38 @@ workflow 文件：[`.github/workflows/daily-reports.yml`](../.github/workflows/d
 晚间放在 16:50 而不是 16:30，是为了等 `market-db.yml`（16:30）先把当日增量写完；
 即使缓存没跟上，workflow 自己也会 `update-today` 补一次（幂等）。
 
-### 发信：完全交给 Action，仓库里没有 SMTP 代码
+### 发信：完整报告直接进正文，**不带附件**
 
 用的是 [`dawidd6/action-send-mail@v3`](https://github.com/dawidd6/action-send-mail)：
 
-- `html_body: file://.../mail_body.html` —— 正文是 3–6 KB 的紧凑 HTML，手机直接能读
-- `attachments: .../20261020_midday.html` —— 完整报告作为附件存档
+```yaml
+html_body: file://.../mail_body.html     # 正文 = 完整报告
+# 没有 attachments
+```
 
-正文由 `python -m portal.premarket.mail_summary --kind midday|evening` 生成：
+### 两种 HTML 的分工（重要）
 
-- 退出码 **0** → 有报告，发信
-- 退出码 **3** → 今天没有可发的报告（节假日/任务跳过），**跳过发信，不算失败**
+| 产物 | 何时生成 | 用途 |
+|---|---|---|
+| 网页版 `*_premarket.html` / `*_midday.html` | **只在门户手动点按钮时** | 存档、可交互、好看 |
+| 邮件正文 `mail_body.html` | 每次自动运行（`--mail`） | 直接发信，11 节 / 7 节全在 |
+
+CI 传 `--no-html --mail <path>`，所以 **Action 里不会产出网页版 HTML 文件**。
+
+### 为什么邮件版要单独渲染（`render_mail.py`）
+
+邮件客户端不是浏览器，直接塞网页版会坏：
+
+- Gmail 会剥掉部分 `<style>`
+- Outlook 桌面版**完全不认 CSS 变量**（`var(--accent)` 失效 → 颜色全丢）
+- `flex` / `grid` 全不支持，渐变背景经常丢失
+
+所以邮件版是另一套写法：**零 `<style>`、全部内联、表格布局、固定 680px**。
+内容与网页版一一对应（同一份 payload 渲染），不会出现「邮件和报告不一样」。
+
+实测体积：午报 **16 KB / 7 节**，晚间 **62 KB / 11 节**。
+Gmail 在 ~102 KB 处显示「消息已剪裁」（正文不丢，可点开全文），
+`render_mail.MAX_BYTES` 只做告警、**不阻断发信** —— 报错等于今天一封邮件都不发。
 
 ### 需要配置的 Repository secrets
 
@@ -306,7 +327,7 @@ workflow 文件：[`.github/workflows/daily-reports.yml`](../.github/workflows/d
 | `DEEPSEEK_API_KEY` | — | 不配则报告降级为「规则兜底」，报告顶部会标注 |
 | `OPENAI_API_KEY` / `LITELLM_MODEL` | — | 同上，三者配任一即可 |
 
-**secrets 缺失时不会报错**：workflow 会打一条 `::warning::` 并跳过发信，报告仍然作为 artifact 上传。
+**secrets 缺失时不发信，但也不让 job 变红**：workflow 会打一条 `::error::` 标注并跳过发信，数据与邮件正文仍作为 artifact 上传。
 
 ### 节假日的处理
 
