@@ -24,7 +24,8 @@ from .base import Factor, FactorError, Panel, make_factor  # noqa: F401
 
 __all__ = ["Panel", "Factor", "FactorError", "make_factor",
            "load_factors", "build_panel", "evaluate", "discover",
-           "factor_summary", "validate_all"]
+           "factor_summary", "validate_all", "discover_plays",
+           "all_plays"]
 
 import pathlib
 
@@ -64,6 +65,61 @@ def discover(*, include_discovered: bool = True) -> dict[str, Factor]:
 
 
 _CACHE: dict[str, Factor] | None = None
+_PLAYS_CACHE: list[dict] | None = None
+
+
+def discover_plays(*, include_discovered: bool = True) -> list[dict]:
+    """收集因子模块里 `PLAYS` 声明的新战法。
+
+    这是「新建一个因子文件，下次报告就会用它选股」的关键：
+    因子文件除了 `META` + `compute`，还可以写
+
+        PLAYS = [{"id": "my_setup", "name": "我的买点", "buyable": True,
+                  "why": "...", "conditions": ["my_factor >= 0.5", ...],
+                  "evidence": ["my_factor", "vol_ratio"],
+                  "sort": [["my_factor", "desc"]]}]
+
+    注册表会把它们和内置战法合并，`screen()` 一视同仁地跑。
+    """
+    plays: list[dict] = []
+    prefixes: list[str] = []
+    for info in pkgutil.iter_modules([str(_DIR)]):
+        if info.name.startswith("f_"):
+            prefixes.append(f"portal.premarket.factors.{info.name}")
+    if include_discovered:
+        disc = _DIR / "discovered"
+        if disc.is_dir():
+            for info in pkgutil.iter_modules([str(disc)]):
+                if info.name.startswith("f_"):
+                    prefixes.append(
+                        f"portal.premarket.factors.discovered.{info.name}")
+    for name in prefixes:
+        try:
+            mod = importlib.import_module(name)
+        except Exception:
+            continue
+        for play in getattr(mod, "PLAYS", None) or []:
+            if not isinstance(play, dict) or not play.get("id"):
+                continue
+            p = dict(play)
+            p["source"] = name
+            p.setdefault("buyable", False)
+            plays.append(p)
+    return plays
+
+
+def all_plays(*, refresh: bool = False) -> list[dict]:
+    """内置战法 + 因子模块贡献的战法（去重，后者覆盖同 id）。"""
+    global _PLAYS_CACHE
+    if _PLAYS_CACHE is None or refresh:
+        from . import playbooks as PB
+        merged: dict[str, dict] = {}
+        for p in PB.PLAYBOOKS:
+            merged[p["id"]] = dict(p)
+        for p in discover_plays():
+            merged[p["id"]] = p          # 因子贡献的可以覆盖内置（便于迭代）
+        _PLAYS_CACHE = list(merged.values())
+    return _PLAYS_CACHE
 
 
 def load_factors(*, refresh: bool = False) -> dict[str, Factor]:
@@ -96,6 +152,11 @@ def build_panel(conn, quotes: Iterable[dict], asof_iso: str, *,
             p.names[code] = q["name"]
         if q.get("volume"):
             p.volume[code] = float(q["volume"])
+        for key, dst in (("open", p.open_today), ("high", p.high_today),
+                         ("low", p.low_today)):
+            v = q.get(key)
+            if v:
+                dst[code] = float(v)
         amt = q.get("amount")
         if amt:
             p.amount_yi[code] = float(amt) / 1e8

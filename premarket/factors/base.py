@@ -47,6 +47,10 @@ class Panel:
     chg: dict[str, float] = field(default_factory=dict)
     volume: dict[str, float] = field(default_factory=dict)
     amount_yi: dict[str, float] = field(default_factory=dict)
+    #: 当日开/高/低（来自实时行情）。收盘位置、跳空这类因子要用。
+    open_today: dict[str, float] = field(default_factory=dict)
+    high_today: dict[str, float] = field(default_factory=dict)
+    low_today: dict[str, float] = field(default_factory=dict)
     limit_up: dict[str, float] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)
     hist: dict[str, dict] = field(default_factory=dict)

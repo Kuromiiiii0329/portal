@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-portal/premarket/screen.py — 用因子库跑战法筛选
+portal/premarket/screen.py — 用因子库跑战法筛选（午报/晚报共用）
 
 这个文件只负责「组织」：构造 Panel → 跑因子 → 按战法组合判定 → 输出候选。
 **规则都在 factors/ 里**：
@@ -9,13 +9,20 @@ portal/premarket/screen.py — 用因子库跑战法筛选
     factors/playbooks.py    战法 = 因子的布尔组合（阈值改这里）
     factors/validate.py     因子统计检验（IC / 多空价差 / 覆盖率）
 
+★ 关键契约（任务要求）
+---------------------
+**新增一个 `factors/f_xxx.py`，下一次报告就会用它筛选候选股。**
+
+实现方式：因子文件除了 `META` + `compute(panel)`，还可以带 `PLAYS`
+（该因子参与的战法定义）。注册表把内置战法与这些 PLAYS 合并，
+`screen()` 由午报和晚报共同调用 —— 所以新因子只落一个文件就生效。
+
 历史背景（为什么要有这一层）
 --------------------------
 第一版候选池只有涨停池/强势股池/龙虎榜，实测 40 只候选 **40 只已封涨停**，
 而内核禁止打板 → 可买 0 只，账户永远是 100.00。那不是谨慎，是结构上不可能成交。
 
-现在补上三类买点战法（首板回踩 / 平台突破 / 温和趋势），涨停股降级为
-`buyable=False` 的观察标的，由内核拒绝买入。
+现在补上多类买点战法，涨停股降级为 `buyable=False` 的观察标的，由内核拒绝买入。
 """
 from __future__ import annotations
 
@@ -25,7 +32,7 @@ from .factors import build_panel, evaluate, load_factors
 from .factors import playbooks as PB
 from .factors.base import Panel
 
-#: 历史不足这么多天，A/B/C 战法整体跳过（不拿残缺数据硬算形态）
+#: 历史不足这么多天，因子战法整体跳过（不拿残缺数据硬算形态）
 MIN_HISTORY_DAYS = 25
 #: 每个战法最多给多少只
 PER_PLAYBOOK_CAP = 12
@@ -34,10 +41,7 @@ LIMIT_UP_CAP = 15
 #: 至少要这么多只股票有足够历史，才认为因子库可用
 MIN_DEEP_CODES = 500
 
-PLAYBOOK_CN = {p["id"]: p["name"] for p in PB.PLAYBOOKS}
-BUYABLE = tuple(PB.buyable_ids())
-
-# 兼容旧引用（report/collect 里按这个判断超限）
+#: 兼容旧引用
 TOL_LIMIT = 0.6
 
 
@@ -46,47 +50,79 @@ def _limit_pct(code: str) -> float:
     return 20.0 if code[:2] in ("68", "30") else 10.0
 
 
+def playbook_names() -> dict[str, str]:
+    """{playbook_id: 中文名}（含因子文件贡献的战法）。"""
+    return {p["id"]: p.get("name") or p["id"] for p in PB.load_all()}
+
+
+def buyable_playbooks() -> tuple[str, ...]:
+    return tuple(PB.buyable_ids(PB.load_all()))
+
+
+def observe_pool(rows: Iterable[dict], *, cap: int = LIMIT_UP_CAP,
+                 name: str = "涨停/连板（仅观察）",
+                 why: str = "当日已封涨停：只进观察表等回调，内核禁止打板买入",
+                 playbook: str = "limit_up_chase") -> list[dict]:
+    """把原始池子（涨停/强势/龙虎榜）标成「仅观察」候选。午报晚报共用。"""
+    out = []
+    for r in rows:
+        if not r.get("code"):
+            continue
+        c = dict(r)
+        c.update({"playbook": playbook, "playbook_cn": name,
+                  "buyable": False, "why": why,
+                  "setup": [], "metrics": {}})
+        out.append(c)
+    return out[:cap]
+
+
 def _rows(panel: Panel, vals: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """把 {factor: {code: v}} 转成 {code: {factor: v}}，便于按条件求值。"""
+    """把 {factor: {code: v}} 转成 {code: {factor: v}}，便于按条件求值。
+
+    门槛按**真正产出过值的因子**算，不是按注册表总数算 ——
+    否则某个因子在某种数据下必然为空（例如没有当日开高低时的 close_pos），
+    会把所有股票一起判成"因子不全"而全部丢掉（踩过：截面直接变 0 只）。
+    """
+    active = [fid for fid, series in vals.items() if series]
+    need = max(1, len(active) - 1)          # 允许缺 1 个（例如箱体不足 20 日）
     rows: dict[str, dict[str, Any]] = {}
     for code in panel.codes():
         row = {}
-        for fid, series in vals.items():
+        for fid in active:
+            series = vals[fid]
             if code in series:
                 row[fid] = series[code]
-        if len(row) >= max(1, len(vals) - 1):     # 允许缺 1 个因子（例如箱体）
+        if len(row) >= need:
             rows[code] = row
     return rows
 
 
 def screen(conn, quotes: Iterable[dict], asof_iso: str,
            *, log=lambda *_: None) -> tuple[list[dict], str | None]:
-    """跑全部买入战法。返回 (候选列表, 不可用原因)。
-
-    每只候选带 `playbook` / `playbook_cn` / `buyable` / `setup`（逐条证据）。
-    """
+    """跑全部买入战法（内置 + 因子文件贡献的）。返回 (候选列表, 不可用原因)。"""
     quotes = list(quotes)
     panel = build_panel(conn, quotes, asof_iso)
     deep = sum(1 for c in panel.codes()
                if len(panel.closes(c)) >= MIN_HISTORY_DAYS)
     if deep < MIN_DEEP_CODES:
         return [], (f"历史K线不足（只有 {deep} 只股票有 ≥{MIN_HISTORY_DAYS} 日），"
-                    f"A/B/C 战法需要 MA20/箱体/量比，已跳过")
+                    f"因子战法需要 MA20/箱体/量比，已跳过")
 
     try:
         factors = load_factors()
+        plays = PB.load_all()
         vals = evaluate(panel, factors)
-        exprs = PB.compiled(factor_ids=set(factors))
+        exprs = PB.compiled(factor_ids=set(factors), plays=plays)
     except Exception as exc:
         return [], f"因子库加载失败：{type(exc).__name__}: {exc}"
 
     rows = _rows(panel, vals)
-    log(f"  因子库 {len(factors)} 个，可算截面 {len(rows)} 只，"
-        f"历史充足的 {deep} 只")
+    log(f"  因子库 {len(factors)} 个因子 / {len(plays)} 个战法，"
+        f"可算截面 {len(rows)} 只，历史充足 {deep} 只")
 
     out: list[dict] = []
     for pid, conds in exprs.items():
-        pb = PB.get(pid) or {}
+        pb = PB.get(pid, plays) or {"id": pid, "name": pid, "buyable": False}
         try:
             PB.check_no_chase(pb)
         except Exception as exc:
@@ -130,8 +166,7 @@ def screen(conn, quotes: Iterable[dict], asof_iso: str,
                               if row.get("amount_yi") is not None else None),
             })
         # 排序方向由战法自己声明（回踩=越缩量越好，突破=越放量越好）
-        spec = PB.sort_spec(pb)
-        for fid, desc in reversed(spec):
+        for fid, desc in reversed(PB.sort_spec(pb)):
             hits.sort(key=lambda x, f=fid: (
                 x["metrics"].get(f) is None,
                 -(x["metrics"].get(f) or 0) if desc
@@ -151,6 +186,6 @@ def group_by_playbook(cands: list[dict]) -> dict[str, list[dict]]:
     return out
 
 
-__all__ = ["screen", "group_by_playbook", "PLAYBOOK_CN", "BUYABLE",
-           "PER_PLAYBOOK_CAP", "LIMIT_UP_CAP", "MIN_HISTORY_DAYS",
-           "_limit_pct"]
+__all__ = ["screen", "observe_pool", "group_by_playbook", "playbook_names",
+           "buyable_playbooks", "PER_PLAYBOOK_CAP", "LIMIT_UP_CAP",
+           "MIN_HISTORY_DAYS", "_limit_pct", "TOL_LIMIT"]

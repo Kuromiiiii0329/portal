@@ -47,7 +47,9 @@ INDICES = [
 #: 「复用缓存」，看不出问题。缓存必须能自证新鲜。
 #: v4：候选池加入因子战法（playbook / buyable / setup / metrics），
 #:     涨停家族降级为 buyable=False。
-CACHE_SCHEMA = 5
+#: v6：因子库支持「因子文件自带 PLAYS 战法」，新增因子即刻生效；
+#:     午报与晚报共用同一套战法筛选。
+CACHE_SCHEMA = 6
 
 #: 新闻保留窗口（小时）与条数上限
 NEWS_HOURS = 36

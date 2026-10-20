@@ -2,14 +2,16 @@
 """
 portal/premarket/factors/playbooks.py — 战法 = 因子的布尔组合
 
-战法本身不写计算代码，只声明「要满足哪些因子条件」。这样：
+战法来源有两处，合并后一视同仁：
 
-- 想调阈值 → 改这里的一行，不动因子实现
-- 想加战法 → 加一个 dict
-- 想验证某个因子 → 直接看哪些战法用了它
+1. 本文件的 `PLAYBOOKS`（内置，手写）
+2. **因子模块自带的 `PLAYS`**（新增因子文件时顺带声明，下次报告即生效）
 
-条件表达式由 `base.compile_expr` 白名单求值（只用因子名 + 数字 + 比较/算术），
-**没有属性访问、没有函数调用、没有 import**。
+合并逻辑在 `factors.all_plays()`。这里的 `load_all()` 取合并结果并做校验：
+- 条件表达式必须能用白名单求值（`compile_expr`）
+- 可买战法不得引用追高/打板类条件（`check_no_chase`）
+
+想调阈值 → 改对应战法的条件字符串；想加战法 → 加一个 dict，或在因子文件里写 PLAYS。
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from typing import Any
 
 from .base import FactorError, compile_expr, eval_expr
 
-#: 战法定义。`buyable=False` 的战法只产出观察标的，内核拒绝据此买入。
+#: 内置战法。`buyable=False` 的战法只产出观察标的，内核拒绝据此买入。
 PLAYBOOKS: list[dict[str, Any]] = [
     {
         "id": "first_board_pullback",
@@ -34,7 +36,6 @@ PLAYBOOKS: list[dict[str, Any]] = [
             "above_ma20 == 1",
             "amount_yi >= 1.0",
         ],
-        # 报告里按这个顺序解释每条条件为什么成立
         "evidence": ["limit_up_10d", "chg_today", "ma5_dev", "vol_ratio",
                      "above_ma20", "amount_yi"],
         # 回踩战法：越缩量越好、越贴 5 日线越好 —— 排序方向与突破战法相反
@@ -86,22 +87,31 @@ PLAYBOOKS: list[dict[str, Any]] = [
 #: 任何战法引用它们当买入条件都会被内核否决。
 FORBIDDEN_FOR_BUY = ("chg_today_ge7", "boards", "seal_yi", "limit_price_hit")
 
-_BY_ID = {p["id"]: p for p in PLAYBOOKS}
+
+def load_all(*, refresh: bool = True) -> list[dict[str, Any]]:
+    """内置 + 因子贡献的战法（合并去重）。"""
+    from . import all_plays
+    return all_plays(refresh=refresh)
 
 
-def get(playbook_id: str) -> dict[str, Any] | None:
-    return _BY_ID.get(playbook_id)
+def get(playbook_id: str, plays: list[dict] | None = None) -> dict[str, Any] | None:
+    for p in (plays if plays is not None else load_all()):
+        if p["id"] == playbook_id:
+            return p
+    return None
 
 
-def buyable_ids() -> list[str]:
-    return [p["id"] for p in PLAYBOOKS if p.get("buyable")]
+def buyable_ids(plays: list[dict] | None = None) -> list[str]:
+    return [p["id"] for p in (plays if plays is not None else load_all())
+            if p.get("buyable")]
 
 
-def compiled(*, factor_ids: set[str]) -> dict[str, list[tuple[str, Any]]]:
-    """把每个战法的条件编译成 AST。缺因子时报错（避免战法默默失效）。"""
+def compiled(*, factor_ids: set[str],
+             plays: list[dict] | None = None) -> dict[str, list[tuple[str, Any]]]:
+    """把每个战法的条件编译成 AST。缺因子/非法语法直接报错，不允许默默失效。"""
     out: dict[str, list[tuple[str, Any]]] = {}
-    for p in PLAYBOOKS:
-        if not p["conditions"]:
+    for p in (plays if plays is not None else load_all()):
+        if not p.get("conditions"):
             continue
         exprs = []
         for cond in p["conditions"]:
@@ -112,7 +122,7 @@ def compiled(*, factor_ids: set[str]) -> dict[str, list[tuple[str, Any]]]:
 
 
 def check_no_chase(playbook: dict[str, Any]) -> None:
-    """战法若以「追高/打板」为买入条件，直接拒绝注册。"""
+    """战法若以「追高/打板」为买入条件，直接拒绝。"""
     if not playbook.get("buyable"):
         return
     text = " ".join(playbook.get("conditions") or [])
@@ -150,7 +160,7 @@ def fmt_value(v: Any) -> str:
         return "—"
     if isinstance(v, bool):
         return "是" if v else "否"
-    if isinstance(v, (int,)) and not isinstance(v, bool):
+    if isinstance(v, int) and not isinstance(v, bool):
         return str(v)
     try:
         f = float(v)
@@ -159,6 +169,5 @@ def fmt_value(v: Any) -> str:
     return f"{f:.2f}"
 
 
-__all__ = ["PLAYBOOKS", "get", "buyable_ids", "compiled", "match",
-           "check_no_chase", "FORBIDDEN_FOR_BUY", "sort_spec",
-           "fmt_value"]
+__all__ = ["PLAYBOOKS", "load_all", "get", "buyable_ids", "compiled", "match",
+           "check_no_chase", "FORBIDDEN_FOR_BUY", "sort_spec", "fmt_value"]

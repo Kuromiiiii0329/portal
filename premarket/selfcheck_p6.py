@@ -949,6 +949,73 @@ def _mk_buy_proposal(code: str, alloc: float) -> dict:
     return p
 
 
+# ─────────────────────────────────────────────────────────────
+# V15 · 因子库契约：落一个文件就能被下次报告调用
+# ─────────────────────────────────────────────────────────────
+def check_factor_contract() -> Check:
+    c = Check("V15", "因子文件契约：自带战法被合并、仅观察标记、空因子不毁截面")
+
+    from portal.premarket import screen as S
+    from portal.premarket.factors import discover_plays, load_factors, all_plays
+    from portal.premarket.factors import playbooks as PB
+    from portal.premarket.factors.base import FactorError
+
+    # 1) 因子文件里的 PLAYS 能被收集到，并带来源
+    plays = discover_plays()
+    c.expect(len(plays) >= 1, f"因子贡献的战法 {len(plays)} 个")
+    c.expect(all(p.get("source", "").startswith("portal.premarket.factors")
+                 for p in plays),
+             f"都带来源：{sorted(p.get('source', '').split('.')[-1] for p in plays)}")
+
+    # 2) 合并后 load_all 里能看到它，且是可买战法
+    merged = PB.load_all()
+    ids = {p["id"] for p in merged}
+    c.expect("strong_close" in ids, f"strong_close 已合并：{sorted(ids)}")
+    sc = PB.get("strong_close", merged)
+    c.expect(sc and sc.get("buyable") is True, "strong_close 是可买战法")
+
+    # 3) 它的条件能编译（引用的因子都真实存在）
+    factors = load_factors(refresh=True)
+    c.expect("close_pos" in factors, "close_pos 因子已加载")
+    exprs = PB.compiled(factor_ids=set(factors), plays=merged)
+    c.expect("strong_close" in exprs,
+             f"strong_close 条件可编译（{len(exprs.get('strong_close') or [])} 条）")
+
+    # 4) 若因子贡献的战法引用追高类条件 → 必须被拒
+    bad = {"id": "chase_bad", "name": "坏战法", "buyable": True,
+           "conditions": ["chg_today >= 7.0", "boards >= 2"]}
+    try:
+        PB.check_no_chase(bad)
+        c.expect(False, "追高战法未被拒绝")
+    except FactorError as exc:
+        c.expect("追高" in str(exc), f"追高战法被拒：{str(exc)[:40]}")
+
+    # 5) observe_pool：涨停池只能当观察，且带 buyable=False
+    obs = S.observe_pool([{"code": "600000", "name": "T", "close": 10.0},
+                          {"code": "600001", "name": "U", "close": 5.0}])
+    c.expect(len(obs) == 2, "observe_pool 保留标的")
+    c.expect(all(o["buyable"] is False for o in obs), "全部 buyable=False")
+    c.expect(all(o["playbook"] == "limit_up_chase" for o in obs), "都归到涨停战法")
+    c.expect(len(S.observe_pool([{"code": f"60{i:04d}"} for i in range(30)], cap=5)) == 5,
+             "cap 生效")
+
+    # 6) 回归：某个因子整列为空时，不得把所有股票判成"因子不全"
+    #    （踩过：加了需要当日开高低的因子后，离线回放没有该数据 → 截面 0 只）
+    from portal.premarket.factors.base import Panel
+    panel = Panel(asof="2026-01-01")
+    for i in range(3):
+        code = f"60{i:04d}"
+        panel.close[code] = 10.0
+        panel.prev_close[code] = 10.0
+        panel.amount_yi[code] = 3.0
+    vals = {"chg_today": {c: 0.0 for c in panel.close},
+            "vol_ratio": {c: 1.5 for c in panel.close},
+            "close_pos": {}}          # 整列为空（缺当日开高低）
+    rows = S._rows(panel, vals)
+    c.expect(len(rows) == 3, f"空因子不毁截面：{len(rows)} 行")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -964,6 +1031,7 @@ CHECKS = (
     ("V12", check_no_chase_and_execute),
     ("V13", check_midday_guard),
     ("V14", check_factor_library),
+    ("V15", check_factor_contract),
 )
 
 

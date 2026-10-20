@@ -272,32 +272,31 @@ def collect_midday(*, progress: Callable[[str], None] = print,
         out["themes"] = themes[:15]
         out["themes_note"] = "今日=上午半天涨停家数；昨日=全天，对比时注意口径不同"
 
-        # 候选池（带价，供午后调仓与追高拦截）
-        cand = {}
+        # 候选池：与晚报共用同一套因子战法（任务要求 —— 新因子文件对午报同样生效）
+        observe_rows = []
         for r in zt:
-            code = str(r.get("代码") or "")
             px = collect_mod._f(r.get("最新价"))
+            code = str(r.get("代码") or "")
             if code and px:
-                cand[code] = {"code": code, "name": r.get("名称"),
-                              "close": px, "chg_pct": collect_mod._num(r.get("涨跌幅"), 2),
-                              "limit_up": px,
-                              "boards": int(collect_mod._f(r.get("连板数")) or 1),
-                              "industry": str(r.get("所属行业") or ""),
-                              "sources": ["涨停"]}
-        for q in quotes:
-            if q["code"] in cand or not q.get("close"):
-                continue
-            if (q.get("chg_pct") or 0) >= 5:
-                cand[q["code"]] = {
-                    "code": q["code"], "name": q.get("name"),
-                    "close": q["close"], "chg_pct": q.get("chg_pct"),
-                    "prev_close": q.get("prev_close"),
-                    "limit_up": None, "boards": None, "industry": None,
-                    "sources": ["涨幅榜"]}
-        out["candidates"] = sorted(
-            cand.values(), key=lambda x: (-(x.get("boards") or 0),
-                                          -(x.get("chg_pct") or 0)))[:40]
-        out["candidates_note"] = "上午涨停池 + 上午涨幅≥5% 的票（带价）"
+                observe_rows.append({
+                    "code": code, "name": r.get("名称"), "close": px,
+                    "chg_pct": collect_mod._num(r.get("涨跌幅"), 2),
+                    "limit_up": px,
+                    "boards": int(collect_mod._f(r.get("连板数")) or 1),
+                    "industry": str(r.get("所属行业") or ""),
+                    "sources": ["涨停"]})
+        from . import screen as screen_mod
+        cheap = screen_mod.observe_pool(observe_rows)
+        screened, skip = screen_mod.screen(
+            M.connect(), quotes, f"{iso}", log=lambda m: progress and progress(m))
+        if skip:
+            out.setdefault("caveats", []).append(skip)
+        out["candidates"] = screened + cheap
+        out["candidates_buyable_n"] = len(screened)
+        out["candidates_observe_n"] = len(cheap)
+        out["candidates_note"] = (
+            f"上午可买 {len(screened)} 只（A/B/C 等战法，按上午 11:30 数据算）"
+            f" + 仅观察 {len(cheap)} 只（涨停家族，内核禁买）")
     except Exception as exc:
         collect_mod._err(out, "pools", exc)
 

@@ -344,3 +344,83 @@ Actions 页面 → `daily-reports` → Run workflow → 选 `auto` / `midday` / 
 - 数据库由 `market-db.yml` 负责写入与缓存维护
 - 报告 workflow 只用 `actions/cache/restore@v4`（**不 save**）——
   否则每次未命中都会另存一份 1.9 GB，几次就把仓库 10 GB 缓存配额吃光
+
+---
+
+## 因子库：新增一个因子，下次报告就会用它
+
+### 目录
+
+```
+portal/premarket/factors/
+    base.py            Panel / Factor / 表达式白名单
+    f_*.py             一个因子一个文件（现有 12 个）
+    playbooks.py       内置战法（= 因子的布尔组合）
+    validate.py        统计检验（IC / IR / 多空价差 / 覆盖率）
+    __main__.py        CLI：list / playbooks / check / eval / hit / validate
+    discovered/        （预留）agent 讨论产出的因子
+```
+
+### 只加因子（不进战法）
+
+新建 `factors/f_xxx.py`：
+
+```python
+META = {
+    "id": "turnover_rank", "name": "换手排名", "kind": "numeric",
+    "unit": "%", "description": "……", "source": "builtin",
+    "direction": "high",
+}
+
+def compute(panel) -> dict:
+    return {c: ... for c in panel.codes()}
+```
+
+放进去就会被自动发现：`python -m portal.premarket.factors list` 立刻能看到。
+但**不会**影响选股 —— 因为还没被任何战法引用。
+
+### 加因子 + 顺带加战法（下次报告即生效）
+
+在同一个文件里加 `PLAYS`：
+
+```python
+PLAYS = [{
+    "id": "strong_close", "name": "强势收盘（尾盘走强）", "buyable": True,
+    "why": "温和上涨且收在当日振幅上部，尾盘有承接",
+    "conditions": ["close_pos >= 80.0", "chg_today >= 1.0",
+                   "chg_today < 7.0", "vol_ratio >= 1.10",
+                   "above_ma20 == 1", "amount_yi >= 2.0"],
+    "evidence": ["close_pos", "chg_today", "vol_ratio", "above_ma20", "amount_yi"],
+    "sort": [["close_pos", "desc"], ["amount_yi", "desc"]],
+}]
+```
+
+注册表会把内置战法与这些 `PLAYS` 合并，**午报和晚报共用同一个 `screen()`**，
+所以下一份报告就会用新战法筛候选股，报告里也会多出一个战法分区。
+
+### 安全边界
+
+- 条件表达式由白名单 AST 求值：无属性访问、无 import、只放行
+  `abs/min/max/round/int/float/bool`。`__import__` / `eval` / `open` /
+  `x.__class__` / `x[0]` / `lambda` 全部拒绝（V14 钉住）。
+- 可买战法**不得**引用涨停/追高类条件（`check_no_chase`），否则加载即报错。
+- 涨停池始终是 `buyable=False`，只能进观察表 —— 由内核拒绝买入。
+
+### 验证命令
+
+```bash
+python -m portal.premarket.factors list        # 因子清单
+python -m portal.premarket.factors playbooks   # 战法清单（标明「因子文件贡献」）
+python -m portal.premarket.factors check       # 自检：加载/编译/当日命中
+python -m portal.premarket.factors eval        # 当日因子截面（看取值是否合理）
+python -m portal.premarket.factors validate --days 20   # 统计检验（慢，离线）
+```
+
+`check` 是最常用的：一条命令就能看到「因子是否加载、战法是否编译、
+今天每个战法命中几只」。
+
+### 缓存注意
+
+候选池结构变化时**必须**把 `premarket/collect.py` 的 `CACHE_SCHEMA` 加 1，
+否则旧缓存会被静默复用（踩过两次）。另外：任一数据源失败、或战法没跑出来，
+采集结果**不会**写缓存 —— 避免一次失败被永久固化。

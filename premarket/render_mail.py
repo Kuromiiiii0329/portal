@@ -673,7 +673,9 @@ def render_midday(payload: dict) -> tuple[str, str]:
     body.append(_table(["核对项", "昨晚怎么说", "上午实际", "结论", "要不要改"], rows,
                        empty="（本次没有可核对的预案条目）"))
 
-    body.append(_h2("五、持仓上午表现"))
+    body.append(_h2("五、候选池（按战法，上午数据）"))
+    body.append(_cand_block(market.get("candidates") or []))
+    body.append(_h2("六、持仓上午表现"))
     before = payload.get("account_before") or {}
     body.append(_cards([
         ("总资产", _num(before.get("total_pct"))),
@@ -689,7 +691,7 @@ def render_midday(payload: dict) -> tuple[str, str]:
     body.append(_table(["代码", "名称", "成本", "上午收", "浮盈", "占比"], rows,
                        empty="（空仓 —— 午后无持仓风险）"))
 
-    body.append(_h2("六、午后判断"))
+    body.append(_h2("七、午后判断"))
     conds = av.get("conditions") or []
     rows = [[_e(c.get("if")), _e(c.get("then")), _e(c.get("else_note"))]
             for c in conds]
@@ -710,7 +712,7 @@ def render_midday(payload: dict) -> tuple[str, str]:
         body.append(_h3("风险提示") +
                     f'<ul style="margin:0 0 0 18px;padding:0">{lis}</ul>')
 
-    body.append(_h2("七、午后调仓"))
+    body.append(_h2("八、午后调仓"))
     ex = payload.get("executed") or []
     if ex:
         rows = []

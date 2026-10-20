@@ -34,7 +34,8 @@ def _quotes(conn, d8: str) -> list[dict]:
     ).fetchall() if False else None
     iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
     bars = conn.execute(
-        "SELECT code, close, volume, amount FROM day WHERE date = ?", (iso,)
+        "SELECT code, open, high, low, close, volume, amount FROM day "
+        "WHERE date = ?", (iso,)
     ).fetchall()
     out = []
     for b in bars:
@@ -43,7 +44,8 @@ def _quotes(conn, d8: str) -> list[dict]:
             "ORDER BY date DESC LIMIT 1", (b["code"], iso)).fetchone()
         if not prev or not prev["close"]:
             continue
-        out.append({"code": b["code"], "close": b["close"],
+        out.append({"code": b["code"], "open": b["open"], "high": b["high"],
+                    "low": b["low"], "close": b["close"],
                     "prev_close": prev["close"], "volume": b["volume"],
                     "amount": b["amount"]})
     return out
@@ -64,6 +66,9 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("--date", default=None)
     h.add_argument("--json", action="store_true")
 
+    k = sub.add_parser("check", help="自检因子库：加载/编译/当日命中")
+    k.add_argument("--date", default=None)
+
     v = sub.add_parser("validate", help="因子统计检验（慢）")
     v.add_argument("--days", type=int, default=20)
     v.add_argument("--id", default=None, help="只测某个因子")
@@ -83,13 +88,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "playbooks":
-        from .factors import playbooks as PB
-        for p in PB.PLAYBOOKS:
+        from . import playbooks as PB
+        plays = PB.load_all()
+        print(f"共 {len(plays)} 个战法（内置 + 因子文件贡献）\n")
+        for p in plays:
             flag = "可买" if p.get("buyable") else "仅观察"
-            print(f"\n[{p['id']}] {p['name']}（{flag}）")
-            print(f"  逻辑：{p['why']}")
+            src = p.get("source") or "内置 playbooks.py"
+            print(f"[{p['id']}] {p['name']}（{flag}）")
+            print(f"  来源：{src}")
+            print(f"  逻辑：{p.get('why')}")
             for c in p.get("conditions") or []:
                 print(f"    - {c}")
+            print()
         return 0
 
     conn = _conn()
@@ -134,6 +144,60 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps(cands, ensure_ascii=False, indent=1)[:4000])
         return 0
+
+    if args.cmd == "check":
+        from . import load_factors
+        from . import playbooks as PB
+        from ..screen import screen
+        from .. import collect as CM
+
+        ok = True
+        factors = load_factors(refresh=True)
+        print(f"因子 {len(factors)} 个：")
+        for f in factors.values():
+            src = f.meta.get("source") or "builtin"
+            print(f"  {f.id:<18} {f.meta.get('name'):<14} {f.kind:<8} {src}")
+        plays = PB.load_all()
+        print(f"\n战法 {len(plays)} 个：")
+        try:
+            exprs = PB.compiled(factor_ids=set(factors), plays=plays)
+        except Exception as exc:
+            print(f"  ✗ 条件编译失败：{exc}")
+            return 1
+        for p in plays:
+            src = "因子文件贡献" if p.get("source") else "内置"
+            n = len(exprs.get(p["id"], []))
+            flag = "可买" if p.get("buyable") else "仅观察"
+            print(f"  {p['id']:<22} {p.get('name'):<18} {flag:<6} "
+                  f"{n} 条条件  [{src}]")
+            try:
+                PB.check_no_chase(p)
+            except Exception as exc:
+                print(f"    ✗ {exc}")
+                ok = False
+
+        # 当日命中
+        conn = _conn()
+        if conn is not None:
+            iso, d8 = _latest(conn)
+            if args.date:
+                d8 = args.date
+                iso = f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
+            quotes = _quotes(conn, d8)
+            cands, why = screen(conn, quotes, iso, log=lambda m: print(m))
+            print(f"\n{iso} 命中：{len(cands)} 只"
+                  f"（可买 {sum(1 for c in cands if c.get('buyable'))}）")
+            if why:
+                print(f"  ! {why}")
+            from collections import Counter
+            for pid, n in Counter(c["playbook"] for c in cands).items():
+                print(f"  {pid:<24} {n} 只")
+            for c in cands[:5]:
+                print(f"    ★ {c['code']} {c.get('name')} {c.get('chg_pct')}% "
+                      f"[{c.get('playbook_cn')}] {'；'.join(c.get('setup') or [])[:80]}")
+            conn.close()
+        print("\n自检结果：", "通过" if ok else "有失败项")
+        return 0 if ok else 1
 
     if args.cmd == "validate":
         from .validate import run_all
