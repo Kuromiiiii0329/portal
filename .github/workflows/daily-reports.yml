@@ -43,6 +43,12 @@ jobs:
   report:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # ★ 必须声明 environment，否则读不到 environment 级 secrets。
+    #   实测（2026-10-20 首次真实运行）：用户在 Environments 页面把 `EMAIL_SENDER`
+    #   建成了**环境名**，三个 secret 放在该环境里；job 不声明 environment 时
+    #   secrets.X 全为空，表现为「报告生成成功、发信被静默跳过」。
+    #   声明后环境级 secret 可用；若以后改用仓库级 secret，这行保留也不冲突。
+    environment: EMAIL_SENDER
     steps:
       # 检出到 portal/ 子目录：代码里用 `from portal.xxx import`，
       # 要求「仓库根 = portal 的父目录」。
@@ -185,7 +191,11 @@ jobs:
           [ -z "${{ secrets.EMAIL_RECEIVERS }}" ] && MISSING="$MISSING EMAIL_RECEIVERS"
           if [ -n "$MISSING" ]; then
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::缺少邮件 secrets：$MISSING —— 本次跳过发信（报告仍会作为 artifact 上传）"
+            # 用 error 而不是 warning：首次真跑就是被"静默跳过"坑了一次，
+            # 缺 secret 必须在 run 列表上直接可见（但不让 job 变红，
+            # 报告仍要作为 artifact 上传）。同时提示最常见的两种原因。
+            echo "::error::缺少邮件 secrets：$MISSING"
+            echo "::error::要么放进仓库级 Secrets（Settings → Secrets and variables → Actions → Secrets），要么放进名为 EMAIL_SENDER 的 Environment。环境名不是 secret 名。"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
