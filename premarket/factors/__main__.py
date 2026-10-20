@@ -52,6 +52,10 @@ def _quotes(conn, d8: str) -> list[dict]:
     return out
 
 
+#: 因子自动迭代总开关（用户要求停用；改成 False 即可恢复）
+DISABLED_ITERATION = True
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m portal.premarket.factors")
     sub = ap.add_subparsers(dest="cmd")
@@ -91,6 +95,17 @@ def main(argv: list[str] | None = None) -> int:
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
     l.add_argument("--tail", type=int, default=20)
 
+    bt = sub.add_parser("backtest", help="组合回测：四种卖出策略扫描")
+    bt.add_argument("--playbook", default="all",
+                    help="all 或某个战法 id（多条用逗号）")
+    bt.add_argument("--max-pos", type=int, default=5)
+    bt.add_argument("--nocost", action="store_true",
+                    help="零成本对照（分离选股 alpha 与成本拖累）")
+    bt.add_argument("--days", type=int, default=None,
+                    help="回测交易日数（默认全历史）")
+    bt.add_argument("--out", default=None, help="markdown 输出路径")
+    bt.add_argument("--json", action="store_true")
+
     pf = sub.add_parser("profile", help="因子前向收益画像（3/5/10/20/30 日）")
     pf.add_argument("--id", default=None, help="只算某个因子")
     pf.add_argument("--days", type=int, default=None,
@@ -124,6 +139,18 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--json", action="store_true")
 
     args = ap.parse_args(argv)
+    if args.cmd in ("discover", "weekly") and DISABLED_ITERATION:
+        print(json.dumps({
+            "ok": False,
+            "error": "因子自动迭代已停用",
+            "note": ("按用户决定：不再自动提议/回测/入库因子。"
+                     "因子库与全部代码保留，现有因子继续用于选股。"
+                     "研究重心已转向周期 / 概念 / 供应链主题研究。"),
+            "how_to_reenable": ("把 factors/__main__.py 里 "
+                                "DISABLED_ITERATION 改为 False"),
+        }, ensure_ascii=False, indent=1))
+        return 2
+
 
     from . import factor_summary, load_factors
 
@@ -235,6 +262,39 @@ def main(argv: list[str] | None = None) -> int:
             for rid in out.get("retired") or []:
                 print(f"  ✗ {rid}")
         return 0 if out.get("ok") else 1
+
+    if args.cmd == "backtest":
+        from .portfolio import Config, default_configs, render_markdown, run_sweep
+        conn = _conn()
+        if conn is None:
+            print(json.dumps({"ok": False, "error": "market.db 不可用"},
+                             ensure_ascii=False))
+            return 1
+        if args.playbook and args.playbook != "all":
+            pbs = [x.strip() for x in args.playbook.split(",") if x.strip()]
+        else:
+            pbs = None
+        if args.nocost:
+            from .portfolio import zero_cost_configs
+            cfgs = zero_cost_configs(playbooks=pbs, max_pos=args.max_pos)
+        else:
+            cfgs = default_configs(playbooks=pbs, max_pos=args.max_pos)
+        res = run_sweep(conn=conn, configs=cfgs, max_days=args.days)
+        conn.close()
+        if not res.get("ok"):
+            print(json.dumps(res, ensure_ascii=False))
+            return 1
+        tag = "全部战法" if pbs is None else "、".join(pbs)
+        md = render_markdown(res, title=f"组合回测 · {tag}")
+        if args.out:
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text(md, encoding="utf-8")
+            print(f"✅ 已写入 {args.out}")
+        if args.json:
+            print(json.dumps(res, ensure_ascii=False, indent=1))
+        else:
+            print(md)
+        return 0
 
     if args.cmd == "profile":
         from .profile import forward_profile, render_markdown

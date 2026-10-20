@@ -9,15 +9,15 @@ name: factor-lab
 # 默认**只做周检**，开会留给手动触发 —— 避免每周固定烧钱，也便于你盯着结果。
 
 on:
-  schedule:
-    - cron: "0 2 * * 6"        # 周六 10:00 CST 周检
+  # ★ 因子自动迭代已停用（用户决定）：不再定时跑周检与会议。
+  #   保留手动入口，只为偶尔手动做一次库自检。
   workflow_dispatch:
     inputs:
       action:
-        description: "weekly=周检（默认） / meeting=开一次因子会议"
+        description: "check=库自检（唯一可用；迭代功能已停用）"
         type: choice
-        options: [weekly, meeting]
-        default: weekly
+        options: [check]
+        default: check
       max_proposals:
         description: "开会时最多提议几个因子"
         default: "2"
@@ -84,27 +84,6 @@ jobs:
       - name: Library self-check
         continue-on-error: true
         run: python -m portal.premarket.factors check
-
-      - name: Weekly re-validation
-        if: ${{ (github.event.inputs.action || 'weekly') == 'weekly' }}
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
-        run: |
-          python -m portal.premarket.factors weekly \
-            --days "${{ github.event.inputs.days || '5' }}" | tee /tmp/weekly.txt
-
-      - name: Factor meeting
-        if: ${{ github.event.inputs.action == 'meeting' }}
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL }}
-        run: |
-          python -m portal.premarket.factors discover \
-            --max "${{ github.event.inputs.max_proposals || '2' }}" \
-            --days "${{ github.event.inputs.days || '10' }}" | tee /tmp/meeting.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
