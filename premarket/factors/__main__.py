@@ -75,12 +75,17 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--max-rounds", type=int, default=None,
                    help="讨论轮次上限（默认取代码里的 MAX_DISCUSS_ROUNDS=8）")
     d.add_argument("--max", type=int, default=1, help="每轮提议几个（默认1）")
-    d.add_argument("--days", type=int, default=10, help="回测天数")
+    d.add_argument("--days", type=int, default=None,
+                   help="回测交易日数（默认近 10 年 ≈ 2430 天）")
+    d.add_argument("--years", type=int, default=None,
+                   help="回测年数（快捷写法，覆盖 --days）")
     d.add_argument("--dry-run", action="store_true", help="只提议+评审，不落盘")
     d.add_argument("--json", action="store_true")
 
     w = sub.add_parser("weekly", help="阶段验证：复验已入库因子，退化的下线")
-    w.add_argument("--days", type=int, default=5)
+    w.add_argument("--days", type=int, default=None,
+                   help="复验窗口（默认近 10 年）")
+    w.add_argument("--years", type=int, default=None)
     w.add_argument("--json", action="store_true")
 
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
@@ -103,7 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     ls.add_argument("--json", action="store_true")
 
     v = sub.add_parser("validate", help="因子统计检验（慢）")
-    v.add_argument("--days", type=int, default=20)
+    v.add_argument("--days", type=int, default=None,
+                   help="回测交易日数（默认近 10 年 ≈ 2430 天）")
+    v.add_argument("--years", type=int, default=None)
     v.add_argument("--id", default=None, help="只测某个因子")
     v.add_argument("--json", action="store_true")
 
@@ -186,7 +193,8 @@ def main(argv: list[str] | None = None) -> int:
                              ensure_ascii=False))
             return 1
         cap = args.max_rounds or MAX_DISCUSS_ROUNDS
-        out = discuss(conn=conn, max_rounds=cap, days=args.days,
+        days = (args.years * 243) if getattr(args, "years", None) else args.days
+        out = discuss(conn=conn, max_rounds=cap, days=days,
                       dry_run=args.dry_run)
         conn.close()
         if args.json:
@@ -208,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"ok": False, "error": "market.db 不可用"},
                              ensure_ascii=False))
             return 1
-        out = weekly(conn=conn, days=args.days)
+        wd = (args.years * 243) if getattr(args, "years", None) else args.days
+        out = weekly(conn=conn, days=wd)
         conn.close()
         if args.json:
             print(json.dumps(out, ensure_ascii=False, indent=1))
@@ -368,7 +377,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "validate":
         from .validate import run_all
-        res = run_all(days=args.days, conn=conn,
+        vd = (args.years * 243) if getattr(args, "years", None) else args.days
+        res = run_all(days=vd, conn=conn,
                       ids=[args.id] if args.id else None)
         if args.json:
             print(json.dumps(res, ensure_ascii=False, indent=1))

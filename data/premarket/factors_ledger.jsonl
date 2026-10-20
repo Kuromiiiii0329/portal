@@ -54,3 +54,6 @@
 {"at": "2026-10-20T20:51:45+08:00", "event": "discussed", "date": "20261019", "rounds": 1, "accepted": null, "lessons": 0}
 {"at": "2026-10-20T20:51:45+08:00", "event": "discussed", "date": "20261019", "rounds": 2, "accepted": null, "lessons": 1}
 {"at": "2026-10-20T21:23:01+08:00", "event": "discussed", "date": "20261019", "rounds": 1, "accepted": null, "lessons": 3}
+{"at": "2026-10-20T21:49:00+08:00", "event": "round", "date": "20261019", "round": 1, "id": "range_compression_asym", "score": 0.0, "gate_ok": false, "decision": "improve", "verdict": "improve"}
+{"at": "2026-10-20T21:52:04+08:00", "event": "round", "date": "20261019", "round": 2, "id": "range_compression_asym_v2", "score": 0.0, "gate_ok": false, "decision": "improve", "verdict": "improve"}
+{"at": "2026-10-20T21:52:06+08:00", "event": "discussed", "date": "20261019", "rounds": 2, "accepted": null, "lessons": 3}

@@ -63,6 +63,10 @@ MIN_COVERAGE = 0.50
 IR_FULL_MARK = 0.30
 #: 某轮 score 低于历史最佳的这个比例 → 视为改坏了，触发回溯
 BACKTRACK_RATIO = 0.80
+#: 默认回测窗口 = 近 10 年（约 2430 个交易日）。
+#: 为什么是十年：本地库有 1990 年以来全历史，而两三年样本会把结论反过来 ——
+#: 实测 vol_ratio 近 6 日 IC=+0.041，近 10 年 IC=-0.033，符号相反。
+DEFAULT_YEARS = 10
 
 _ROLE_PROPOSER = """你是量化因子研究员。任务：提出**新的选股因子**。
 
@@ -348,6 +352,8 @@ def backtest(conn, prop: dict, *, asof: str, days: int,
         path.unlink(missing_ok=True)
         return {"ok": False, "stage": "stats", "reason": "没有检验结果"}
     ok, why = _gate_ok(stats)
+    if not ok and (stats.get("coverage") or 0) < MIN_COVERAGE:
+        why += "（建议放宽条件：当前覆盖率过低，几乎选不出票）"
     return {"ok": ok, "stage": "backtest", "reason": why,
             "stats": stats, "path": str(path), "score": score(stats)}
 
@@ -425,7 +431,7 @@ def review(ctx: dict, prop: dict, bt: dict, history: list[dict],
 
 
 def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
-            max_rounds: int | None = None, days: int = 10,
+            max_rounds: int | None = None, days: int | None = None,
             asof: str | None = None, sample: int = 600,
             dry_run: bool = False, log=print) -> dict[str, Any]:
     """带轮次上限的讨论循环。每轮都必须先跑代码回测。"""
@@ -433,6 +439,9 @@ def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
     from .__main__ import _quotes
 
     rounds_cap = int(max_rounds or MAX_DISCUSS_ROUNDS)
+    if not days:
+        from .validate import DEFAULT_DAYS
+        days = DEFAULT_DAYS
     own = conn is None
     if conn is None:
         conn = M.connect()
@@ -622,13 +631,16 @@ def run_meeting(**kwargs) -> dict[str, Any]:
     return discuss(**kwargs)
 
 
-def weekly(*, conn=None, days: int = 5, asof: str | None = None,
+def weekly(*, conn=None, days: int | None = None, asof: str | None = None,
            log=print) -> dict[str, Any]:
     """阶段验证：复验已入库的发现型因子，退化的下线。"""
     from portal.virtual import marketdb as M
     from . import load_factors
     from .validate import run_all
 
+    if not days:
+        from .validate import DEFAULT_DAYS
+        days = DEFAULT_DAYS
     own = conn is None
     if conn is None:
         conn = M.connect()

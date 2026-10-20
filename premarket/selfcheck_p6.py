@@ -1114,7 +1114,14 @@ def check_catalog() -> Check:
     # 3) 方向一致性：direction=low + 正 IC → 必须提示需反转
     miss = C._verdict({"ic_mean": 0.10, "ic_ir": 0.5, "coverage": 0.9},
                       [{"name": "x", "buyable": True}], False, "low")
-    c.expect("反转" in miss, f"方向相反时提示反转：{miss[:46]}")
+    c.expect("假设方向与实测 IC 相反" in miss,
+             f"方向相反时提示假设矛盾：{miss[:46]}")
+    c.expect(miss.startswith("未验证"), f"矛盾时判未验证：{miss[:20]}")
+    # 门槛类因子不做方向判断（IC 正负没有"翻转"含义）
+    flt = C._verdict({"ic_mean": -0.10, "ic_ir": 0.5, "coverage": 0.9},
+                     [{"name": "x", "buyable": True}], False, "filter")
+    c.expect("门槛" in flt and "相反" not in flt,
+             f"门槛类不判方向：{flt[:40]}")
     okv = C._verdict({"ic_mean": -0.10, "ic_ir": 0.5, "coverage": 0.9},
                      [{"name": "x", "buyable": True}], False, "low")
     c.expect(okv.startswith("可用"), f"方向一致时判可用：{okv[:40]}")

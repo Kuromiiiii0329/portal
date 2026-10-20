@@ -32,6 +32,10 @@ MIN_IC_ABS = 0.015
 MIN_IR_ABS = 0.15
 MIN_COVERAGE = 0.35
 MIN_DAYS = 10
+#: 默认回测窗口 = 近 10 年
+DEFAULT_YEARS = 10
+TRADING_DAYS_PER_YEAR = 243
+DEFAULT_DAYS = DEFAULT_YEARS * TRADING_DAYS_PER_YEAR  # ≈ 2430
 
 
 def _rank(values: list[float]) -> list[float]:
@@ -160,73 +164,158 @@ def forward_returns(conn, dates: list[str]) -> dict[str, dict[str, float]]:
     return out
 
 
-def run_all(*, days: int = 20, horizon: int = 1, conn=None,
+def run_all(*, days: int | None = None, horizon: int = 1, conn=None,
             log: Callable[[str], None] = print,
             ids: list[str] | None = None) -> list[dict[str, Any]]:
-    """跑全库检验。返回每个因子的结论列表（按 |IC| 降序）。"""
-    from .. import screen
-    from . import build_panel, load_factors
+    """跑全库检验（按日期主序，默认近 10 年）。
+
+    性能设计
+    --------
+    - **单次窗口查询**：整段区间的日K 一次取出，前收由 SQL 的 LAG 算出，
+      不再逐票逐日回查（旧实现 60 天要 31 万次 SQL）。
+    - **按日期主序**：一天只建一次 Panel，所有因子共用 —— 加因子几乎免费。
+    - **滚动窗口**：每只票维护最近 40 根 K 线，构造 Panel 时直接切片。
+    """
+    from . import load_factors
+    from .panel_iter import iter_panels, trading_dates
     from portal.virtual import marketdb as M
 
+    n_days = int(days or DEFAULT_DAYS)
     own = conn is None
     if conn is None:
         conn = M.connect()
+    if conn is None:
+        return []
+
     try:
-        # 取最近 days+1 个交易日作为检验日（最后一天没有次日收益）
-        rows = conn.execute(
-            "SELECT DISTINCT date FROM day ORDER BY date DESC LIMIT ?",
-            (days + 1,)).fetchall()
-        alldates = sorted(r["date"] for r in rows)
-        dates = alldates[:-1]
-        if not dates:
+        alldates = trading_dates(conn, limit=n_days + 1)
+        if len(alldates) < 3:
+            log("  交易日不足，无法检验")
             return []
-        log(f"检验 {len(dates)} 个交易日：{dates[0]} ~ {dates[-1]}")
-
-        fwd = forward_returns(conn, dates)
-        cache: dict[str, Panel] = {}
-
-        def panel_factory(d: str) -> Panel | None:
-            if d in cache:
-                return cache[d]
-            # 用该日的历史行情充当"今日截面"（离线回放，不看未来）
-            # ★ 必须带 open/high/low：close_pos、gap_pct 这类因子只靠它们算，
-            #   少取一列就会让整个因子"覆盖率为 0"（踩过）。
-            bars = conn.execute(
-                """SELECT code, open, high, low, close, volume, amount
-                   FROM day WHERE date = ?""",
-                (d,)).fetchall()
-            quotes = []
-            for b in bars:
-                prev = conn.execute(
-                    """SELECT close FROM day WHERE code = ? AND date < ?
-                       ORDER BY date DESC LIMIT 1""", (b["code"], d)).fetchone()
-                if not prev or not prev["close"]:
-                    continue
-                quotes.append({"code": b["code"], "open": b["open"],
-                               "high": b["high"], "low": b["low"],
-                               "close": b["close"], "prev_close": prev["close"],
-                               "volume": b["volume"], "amount": b["amount"]})
-            p = build_panel(conn, quotes, d, history_days=40)
-            cache[d] = p
-            return p
+        test_dates = alldates[:-1]          # 最后一天只提供"次日收益"
+        test_set = set(test_dates)
+        log(f"检验 {len(test_dates)} 个交易日：{test_dates[0]} ~ "
+            f"{test_dates[-1]}（约 {len(test_dates)/TRADING_DAYS_PER_YEAR:.1f} 年）")
 
         factors = load_factors()
-        want = ids or [f.id for f in factors.values()]
+        want = [fid for fid in (ids or list(factors)) if fid in factors]
+        compute_ids = [fid for fid in want if factors[fid].compute]
+        expr_ids = [fid for fid in want if not factors[fid].compute]
+
+        acc: dict[str, dict[str, list[float]]] = {
+            fid: {"ics": [], "ls": [], "cov": []} for fid in want}
+
+        def settle(day: str, vals: dict[str, dict], rets: dict[str, float],
+                   universe: int) -> None:
+            if not rets or universe <= 0:
+                return
+            for fid, series in vals.items():
+                items = [(c, float(v)) for c, v in series.items() if c in rets]
+                # ★ 覆盖率无条件记录：因子太挑剔时（例如全市场只有 0.3% 满足）
+                #   IC 根本算不出来，但"覆盖率多少"正是下一轮最该知道的信息。
+                #   以前这行放在 <100 检查之后，导致失败原因只写"样本不足"，
+                #   agent 无法判断该放宽多少（踩过）。
+                acc[fid]["cov"].append(len(items) / max(1, universe))
+                if len(items) < 100:
+                    continue
+                xs = [v for _, v in items]
+                ys = [rets[c] for c, _ in items]
+                ic = spearman(xs, ys)
+                if ic is not None:
+                    acc[fid]["ics"].append(ic)
+                if len(items) >= 200:
+                    order = sorted(range(len(items)), key=lambda i: items[i][1])
+                    k = max(10, len(order) // 10)
+                    lo = statistics.fmean(ys[i] for i in order[:k])
+                    hi = statistics.fmean(ys[i] for i in order[-k:])
+                    acc[fid]["ls"].append(hi - lo)
+
+        prev_day: str | None = None
+        prev_vals: dict[str, dict] = {}
+        prev_closes: dict[str, float] = {}
+        prev_universe = 0
+        n_settled = 0
+
+        for d, panel, close_map in iter_panels(conn, alldates, log=None):
+            # 1) 先用今天的收盘结算"昨天"的因子
+            if prev_day in test_set and prev_closes:
+                rets = {}
+                for code, px in close_map.items():
+                    base = prev_closes.get(code)
+                    if base:
+                        rets[code] = (px / base - 1) * 100
+                settle(prev_day, prev_vals, rets, prev_universe)
+                n_settled += 1
+                if n_settled % 200 == 0:
+                    log(f"    …已结算 {n_settled} 天（当前 {d}）")
+
+            # 2) 再算今天的因子值（两轮：代码因子 → 表达式因子）
+            if d in test_set:
+                vals: dict[str, dict] = {}
+                for fid in compute_ids:
+                    try:
+                        vals[fid] = factors[fid].run(panel)
+                    except Exception:
+                        vals[fid] = {}
+                for fid in expr_ids:
+                    try:
+                        vals[fid] = factors[fid].run(panel, env=dict(vals))
+                    except Exception:
+                        vals[fid] = {}
+                prev_vals = vals
+                prev_universe = len(panel.close)
+            else:
+                prev_vals, prev_universe = {}, 0
+
+            prev_day = d
+            prev_closes = close_map
+
         results = []
         for fid in want:
-            f = factors.get(fid)
-            if not f:
+            ic = acc[fid]["ics"]
+            f = factors[fid]
+            if not ic:
+                cov0 = (statistics.fmean(acc[fid]["cov"])
+                        if acc[fid]["cov"] else 0.0)
+                why = ("每日满足条件的股票数不足 100，IC 无法计算"
+                       if cov0 < MIN_COVERAGE else "有效样本日不足")
+                results.append({
+                    "id": fid, "name": f.meta.get("name"), "ok": False,
+                    "n_days": 0, "coverage": round(cov0, 4),
+                    "reason": f"样本不足，无法检验（{why}；平均覆盖率 {cov0:.2%}）"})
+                log(f"  {fid:<28} 样本不足：平均覆盖率 {cov0:.2%} "
+                    f"（条件过严，需放宽阈值）")
                 continue
-            r = validate_factor(f, dates, panel_factory, fwd, log=log)
-            results.append(r)
-            log(f"  {fid:<20} IC={r.get('ic_mean')}  IR={r.get('ic_ir')}  "
-                f"覆盖={r.get('coverage')}  {'✓' if r.get('ok') else '✗ ' + r.get('reason', '')}")
+            mean = statistics.fmean(ic)
+            sd = statistics.pstdev(ic) if len(ic) > 1 else 0.0
+            ir = (mean / sd) if sd > 1e-9 else 0.0
+            pos = sum(1 for x in ic if x > 0) / len(ic)
+            cov = statistics.fmean(acc[fid]["cov"]) if acc[fid]["cov"] else 0.0
+            ls = (statistics.fmean(acc[fid]["ls"]) if acc[fid]["ls"] else None)
+            reasons = []
+            if len(ic) < MIN_DAYS:
+                reasons.append(f"有效检验日只有 {len(ic)} 天（<{MIN_DAYS}）")
+            if abs(mean) < MIN_IC_ABS:
+                reasons.append(f"|IC|={abs(mean):.4f} < {MIN_IC_ABS}")
+            if abs(ir) < MIN_IR_ABS:
+                reasons.append(f"|IR|={abs(ir):.3f} < {MIN_IR_ABS}")
+            if cov < MIN_COVERAGE:
+                reasons.append(f"覆盖率 {cov:.0%} < {MIN_COVERAGE:.0%}")
+            row = {"id": fid, "name": f.meta.get("name"),
+                   "ok": not reasons,
+                   "reason": "；".join(reasons) if reasons else "通过",
+                   "n_days": len(ic), "ic_mean": round(mean, 4),
+                   "ic_ir": round(ir, 3), "ic_pos_ratio": round(pos, 3),
+                   "coverage": round(cov, 3),
+                   "long_short_pct": round(ls, 3) if ls is not None else None}
+            results.append(row)
+            log(f"  {fid:<28} IC={row['ic_mean']:>9} IR={row['ic_ir']:>8} "
+                f"覆盖={row['coverage']:<6} "
+                f"{'✓' if row['ok'] else '✗ ' + row['reason'][:44]}")
         results.sort(key=lambda x: -abs(x.get("ic_mean") or 0))
-        # ★ 回写缓存，让因子库总表能显示真实回测数字
         try:
-            from .catalog import save_stats
+            from .catalog import save_stats, write_catalog
             save_stats({r["id"]: r for r in results if r.get("id")})
-            from .catalog import write_catalog
             write_catalog(quiet=True)
         except Exception:
             pass
@@ -237,4 +326,5 @@ def run_all(*, days: int = 20, horizon: int = 1, conn=None,
 
 
 __all__ = ["validate_factor", "run_all", "forward_returns", "spearman",
+           "DEFAULT_YEARS", "DEFAULT_DAYS", "TRADING_DAYS_PER_YEAR",
            "MIN_IC_ABS", "MIN_IR_ABS", "MIN_COVERAGE"]

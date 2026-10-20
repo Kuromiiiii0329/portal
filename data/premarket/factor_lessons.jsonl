@@ -13,3 +13,6 @@
 {"op": "add", "id": "L731b1e57d8", "key": "llm:L74565010a7", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "提案必须附带可证伪的经济学机制假设，而非仅描述因子构造方式。", "source": "llm", "tags": ["distilled"], "note": ""}
 {"op": "add", "id": "Lc6dc5c5b6e", "key": "llm:L498e7fb644", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "在提交回测前先定义因子的适用市场状态与失效条件，避免用全样本均值掩盖结构性失效。", "source": "llm", "tags": ["distilled"], "note": ""}
 {"op": "add", "id": "Lbe51b439b2", "key": "llm:L8fd5cdcbff", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "批评意见应指向可检验的替代解释，而非仅质疑数据或参数选择。", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "Lf423743884", "key": "llm:L6b0579ada2", "at": "2026-10-20T21:52:06+08:00", "kind": "rule", "text": "提出新因子时先写清经济机制与可证伪的预测方向，再谈构造细节。", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "L4e855a7aac", "key": "llm:Ld77129461a", "at": "2026-10-20T21:52:06+08:00", "kind": "rule", "text": "评审意见要落到可检验的假设上，避免只给'感觉不稳'这类无法回测的判断。", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "L83b5918c34", "key": "llm:L21f788ce42", "at": "2026-10-20T21:52:06+08:00", "kind": "rule", "text": "回测结果必须附基准、样本区间与成本假设，否则不作为决策依据。", "source": "llm", "tags": ["distilled"], "note": ""}

@@ -1,0 +1,8 @@
+{
+ "id": "range_compression_asym",
+ "archived_at": "2026-10-20T21:52:04+08:00",
+ "reason": "2 轮内未通过内核回测",
+ "from": "discovered\\f_range_compression_asym.py",
+ "stats": {},
+ "score": 0.0
+}
