@@ -169,14 +169,18 @@ jobs:
             exit 0
           fi
           SUBJECT=$(python -c "
-          import json, sys
-          try:
-              d = json.load(open('/tmp/report.json', encoding='utf-8'))
-          except Exception:
-              print(''); sys.exit(0)
+          import json
+          # 注意：/tmp/report.json 里既有日志行也有最后的 JSON，
+          # 所以要取最后一条以 { 开头的行（第一次就是直接 json.load 整份文件失败，
+          # 主题悄悄退化成默认值）。
+          lines = [l for l in open('/tmp/report.json', encoding='utf-8')
+                   if l.lstrip().startswith('{')]
+          d = json.loads(lines[-1]) if lines else {}
           print(d.get('mail_subject') or '')
           ")
-          if [ -z "$SUBJECT" ]; then SUBJECT="A股盘前报告"; fi
+          if [ -z "$SUBJECT" ]; then
+            SUBJECT="A股盘前报告 $(date +%Y-%m-%d)"
+          fi
           echo "send=true" >> "$GITHUB_OUTPUT"
           echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
           echo "正文 $(wc -c < "$BODY") 字节，主题：$SUBJECT"
