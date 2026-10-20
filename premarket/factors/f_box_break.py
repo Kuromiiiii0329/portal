@@ -5,9 +5,10 @@ META = {
     "id": "box_break",
     "name": "站上箱体上沿",
     "kind": "bool",
-    "description": "收盘 ≥ 近 20 日（不含今日）最高价 × 0.995 → 1。",
+    "description": "收盘 ≥ 近 20 日（不含今日）最高价 × 0.995 → 1。"
+                  "（作为门槛使用：突破与否的门槛：==1 才考虑，不用于排序）",
     "source": "builtin",
-    "direction": "high",
+    "direction": "filter",
 }
 BOX_DAYS = 20
 RATIO = 0.995

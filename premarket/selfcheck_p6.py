@@ -1160,6 +1160,67 @@ def check_catalog() -> Check:
     return c
 
 
+# ─────────────────────────────────────────────────────────────
+# V18 · 因子库上限与归档（废弃不删除）
+# ─────────────────────────────────────────────────────────────
+def check_archive() -> Check:
+    c = Check("V18", "因子库：上限 15、超限归档、被引用的因子不动、归档不删除")
+
+    from portal.premarket.factors import archive as A
+    from portal.premarket.factors import meeting as M
+
+    c.expect(M.MAX_FACTORS == 15, f"MAX_FACTORS={M.MAX_FACTORS}")
+    live = A.active_factor_files()
+    c.expect(len(live) <= 15, f"当前活跃因子 {len(live)} 个 ≤ 15")
+    c.expect(A.ARCHIVE.name == "_archive", "归档目录名为 _archive")
+
+    # 1) 未超限时不应归档任何东西
+    if len(live) < M.MAX_FACTORS:
+        r = A.ensure_room(M.MAX_FACTORS)
+        c.expect(r["ok"] and not r["archived"], f"未超限不动手：{r['reason']}")
+
+    # 2) 超限时：只归档"不被战法引用"的因子
+    used, _scores = A._used_by_plays()
+    r2 = A.ensure_room(max(1, len(live) - 1))
+    if r2["archived"]:
+        victim = r2["archived"][0]
+        c.expect(victim not in used, f"归档的是无战法依赖的 {victim}")
+        # 归档后文件应在 _archive，且带 meta
+        c.expect((A.ARCHIVE / f"f_{victim}.py").exists(), "文件已移入归档目录")
+        c.expect((A.ARCHIVE / f"{victim}.meta.json").exists(), "已写下归档原因")
+        c.expect(victim not in A.active_factor_files(), "活跃列表里已消失")
+        # ★ 关键：恢复回去，别让测试改动真实因子库
+        src = A.ARCHIVE / f"f_{victim}.py"
+        dst = (A.DISCOVERED / src.name) if (A.DISCOVERED / src.name).parent else src
+        import shutil
+        target = A.DISCOVERED / src.name
+        if not target.exists():
+            target = A._DIR / src.name
+        shutil.move(str(src), str(target))
+        (A.ARCHIVE / f"{victim}.meta.json").unlink(missing_ok=True)
+        c.expect(victim in A.active_factor_files(), "已恢复（测试不留副作用）")
+    else:
+        c.expect(True, "无可归档对象（全部被战法引用）—— 这种情况会拒绝新增")
+
+    # 3) 归档清单可读
+    rows = A.archived()
+    c.expect(isinstance(rows, list), f"归档清单 {len(rows)} 条")
+    if rows:
+        c.expect(all("id" in r and "reason" in r for r in rows),
+                 "归档条目含 id 与原因")
+
+    # 4) 总表要如实反映活跃数与归档数
+    from portal.premarket.factors import catalog as C
+    cat = C.build_rows()
+    live_now = set(A.active_factor_files())
+    cat_ids = {f["id"] for f in cat["factors"]}
+    c.expect(cat_ids == live_now,
+             f"总表因子集合 == 磁盘活跃集合（多 {sorted(cat_ids - live_now)} "
+             f"缺 {sorted(live_now - cat_ids)}）")
+    c.expect(cat.get("n_archived") == len(rows), "总表归档数与清单一致")
+    return c
+
+
 CHECKS = (
     ("V1", check_extract_json),
     ("V2", check_validate),
@@ -1178,6 +1239,7 @@ CHECKS = (
     ("V15", check_factor_contract),
     ("V16", check_discuss_loop),
     ("V17", check_catalog),
+    ("V18", check_archive),
 )
 
 

@@ -7,9 +7,10 @@ META = {
     "id": "above_ma20",
     "name": "站上MA20",
     "kind": "bool",
-    "description": "收盘价 > MA20（含今日）→ 1。回踩战法要求它=1，趋势没坏。",
+    "description": "收盘价 > MA20（含今日）→ 1。回踩战法要求它=1，趋势没坏。"
+                  "（作为门槛使用：趋势状态门槛：==1 才考虑，不用于排序）",
     "source": "builtin",
-    "direction": "high",
+    "direction": "filter",
 }
 
 

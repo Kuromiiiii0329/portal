@@ -193,22 +193,29 @@ def _verdict(stats: dict | None, plays: list[dict], retired: bool,
              direction: str = "") -> str:
     """自动生成综合评价。
 
-    ★ 必须区分 IC 的**符号**与因子的**方向**是否一致：
-      direction="low"（越小越好）配负 IC 是一致的；
-      direction="high" 配负 IC 则说明"方向反了"，得反转使用才有意义。
-      只看 |IC| 会得出错误的"可用"结论。
+    三类因子要区别对待，否则会给出误导性的建议：
+
+    - `direction="filter"`：门槛类（成交额、均线状态、是否突破）。
+      它们用于**过滤**而不是横截面排序，IC 的正负没有"翻转使用"的含义，
+      所以不做方向判断，只报数字。
+    - 排序类 + IC 符号与假设一致 → 可用
+    - 排序类 + IC 符号与假设相反 → **假设与实测矛盾，未验证**。
+      注意：不能因为 6 天样本就断言"应反转使用" —— 那等于用噪声改假设。
     """
     if retired:
         return "已下线"
     if not stats:
         return "尚未回测 —— 无法评价"
+
     ic_raw = float(stats.get("ic_mean") or 0)
     ic = abs(ic_raw)
     ir = abs(float(stats.get("ic_ir") or 0))
     cov = float(stats.get("coverage") or 0)
+    strong = ic >= MIN_IC and ir >= MIN_IR
     bits = []
-    if ic >= MIN_IC and ir >= MIN_IR:
-        bits.append(f"已验证有预测力且稳定（IC={stats.get('ic_mean')}、"
+
+    if strong:
+        bits.append(f"有预测力且稳定（IC={stats.get('ic_mean')}、"
                     f"IR={stats.get('ic_ir')}）")
     elif ic >= MIN_IC:
         bits.append(f"有预测力但不稳定（IC={stats.get('ic_mean')}、"
@@ -216,29 +223,73 @@ def _verdict(stats: dict | None, plays: list[dict], retired: bool,
     else:
         bits.append(f"预测力不足（|IC|={ic:.4f} < {MIN_IC}）")
 
-    # 方向一致性
+    if direction == "filter":
+        bits.append("门槛类因子：用于过滤不用于排序，IC 仅作参考")
+        if cov < MIN_COVERAGE:
+            bits.append(f"覆盖率仅 {cov:.0%}")
+        return "门槛：" + "；".join(bits) + "（可用）"
+
     aligned = True
     if direction == "low" and ic_raw > 0:
         aligned = False
     elif direction == "high" and ic_raw < 0:
         aligned = False
-    if ic >= MIN_IC and not aligned:
-        bits.append("IC 符号与因子声明方向相反 —— 需反转使用"
-                    "（把条件改成反向，或把 direction 改成相反）")
 
+    if ic >= MIN_IC and not aligned:
+        bits.append("**假设方向与实测 IC 相反** —— 该假设暂未成立，"
+                    "需要用更长样本复核；不要仅凭短期样本翻转定义")
     if cov < MIN_COVERAGE:
         bits.append(f"覆盖率仅 {cov:.0%}，只对少数标的有效")
     if not plays:
         bits.append("当前没有战法使用它")
-    ok = (aligned and len(bits) == 1 and ic >= MIN_IC and ir >= MIN_IR
-          and cov >= MIN_COVERAGE)
-    return ("可用：" if ok else "谨慎：") + "；".join(bits)
+
+    ok = aligned and strong and cov >= MIN_COVERAGE and len(bits) == 1 and plays
+    return ("可用：" if ok else "未验证：") + "；".join(bits)
+
+
+def _play_validation(ev_factors: list[str], stats: dict[str, dict],
+                     dirs: dict[str, str]) -> str:
+    """战法级验证状态：由它依赖的**排序类**因子的 IC 方向推导。
+
+    门槛类因子不参与这个判断（它们只负责过滤）。
+    """
+    ranked = [f for f in ev_factors if dirs.get(f, "") not in ("filter", "")]
+    if not ranked:
+        return "未验证（只依赖门槛因子）"
+    good, bad, unknown = 0, 0, 0
+    for f in ranked:
+        st = stats.get(f)
+        if not st:
+            unknown += 1
+            continue
+        ic = float(st.get("ic_mean") or 0)
+        ir = abs(float(st.get("ic_ir") or 0))
+        cov = float(st.get("coverage") or 0)
+        if abs(ic) < MIN_IC or ir < MIN_IR or cov < MIN_COVERAGE:
+            unknown += 1
+            continue
+        d = dirs.get(f, "high")
+        aligned = not ((d == "low" and ic > 0) or (d == "high" and ic < 0))
+        good += 1 if aligned else 0
+        bad += 0 if aligned else 1
+    if bad and not good:
+        return "矛盾（依赖因子的实测方向与假设相反）"
+    if bad:
+        return f"部分矛盾（{good} 支持 / {bad} 矛盾）"
+    if good:
+        return f"有支持（{good} 个依赖因子方向一致）"
+    return "未验证（依赖因子尚未达标检验）"
 
 
 def build_rows(*, retired_ids: set[str] | None = None) -> dict[str, Any]:
     from . import load_factors
+    from .archive import active_factor_files
 
-    factors = load_factors(refresh=False)
+    # ★ 必须 refresh：讨论循环刚把失败因子归档时，注册表缓存里还留着它，
+    #   不刷新就会把"已归档"的因子算成活跃因子（踩过：同进程里显示 15 而磁盘只有 14）。
+    factors = load_factors(refresh=True)
+    live = set(active_factor_files())     # 双保险：只保留磁盘上确实还活跃的
+    factors = {fid: f for fid, f in factors.items() if fid in live}
     used, names = _play_map()
     stats = load_stats()
     usage = collect_usage()
@@ -276,6 +327,7 @@ def build_rows(*, retired_ids: set[str] | None = None) -> dict[str, Any]:
     # 战法表
     from . import playbooks as PB
     plays_all = {p["id"]: p for p in PB.load_all()}
+    dirs = {fid: (f.meta.get("direction") or "") for fid, f in factors.items()}
     play_rows = []
     for pid, name in names.items():
         pb = plays_all.get(pid) or {}
@@ -286,6 +338,7 @@ def build_rows(*, retired_ids: set[str] | None = None) -> dict[str, Any]:
             "why": pb.get("why") or "",
             "conditions": pb.get("conditions") or [],
             "evidence": pb.get("evidence") or [],
+            "validation": _play_validation(pb.get("evidence") or [], stats, dirs),
             "source": pb.get("source") or "内置 playbooks.py",
             "days_used": u.get("day_count", 0),
             "candidates": u.get("candidates", 0),
@@ -293,8 +346,11 @@ def build_rows(*, retired_ids: set[str] | None = None) -> dict[str, Any]:
         })
     play_rows.sort(key=lambda r: (-r["days_used"], -r["candidates"], r["id"]))
 
+    from .archive import archived
+    arch = archived()
     return {"generated_at": _now(),
             "n_factors": len(rows), "n_plays": len(play_rows),
+            "n_archived": len(arch), "archived": arch,
             "plan_files": usage["plan_files"],
             "factors": rows, "plays": play_rows}
 
@@ -316,7 +372,8 @@ def render_markdown(cat: dict[str, Any]) -> str:
         "# 因子库总表（自动生成）",
         "",
         f"> 生成时间：{cat['generated_at']}　因子 {cat['n_factors']} 个　"
-        f"战法 {cat['n_plays']} 个　统计自 {cat['plan_files']} 份历史预案",
+        f"战法 {cat['n_plays']} 个　归档 {cat.get('n_archived', 0)} 个　"
+        f"统计自 {cat['plan_files']} 份历史预案",
         ">",
         "> **本文件由 `python -m portal.premarket.factors catalog` 自动生成，请勿手改。**",
         "> 每次报告生成候选池、每次讨论入库、每周阶段验证后都会刷新。",
@@ -361,16 +418,29 @@ def render_markdown(cat: dict[str, Any]) -> str:
         out.append("")
 
     out += ["## 三、战法清单", "",
-            "| 战法 | 类型 | 用它的交易日 | 给过的候选 | 被选入买入 | 依赖因子 | 说明 |",
-            "|---|---|---|---|---|---|---|"]
+            "| 战法 | 类型 | 验证状态 | 用它的交易日 | 给过的候选 | 被选入买入 | "
+            "依赖因子 | 说明 |",
+            "|---|---|---|---|---|---|---|---|"]
     for p in cat["plays"]:
         out.append(
             f"| `{p['id']}`<br>{p['name']} | "
-            f"{'可买' if p['buyable'] else '仅观察'} | {p['days_used']} | "
-            f"{p['candidates']} | {p['selected']} | "
+            f"{'可买' if p['buyable'] else '仅观察'} | {p.get('validation', '—')} | "
+            f"{p['days_used']} | {p['candidates']} | {p['selected']} | "
             f"{'、'.join(p['evidence']) or '—'} | {p['why'][:40]} |")
 
-    out += ["", "## 四、口径说明", "",
+    if cat.get("archived"):
+        out += ["", "## 四、已归档因子（废弃不删除）", "",
+                "| 因子 | 归档时间 | 当时评分 | 原因 |",
+                "|---|---|---|---|"]
+        for a in cat["archived"][:40]:
+            out.append(f"| `{a.get('id')}` | {str(a.get('archived_at'))[:19]} | "
+                       f"{a.get('score') if a.get('score') is not None else '—'} | "
+                       f"{str(a.get('reason'))[:50]} |")
+        out += ["", f"归档目录 `portal/premarket/factors/_archive/`，"
+                    f"共 {len(cat['archived'])} 个，**不再参与筛选但完整保留**"
+                    f"（含当时的回测数字与归档原因）。", ""]
+
+    out += ["", "## 五、口径说明", "",
             "- **评分** = `|IC| × min(1, |IR| / 0.30) × 覆盖率`，"
             "与讨论循环的回溯判断同一口径。",
             "- **入库门槛**：`|IC| ≥ 0.02`、`|IR| ≥ 0.20`、`覆盖率 ≥ 50%`，"

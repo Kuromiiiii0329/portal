@@ -13,9 +13,10 @@ META = {
     "kind": "numeric",
     "unit": "次",
     "description": "近 10 个交易日（不含今日）收盘涨幅达到涨停的交易日数。"
+                  "（作为门槛使用：「近期是否做过龙头」的门槛：>=1 即满足前提，不用于排序）"
                    "衡量是否曾为板块龙头，与当日是否涨停无关。",
     "source": "builtin",
-    "direction": "high",
+    "direction": "filter",
 }
 LOOKBACK = 10
 #: 判定「当日涨停」的容差：20cm 板与 10cm 板用各自的涨停幅度减 0.6

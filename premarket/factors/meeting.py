@@ -52,6 +52,9 @@ LEDGER = pathlib.Path(__file__).parents[2] / "data" / "premarket" / "factors_led
 # ─────────────────────────────────────────────────────────────
 MAX_DISCUSS_ROUNDS = 8
 
+#: 因子库容上限。超过就按「评分最低且无战法依赖」归档（不删除）。
+MAX_FACTORS = 15
+
 #: 入库门槛（内核判据，不是 agent 说了算）
 MIN_IC = 0.02
 MIN_IR = 0.20
@@ -535,6 +538,23 @@ def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
 
         # ── 收尾：入库或清理 ──
         if accepted:
+            # ★ 容量检查：超过 MAX_FACTORS 就先归档最差的（不删除）
+            try:
+                from . import archive as archive_mod
+                room = archive_mod.ensure_room(MAX_FACTORS, log=log)
+                if not room.get("ok"):
+                    log(f"   ⛔ 无法入库：{room.get('reason')}")
+                    p = DISCOVERED / f"f_{accepted['prop']['id']}.py"
+                    if p.exists():
+                        archive_mod.archive(
+                            accepted["prop"]["id"],
+                            reason=f"因子库已满（{MAX_FACTORS}）且无位置可腾",
+                            stats=accepted["bt"].get("stats"), log=log)
+                    accepted = None
+            except Exception as exc:
+                log(f"   ⚠️ 容量检查失败：{type(exc).__name__}: {exc}")
+
+        if accepted:
             log(f"\n🎉 入库 {accepted['prop'].get('id')}（第 {accepted['round']} 轮）")
             # ★ 两件事：把这次讨论的完整过程写成档案；把回测数字存进缓存
             try:
@@ -548,12 +568,16 @@ def discuss(*, conn=None, llm: Callable[[str], str] | None = None,
             except Exception as exc:
                 log(f"   ⚠️ 写入库档案失败：{type(exc).__name__}: {exc}")
         else:
+            from . import archive as archive_mod
+            seen = set()
             for h in history:
-                if h.get("id"):
-                    p = DISCOVERED / f"f_{h['id']}.py"
-                    if p.exists():
-                        RETIRED.mkdir(parents=True, exist_ok=True)
-                        shutil.move(str(p), str(RETIRED / p.name))
+                fid = h.get("id")
+                if fid and fid not in seen:
+                    seen.add(fid)
+                    if (DISCOVERED / f"f_{fid}.py").exists():
+                        archive_mod.archive(
+                            fid, reason=f"{rounds_cap} 轮内未通过内核回测",
+                            score=h.get("score"), log=log)
             log(f"\n⚠️ {rounds_cap} 轮内未通过，已清理落盘文件")
 
         meeting = {"ok": True, "date": iso, "rounds_cap": rounds_cap,
@@ -627,12 +651,11 @@ def weekly(*, conn=None, days: int = 5, asof: str | None = None,
             if ok:
                 log(f"   ✓ {r['id']} IC={r.get('ic_mean')} IR={r.get('ic_ir')}")
                 continue
-            path = DISCOVERED / f"f_{r['id']}.py"
-            if path.exists():
-                RETIRED.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(path), str(RETIRED / path.name))
+            from . import archive as archive_mod
+            res_a = archive_mod.archive(
+                r["id"], reason=f"周检退化：{why}", stats=r, log=log)
+            if res_a.get("ok"):
                 retired.append(r["id"])
-                log(f"   ✗ {r['id']} 退化下线（{why}）")
             ledger_append({"event": "weekly_retire", "date": iso,
                            "id": r["id"], "reason": why, "stats": r})
         ledger_append({"event": "weekly", "date": iso,
@@ -653,5 +676,5 @@ def weekly(*, conn=None, days: int = 5, asof: str | None = None,
 __all__ = ["discuss", "run_meeting", "weekly", "backtest", "propose",
            "review", "score", "decide", "ledger_append", "ledger_read",
            "DISCOVERED", "RETIRED", "LEDGER",
-           "MAX_DISCUSS_ROUNDS", "MIN_IC", "MIN_IR", "MIN_COVERAGE",
+           "MAX_DISCUSS_ROUNDS", "MAX_FACTORS", "MIN_IC", "MIN_IR", "MIN_COVERAGE",
            "BACKTRACK_RATIO"]

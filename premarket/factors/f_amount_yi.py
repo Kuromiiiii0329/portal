@@ -6,9 +6,10 @@ META = {
     "name": "成交额",
     "kind": "numeric",
     "unit": "亿",
-    "description": "今日成交额（亿元）。作为流动性门槛使用。",
+    "description": "今日成交额（亿元）。作为流动性门槛使用。"
+                  "（作为门槛使用：流动性门槛：低于阈值直接排除，不做横截面排序）",
     "source": "builtin",
-    "direction": "high",
+    "direction": "filter",
 }
 
 

@@ -1,0 +1,8 @@
+{
+ "id": "upper_shadow_absorb",
+ "archived_at": "2026-10-20T21:22:58+08:00",
+ "reason": "3 轮内未通过内核回测",
+ "from": "discovered\\f_upper_shadow_absorb.py",
+ "stats": {},
+ "score": 0.144056
+}

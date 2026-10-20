@@ -86,6 +86,11 @@ def main(argv: list[str] | None = None) -> int:
     l = sub.add_parser("ledger", help="查看因子会议与入库历史")
     l.add_argument("--tail", type=int, default=20)
 
+    ar = sub.add_parser("archive", help="查看归档的废弃因子")
+    ar.add_argument("--json", action="store_true")
+    ar.add_argument("--migrate", action="store_true",
+                    help="把历史 discovered/_retired 迁到 _archive")
+
     cat = sub.add_parser("catalog", help="生成/查看因子库总表")
     cat.add_argument("--show", action="store_true", help="打印前 20 行")
 
@@ -212,6 +217,24 @@ def main(argv: list[str] | None = None) -> int:
             for rid in out.get("retired") or []:
                 print(f"  ✗ {rid}")
         return 0 if out.get("ok") else 1
+
+    if args.cmd == "archive":
+        from . import archive
+        if args.migrate:
+            moved = archive.migrate_legacy()
+            print(f"迁移 {len(moved)} 个：{moved}")
+        rows = archive.archived()
+        if args.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=1))
+            return 0
+        print(f"归档目录：{archive.ARCHIVE}")
+        print(f"共 {len(rows)} 个废弃因子\n")
+        for r in rows:
+            st = r.get("stats") or {}
+            print(f"  {r['id']:<28} {r.get('archived_at')}  "
+                  f"score={r.get('score')}  IC={st.get('ic_mean')}")
+            print(f"      原因：{str(r.get('reason'))[:80]}")
+        return 0
 
     if args.cmd == "catalog":
         from . import catalog

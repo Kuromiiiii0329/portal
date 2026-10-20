@@ -1,0 +1,6 @@
+{
+ "id": "rev_win10",
+ "archived_at": "2026-10-20T21:22:27+08:00",
+ "reason": "历史淘汰（迁移自 discovered/_retired）",
+ "from": "discovered/_retired/f_rev_win10.py"
+}

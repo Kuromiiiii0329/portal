@@ -7,9 +7,10 @@ META = {
     "id": "ma_bull",
     "name": "均线多头排列",
     "kind": "bool",
-    "description": "MA5 > MA10 > MA20（均含今日收盘）→ 1，否则 0。",
+    "description": "MA5 > MA10 > MA20（均含今日收盘）→ 1，否则 0。"
+                  "（作为门槛使用：均线状态门槛：==1 才考虑，不用于排序）",
     "source": "builtin",
-    "direction": "high",
+    "direction": "filter",
 }
 
 

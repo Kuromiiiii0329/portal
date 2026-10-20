@@ -10,3 +10,6 @@
 {"op": "evidence", "id": "L5fb15bf960", "at": "2026-10-20T20:44:28+08:00", "delta": 1, "note": ""}
 {"op": "add", "id": "L749238290b", "key": "llm:L335571dec1", "at": "2026-10-20T20:51:40+08:00", "kind": "rule", "text": "短窗口反转在 A 股噪声大，优先试长窗口", "source": "llm", "tags": ["distilled"], "note": ""}
 {"op": "evidence", "id": "L749238290b", "at": "2026-10-20T20:51:45+08:00", "delta": 1, "note": ""}
+{"op": "add", "id": "L731b1e57d8", "key": "llm:L74565010a7", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "提案必须附带可证伪的经济学机制假设，而非仅描述因子构造方式。", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "Lc6dc5c5b6e", "key": "llm:L498e7fb644", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "在提交回测前先定义因子的适用市场状态与失效条件，避免用全样本均值掩盖结构性失效。", "source": "llm", "tags": ["distilled"], "note": ""}
+{"op": "add", "id": "Lbe51b439b2", "key": "llm:L8fd5cdcbff", "at": "2026-10-20T21:23:01+08:00", "kind": "rule", "text": "批评意见应指向可检验的替代解释，而非仅质疑数据或参数选择。", "source": "llm", "tags": ["distilled"], "note": ""}

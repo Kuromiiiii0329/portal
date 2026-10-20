@@ -1,7 +1,36 @@
 {
- "generated_at": "2026-10-20T21:08:34+08:00",
+ "generated_at": "2026-10-20T21:24:18+08:00",
  "n_factors": 14,
  "n_plays": 7,
+ "n_archived": 4,
+ "archived": [
+  {
+   "id": "upper_shadow_absorb",
+   "archived_at": "2026-10-20T21:22:58+08:00",
+   "reason": "3 轮内未通过内核回测",
+   "from": "discovered\\f_upper_shadow_absorb.py",
+   "stats": {},
+   "score": 0.144056
+  },
+  {
+   "id": "rev_win10",
+   "archived_at": "2026-10-20T21:22:27+08:00",
+   "reason": "历史淘汰（迁移自 discovered/_retired）",
+   "from": "discovered/_retired/f_rev_win10.py"
+  },
+  {
+   "id": "rev_win3",
+   "archived_at": "2026-10-20T21:22:27+08:00",
+   "reason": "历史淘汰（迁移自 discovered/_retired）",
+   "from": "discovered/_retired/f_rev_win3.py"
+  },
+  {
+   "id": "vol_price_confirm",
+   "archived_at": "2026-10-20T21:22:27+08:00",
+   "reason": "历史淘汰（迁移自 discovered/_retired）",
+   "from": "discovered/_retired/f_vol_price_confirm.py"
+  }
+ ],
  "plan_files": 1,
  "factors": [
   {
@@ -43,7 +72,7 @@
     "days": 1
    },
    "scenario": "平台突破（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=-0.2191、IR=-1.163）",
+   "verdict": "可用：有预测力且稳定（IC=-0.2191、IR=-1.163）",
    "status": "active",
    "created_at": ""
   },
@@ -86,7 +115,7 @@
     "days": 0
    },
    "scenario": "下探回升承接（可买）",
-   "verdict": "谨慎：已验证有预测力且稳定（IC=-0.1505、IR=-0.848）；IC 符号与因子声明方向相反 —— 需反转使用（把条件改成反向，或把 direction 改成相反）",
+   "verdict": "未验证：有预测力且稳定（IC=-0.1505、IR=-0.848）；**假设方向与实测 IC 相反** —— 该假设暂未成立，需要用更长样本复核；不要仅凭短期样本翻转定义",
    "status": "active",
    "created_at": "2026-10-20T20:41:02+08:00"
   },
@@ -129,7 +158,7 @@
     "days": 0
    },
    "scenario": "缩量温和上行（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=0.1365、IR=1.037）",
+   "verdict": "可用：有预测力且稳定（IC=0.1365、IR=1.037）",
    "status": "active",
    "created_at": "2026-10-20T20:41:17+08:00"
   },
@@ -172,7 +201,7 @@
     "days": 1
    },
    "scenario": "温和趋势放量（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=0.1076、IR=0.57）",
+   "verdict": "可用：有预测力且稳定（IC=0.1076、IR=0.57）",
    "status": "active",
    "created_at": ""
   },
@@ -183,8 +212,8 @@
    "source": "builtin",
    "module": "portal.premarket.factors.f_amount_yi",
    "hypothesis": "",
-   "description": "今日成交额（亿元）。作为流动性门槛使用。",
-   "direction": "high",
+   "description": "今日成交额（亿元）。作为流动性门槛使用。（作为门槛使用：流动性门槛：低于阈值直接排除，不做横截面排序）",
+   "direction": "filter",
    "plays": [
     {
      "id": "first_board_pullback",
@@ -250,7 +279,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）；平台突破（可买）；温和趋势放量（可买）；强势收盘（尾盘走强）（可买）；下探回升承接（可买）；缩量温和上行（可买）",
-   "verdict": "谨慎：已验证有预测力且稳定（IC=-0.102、IR=-0.959）；IC 符号与因子声明方向相反 —— 需反转使用（把条件改成反向，或把 direction 改成相反）",
+   "verdict": "门槛：有预测力且稳定（IC=-0.102、IR=-0.959）；门槛类因子：用于过滤不用于排序，IC 仅作参考（可用）",
    "status": "active",
    "created_at": ""
   },
@@ -284,7 +313,7 @@
     "days": 0
    },
    "scenario": "未被任何战法引用（观察中）",
-   "verdict": "谨慎：已验证有预测力且稳定（IC=0.093、IR=0.678）；当前没有战法使用它",
+   "verdict": "未验证：有预测力且稳定（IC=0.093、IR=0.678）；当前没有战法使用它",
    "status": "active",
    "created_at": ""
   },
@@ -327,7 +356,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=0.0763、IR=0.434）",
+   "verdict": "可用：有预测力且稳定（IC=0.0763、IR=0.434）",
    "status": "active",
    "created_at": ""
   },
@@ -338,8 +367,8 @@
    "source": "builtin",
    "module": "portal.premarket.factors.f_limit_up_10d",
    "hypothesis": "",
-   "description": "近 10 个交易日（不含今日）收盘涨幅达到涨停的交易日数。衡量是否曾为板块龙头，与当日是否涨停无关。",
-   "direction": "high",
+   "description": "近 10 个交易日（不含今日）收盘涨幅达到涨停的交易日数。（作为门槛使用：「近期是否做过龙头」的门槛：>=1 即满足前提，不用于排序）衡量是否曾为板块龙头，与当日是否涨停无关。",
+   "direction": "filter",
    "plays": [
     {
      "id": "first_board_pullback",
@@ -370,7 +399,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）",
-   "verdict": "谨慎：已验证有预测力且稳定（IC=-0.0622、IR=-0.994）；IC 符号与因子声明方向相反 —— 需反转使用（把条件改成反向，或把 direction 改成相反）",
+   "verdict": "门槛：有预测力且稳定（IC=-0.0622、IR=-0.994）；门槛类因子：用于过滤不用于排序，IC 仅作参考（可用）",
    "status": "active",
    "created_at": ""
   },
@@ -434,7 +463,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）；平台突破（可买）；温和趋势放量（可买）；强势收盘（尾盘走强）（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=0.041、IR=0.612）",
+   "verdict": "可用：有预测力且稳定（IC=0.041、IR=0.612）",
    "status": "active",
    "created_at": ""
   },
@@ -484,7 +513,7 @@
     "days": 0
    },
    "scenario": "强势收盘（尾盘走强）（可买）；下探回升承接（可买）",
-   "verdict": "谨慎：已验证有预测力且稳定（IC=-0.0392、IR=-0.281）；IC 符号与因子声明方向相反 —— 需反转使用（把条件改成反向，或把 direction 改成相反）",
+   "verdict": "未验证：有预测力且稳定（IC=-0.0392、IR=-0.281）；**假设方向与实测 IC 相反** —— 该假设暂未成立，需要用更长样本复核；不要仅凭短期样本翻转定义",
    "status": "active",
    "created_at": ""
   },
@@ -495,8 +524,8 @@
    "source": "builtin",
    "module": "portal.premarket.factors.f_box_break",
    "hypothesis": "",
-   "description": "收盘 ≥ 近 20 日（不含今日）最高价 × 0.995 → 1。",
-   "direction": "high",
+   "description": "收盘 ≥ 近 20 日（不含今日）最高价 × 0.995 → 1。（作为门槛使用：突破与否的门槛：==1 才考虑，不用于排序）",
+   "direction": "filter",
    "plays": [
     {
      "id": "platform_breakout",
@@ -527,7 +556,7 @@
     "days": 1
    },
    "scenario": "平台突破（可买）",
-   "verdict": "可用：已验证有预测力且稳定（IC=0.0217、IR=0.377）",
+   "verdict": "门槛：有预测力且稳定（IC=0.0217、IR=0.377）；门槛类因子：用于过滤不用于排序，IC 仅作参考（可用）",
    "status": "active",
    "created_at": ""
   },
@@ -538,8 +567,8 @@
    "source": "builtin",
    "module": "portal.premarket.factors.f_ma_bull",
    "hypothesis": "",
-   "description": "MA5 > MA10 > MA20（均含今日收盘）→ 1，否则 0。",
-   "direction": "high",
+   "description": "MA5 > MA10 > MA20（均含今日收盘）→ 1，否则 0。（作为门槛使用：均线状态门槛：==1 才考虑，不用于排序）",
+   "direction": "filter",
    "plays": [
     {
      "id": "gentle_trend",
@@ -577,7 +606,7 @@
     "days": 1
    },
    "scenario": "温和趋势放量（可买）；缩量温和上行（可买）",
-   "verdict": "谨慎：预测力不足（|IC|=0.0177 < 0.02）",
+   "verdict": "门槛：预测力不足（|IC|=0.0177 < 0.02）；门槛类因子：用于过滤不用于排序，IC 仅作参考（可用）",
    "status": "active",
    "created_at": ""
   },
@@ -588,8 +617,8 @@
    "source": "builtin",
    "module": "portal.premarket.factors.f_above_ma20",
    "hypothesis": "",
-   "description": "收盘价 > MA20（含今日）→ 1。回踩战法要求它=1，趋势没坏。",
-   "direction": "high",
+   "description": "收盘价 > MA20（含今日）→ 1。回踩战法要求它=1，趋势没坏。（作为门槛使用：趋势状态门槛：==1 才考虑，不用于排序）",
+   "direction": "filter",
    "plays": [
     {
      "id": "first_board_pullback",
@@ -634,7 +663,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）；强势收盘（尾盘走强）（可买）；下探回升承接（可买）",
-   "verdict": "谨慎：预测力不足（|IC|=0.0166 < 0.02）",
+   "verdict": "门槛：预测力不足（|IC|=0.0166 < 0.02）；门槛类因子：用于过滤不用于排序，IC 仅作参考（可用）",
    "status": "active",
    "created_at": ""
   },
@@ -712,7 +741,7 @@
     "days": 1
    },
    "scenario": "首板回踩低吸（可买）；平台突破（可买）；温和趋势放量（可买）；强势收盘（尾盘走强）（可买）；下探回升承接（可买）；缩量温和上行（可买）",
-   "verdict": "谨慎：预测力不足（|IC|=0.0044 < 0.02）",
+   "verdict": "未验证：预测力不足（|IC|=0.0044 < 0.02）",
    "status": "active",
    "created_at": ""
   }
@@ -741,6 +770,7 @@
     "above_ma20",
     "amount_yi"
    ],
+   "validation": "有支持（2 个依赖因子方向一致）",
    "source": "内置 playbooks.py",
    "days_used": 1,
    "candidates": 12,
@@ -766,6 +796,7 @@
     "vol_ratio",
     "amount_yi"
    ],
+   "validation": "有支持（2 个依赖因子方向一致）",
    "source": "内置 playbooks.py",
    "days_used": 1,
    "candidates": 12,
@@ -778,6 +809,7 @@
    "why": "当日已封涨停：只进观察表等回调，内核禁止打板买入",
    "conditions": [],
    "evidence": [],
+   "validation": "未验证（只依赖门槛因子）",
    "source": "内置 playbooks.py",
    "days_used": 1,
    "candidates": 12,
@@ -803,6 +835,7 @@
     "chg_today",
     "amount_yi"
    ],
+   "validation": "有支持（2 个依赖因子方向一致）",
    "source": "内置 playbooks.py",
    "days_used": 1,
    "candidates": 4,
@@ -825,6 +858,7 @@
     "volume_price_divergence",
     "ma_bull"
    ],
+   "validation": "有支持（1 个依赖因子方向一致）",
    "source": "portal.premarket.factors.discovered.f_volume_price_divergence",
    "days_used": 0,
    "candidates": 0,
@@ -848,6 +882,7 @@
     "close_pos",
     "above_ma20"
    ],
+   "validation": "矛盾（依赖因子的实测方向与假设相反）",
    "source": "portal.premarket.factors.discovered.f_intraday_reversal_strength",
    "days_used": 0,
    "candidates": 0,
@@ -873,6 +908,7 @@
     "above_ma20",
     "amount_yi"
    ],
+   "validation": "部分矛盾（1 支持 / 1 矛盾）",
    "source": "portal.premarket.factors.f_close_pos",
    "days_used": 0,
    "candidates": 0,
